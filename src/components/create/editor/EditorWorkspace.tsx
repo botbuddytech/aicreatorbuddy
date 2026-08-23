@@ -73,7 +73,7 @@ export function EditorWorkspace() {
   return (
     <div
       ref={workspaceRef}
-      className={`flex min-h-[40rem] flex-col gap-2 rounded-2xl border border-border bg-background p-2 ${
+      className={`flex min-h-[24rem] flex-col gap-2 rounded-2xl border border-border bg-background p-2 lg:min-h-[40rem] ${
         isFullscreen ? "h-screen w-screen overflow-auto p-3" : ""
       }`}
     >

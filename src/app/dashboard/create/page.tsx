@@ -109,7 +109,7 @@ export default function CreateIndexPage() {
         title="Create Video"
         subtitle="AI pipeline drafts — generate, preview, and pick before you render"
       />
-      <div className="space-y-6 px-6 py-6">
+      <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
         {hydrated && latest ? (
           <div className="rounded-2xl border border-border bg-surface p-5">
             <p className="text-xs font-bold uppercase tracking-wide text-accent">

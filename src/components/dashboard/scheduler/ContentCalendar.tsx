@@ -163,13 +163,15 @@ export function ContentCalendar() {
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-7 border-t border-l border-border">
+      <div className="mt-5 overflow-x-auto">
+        <div className="grid min-w-[36rem] grid-cols-7 border-t border-l border-border">
         {WEEKDAYS.map((day) => (
           <div
             key={day}
-            className="border-b border-r border-border bg-surface-soft/60 px-2 py-2 text-center text-[11px] font-semibold tracking-wide text-muted uppercase"
+            className="border-b border-r border-border bg-surface-soft/60 px-1 py-2 text-center text-[11px] font-semibold tracking-wide text-muted uppercase sm:px-2"
           >
-            {day}
+            <span className="sm:hidden">{day.slice(0, 1)}</span>
+            <span className="hidden sm:inline">{day}</span>
           </div>
         ))}
         {grid.map((cell) => {
@@ -213,6 +215,7 @@ export function ContentCalendar() {
             </div>
           );
         })}
+        </div>
       </div>
     </section>
   );

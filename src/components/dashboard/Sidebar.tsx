@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useId, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useId, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useDashboardUi } from "@/components/dashboard/dashboardUi";
 import {
   AUTH_STORAGE_KEY,
   SIDEBAR_COLLAPSED_KEY,
@@ -29,6 +30,38 @@ const icons: Record<string, ReactNode> = {
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
       <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  ),
+  Monetization: (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="12" y1="1" x2="12" y2="23" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  ),
+  "Revenue Overview": (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="2" y="6" width="20" height="12" rx="2" />
+      <path d="M2 10h20M6 15h2M12 15h2" />
+    </svg>
+  ),
+  "RPM / CPM Insights": (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4 19V5M4 19l6-6 4 4 8-10" />
+      <path d="M16 7h4v4" />
+    </svg>
+  ),
+  "Top Earning Videos": (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z" />
+      <path d="M7 4H5a3 3 0 0 0 3 3M17 4h2a3 3 0 0 1-3 3" />
+    </svg>
+  ),
+  "Ad Formats Breakdown": (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
     </svg>
   ),
   "Create Video": (
@@ -231,11 +264,26 @@ function writeCollapsed(next: boolean) {
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const ui = useDashboardUi();
+  const mobileOpen = ui?.mobileNavOpen ?? false;
   const collapsed = useSyncExternalStore(
     subscribeCollapsed,
     getCollapsedSnapshot,
     getCollapsedServerSnapshot,
   );
+
+  useEffect(() => {
+    function syncSidebarWidth() {
+      const desktop = window.matchMedia("(min-width: 1024px)").matches;
+      document.documentElement.style.setProperty(
+        "--sidebar-width",
+        desktop ? (collapsed ? "4rem" : "16rem") : "0px",
+      );
+    }
+    syncSidebarWidth();
+    window.addEventListener("resize", syncSidebarWidth);
+    return () => window.removeEventListener("resize", syncSidebarWidth);
+  }, [collapsed]);
 
   function toggleCollapsed() {
     writeCollapsed(!collapsed);
@@ -251,8 +299,18 @@ export function Sidebar() {
 
   return (
     <>
+      {mobileOpen ? (
+        <button
+          type="button"
+          aria-label="Close navigation"
+          className="fixed inset-0 z-30 bg-black/55 lg:hidden"
+          onClick={() => ui?.setMobileNavOpen(false)}
+        />
+      ) : null}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex ${widthClass} flex-col border-r border-border bg-surface transition-[width] duration-200 ease-out`}
+        className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-border bg-surface transition-[transform,width] duration-200 ease-out lg:z-30 ${
+          collapsed ? "lg:w-16" : "lg:w-64"
+        } ${mobileOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0`}
       >
         <div className={`border-b border-border ${collapsed ? "px-2 py-4" : "px-5 py-5"}`}>
           <Link
@@ -361,7 +419,7 @@ export function Sidebar() {
           onClick={toggleCollapsed}
           aria-expanded={!collapsed}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="absolute top-7 -right-3 z-40 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-surface text-muted shadow-sm transition-colors hover:bg-white/5 hover:text-foreground"
+          className="absolute top-7 -right-3 z-40 hidden h-6 w-6 items-center justify-center rounded-full border border-border bg-surface text-muted shadow-sm transition-colors hover:bg-white/5 hover:text-foreground lg:flex"
         >
           <svg
             viewBox="0 0 24 24"
@@ -374,7 +432,7 @@ export function Sidebar() {
           </svg>
         </button>
       </aside>
-      <div className={`${widthClass} shrink-0 transition-[width] duration-200 ease-out`} aria-hidden />
+      <div className={`hidden shrink-0 transition-[width] duration-200 ease-out lg:block ${widthClass}`} aria-hidden />
     </>
   );
 }

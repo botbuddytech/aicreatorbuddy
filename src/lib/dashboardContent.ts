@@ -2005,6 +2005,16 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   { href: "/dashboard", label: "Overview", exact: true },
   { href: "/dashboard/channels", label: "Channels" },
+  {
+    href: "/dashboard/analytics",
+    label: "Monetization",
+    children: [
+      { href: "/dashboard/analytics", label: "Revenue Overview", exact: true },
+      { href: "/dashboard/analytics/rpm-cpm", label: "RPM / CPM Insights" },
+      { href: "/dashboard/analytics/top-videos", label: "Top Earning Videos" },
+      { href: "/dashboard/analytics/ad-formats", label: "Ad Formats Breakdown" },
+    ],
+  },
   { href: "/dashboard/create", label: "Create Video" },
   {
     href: "/dashboard/library",
@@ -2026,5 +2036,4 @@ export const navItems: NavItem[] = [
     ],
   },
   { href: "/dashboard/integrations", label: "AI Integrations" },
-  { href: "/dashboard/analytics", label: "Analytics" },
 ];

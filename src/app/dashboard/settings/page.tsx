@@ -38,7 +38,7 @@ export default function SettingsPage() {
   return (
     <>
       <Topbar title="Profile settings" subtitle="Dummy account preferences for this demo workspace" />
-      <div className="space-y-6 px-6 py-6">
+      <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
         <div className="rounded-2xl border border-border bg-surface p-5">
           <div className="flex flex-wrap items-center gap-4">
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/20 text-sm font-bold text-accent">

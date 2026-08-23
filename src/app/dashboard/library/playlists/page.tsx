@@ -6,7 +6,7 @@ export default function LibraryPlaylistsPage() {
   return (
     <>
       <Topbar title="Content Library" subtitle="Collections and series across channels" />
-      <div className="px-6 py-6">
+      <div className="px-4 py-5 sm:px-6 sm:py-6">
         <Suspense fallback={<p className="text-sm text-muted">Loading playlists…</p>}>
           <PlaylistLibraryView />
         </Suspense>

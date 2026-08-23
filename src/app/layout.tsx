@@ -68,7 +68,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${sora.variable} ${dmSans.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${sora.variable} ${dmSans.variable} h-full overflow-x-hidden antialiased`}
+    >
       <body className="min-h-full flex flex-col font-sans atmosphere">{children}</body>
     </html>
   );

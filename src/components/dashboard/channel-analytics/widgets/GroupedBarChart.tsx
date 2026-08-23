@@ -1,9 +1,11 @@
 export function GroupedBarChart({
   labels,
   series,
+  formatY,
 }: {
   labels: readonly string[];
   series: readonly { label: string; hex: string; values: number[] }[];
+  formatY?: (value: number) => string;
 }) {
   const max = Math.max(...series.flatMap((item) => item.values), 1);
   const groupWidth = 72;
@@ -28,7 +30,7 @@ export function GroupedBarChart({
               strokeWidth="1"
             />
             <text x={pad.left - 6} y={y + 4} textAnchor="end" className="fill-muted text-[10px]">
-              {Math.round(max * tick)}%
+              {formatY ? formatY(max * tick) : `${Math.round(max * tick)}%`}
             </text>
           </g>
         );

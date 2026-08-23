@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { formatUsdEstimate } from "@/lib/apiCost";
 import {
@@ -87,6 +87,7 @@ export function StepNavigator({
 }) {
   const stepStatus = project.stepStatus;
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const activeIndex = STEPS.findIndex((step) => step.id === active);
   const current = STEPS[activeIndex] ?? STEPS[0];
   const approved = STEPS.filter((step) => stepStatus[step.id] === "approved").length;
@@ -123,6 +124,11 @@ export function StepNavigator({
     refs.current[next]?.focus();
   }
 
+  useEffect(() => {
+    const node = refs.current[activeIndex < 0 ? 0 : activeIndex];
+    node?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [active, activeIndex]);
+
   return (
     <div className="rounded-2xl border border-border bg-surface p-4 sm:p-5">
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -143,10 +149,11 @@ export function StepNavigator({
       <div
         role="tablist"
         aria-label="Create video steps"
-        className="no-scrollbar mt-3 overflow-x-auto"
+        className="no-scrollbar mt-3 overflow-x-auto overscroll-x-contain"
         onKeyDown={onKeyDown}
+        ref={scrollerRef}
       >
-        <div className="pipeline-chevrons min-w-[64rem]">
+        <div className="pipeline-chevrons w-max min-w-full">
           {STEPS.map((step, index) => {
             const selected = step.id === active;
             const status = stepStatus[step.id];
@@ -172,9 +179,11 @@ export function StepNavigator({
                     <span className="pipeline-chevron__index">
                       Step {String(index + 1).padStart(2, "0")}
                     </span>
-                    <Badge tone={stepStatusTone(status)} size="sm">
-                      {stepStatusLabel(status)}
-                    </Badge>
+                    <span className="hidden sm:inline-flex">
+                      <Badge tone={stepStatusTone(status)} size="sm">
+                        {stepStatusLabel(status)}
+                      </Badge>
+                    </span>
                   </span>
                   <span className="pipeline-chevron__title">{step.label}</span>
                 </span>
@@ -184,7 +193,7 @@ export function StepNavigator({
         </div>
       </div>
 
-      <div className="mt-3 grid grid-cols-2 items-start gap-2">
+      <div className="mt-3 grid grid-cols-1 items-start gap-2 sm:grid-cols-2">
         <div className="rounded-xl border border-border bg-surface-soft px-3 py-2.5">
           <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Video length</p>
           <p className="mt-0.5 font-display text-lg font-semibold tabular-nums text-foreground">

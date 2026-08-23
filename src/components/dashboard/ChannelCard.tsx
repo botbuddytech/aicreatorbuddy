@@ -6,9 +6,11 @@ import type { ChannelStatus } from "@/lib/dashboardContent";
 export function ChannelCard({
   channel,
   onOpenAnalytics,
+  ctaLabel = "View analytics",
 }: {
   channel: ChannelStatus;
   onOpenAnalytics?: () => void;
+  ctaLabel?: string;
 }) {
   const [connected, setConnected] = useState(channel.connected);
   const [busy, setBusy] = useState(false);
@@ -70,7 +72,7 @@ export function ChannelCard({
             onClick={onOpenAnalytics}
             className="w-full rounded-xl bg-accent px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-dark"
           >
-            View analytics
+            {ctaLabel}
           </button>
         ) : null}
         <button

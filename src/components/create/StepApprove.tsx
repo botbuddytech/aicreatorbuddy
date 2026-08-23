@@ -4,7 +4,7 @@ import { ActionButton } from "@/components/ui/ActionButton";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import type { StepId } from "@/lib/videoProject";
 
-export function StepApprove({ step }: { step: StepId }) {
+export function StepApprove({ step, className = "" }: { step: StepId; className?: string }) {
   const { project, dispatch } = useVideoProject();
   const approved = project.stepStatus[step] === "approved";
 
@@ -18,8 +18,16 @@ export function StepApprove({ step }: { step: StepId }) {
           status: approved ? "generated" : "approved",
         })
       }
+      className={className}
     >
-      {approved ? "Approved" : "Mark approved"}
+      {approved ? (
+        "Approved"
+      ) : (
+        <>
+          <span className="sm:hidden">Approve</span>
+          <span className="hidden sm:inline">Mark approved</span>
+        </>
+      )}
     </ActionButton>
   );
 }

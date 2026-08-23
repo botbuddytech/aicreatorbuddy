@@ -57,7 +57,7 @@ export function CreateVideoWorkspace() {
         title={<ProjectNameHeading />}
         subtitle={`${current?.label ?? "Workspace"} · ${saveLabel}`}
       />
-      <div className="space-y-6 px-6 py-6 pb-28">
+      <div className="space-y-6 px-4 py-5 pb-40 sm:px-6 sm:py-6 sm:pb-28">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
             href="/dashboard/create"

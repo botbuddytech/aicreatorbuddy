@@ -11,7 +11,7 @@ function WorkspaceFallback() {
   return (
     <>
       <Topbar title="Create Video" subtitle="Loading draft…" />
-      <div className="space-y-6 px-6 py-6">
+      <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
         <div className="space-y-6">
           <Skeleton className="h-36" />
           <div className="flex gap-2">
@@ -30,7 +30,7 @@ function MissingProject() {
   return (
     <>
       <Topbar title="Draft not found" subtitle="This project isn’t in local storage" />
-      <div className="space-y-6 px-6 py-6">
+      <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
         <div className="rounded-2xl border border-border bg-surface p-5">
           <p className="text-sm text-muted">
             The draft may have been deleted, or you’re on a different browser profile.

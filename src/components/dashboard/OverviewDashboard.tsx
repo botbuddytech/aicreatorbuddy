@@ -35,8 +35,8 @@ export function OverviewDashboard() {
   }
 
   return (
-    <div className="space-y-6 px-6 py-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+    <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
+      <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-row sm:items-center sm:justify-end">
         <label className="sr-only" htmlFor="overview-range">
           Date range
         </label>
@@ -44,7 +44,7 @@ export function OverviewDashboard() {
           id="overview-range"
           value={range}
           onChange={(event) => setRange(event.target.value as ChartRange)}
-          className="rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-accent/50"
+          className="col-span-2 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-accent/50 sm:col-auto"
         >
           {chartRangeOptions.map((option) => (
             <option key={option.id} value={option.id}>
@@ -52,15 +52,22 @@ export function OverviewDashboard() {
             </option>
           ))}
         </select>
-        <ActionButton variant="secondary" type="button">
+        <ActionButton variant="secondary" type="button" className="w-full sm:w-auto">
           Export
         </ActionButton>
-        <ActionButton variant="secondary" type="button" loading={refreshing} loadingLabel="Refreshing…" onClick={refresh}>
+        <ActionButton
+          variant="secondary"
+          type="button"
+          loading={refreshing}
+          loadingLabel="Refreshing…"
+          onClick={refresh}
+          className="w-full sm:w-auto"
+        >
           Refresh
         </ActionButton>
         <Link
           href="/dashboard/create"
-          className="inline-flex items-center justify-center rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-dark"
+          className="col-span-2 inline-flex items-center justify-center rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-dark sm:col-auto"
         >
           Upload
         </Link>
