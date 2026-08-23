@@ -20,9 +20,13 @@
 # production
 /build
 
+# leftover source copy — the app serves public/media/hero_video.mp4
+/hero_video.mp4
+
 # misc
 .DS_Store
 *.pem
+.superpowers/
 
 # debug
 npm-debug.log*
