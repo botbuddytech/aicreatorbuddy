@@ -18,9 +18,9 @@ const TIMEZONES = [
 ] as const;
 
 export default function SettingsPage() {
-  const [name, setName] = useState(demoProfile.name);
-  const [timezone, setTimezone] = useState(demoProfile.timezone);
-  const [defaultChannelId, setDefaultChannelId] = useState(demoProfile.defaultChannelId);
+  const [name, setName] = useState<string>(demoProfile.name);
+  const [timezone, setTimezone] = useState<string>(demoProfile.timezone);
+  const [defaultChannelId, setDefaultChannelId] = useState<string>(demoProfile.defaultChannelId);
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
