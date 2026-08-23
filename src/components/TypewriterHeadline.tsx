@@ -83,16 +83,11 @@ export function TypewriterHeadline({
   const tokens = phrases[phraseIndex];
   const len = tokens.length;
 
-  const [visible, setVisible] = useState(reduce ? len : 0);
-  const [phase, setPhase] = useState<Phase>(reduce ? "hold" : "type");
+  const [visible, setVisible] = useState(0);
+  const [phase, setPhase] = useState<Phase>("type");
 
   useEffect(() => {
-    if (reduce) {
-      setVisible(phrases[0].length);
-      setPhraseIndex(0);
-      setPhase("hold");
-      return;
-    }
+    if (reduce) return;
 
     let cancelled = false;
     let intervalId = 0;
@@ -105,7 +100,6 @@ export function TypewriterHeadline({
 
     if (phase === "type") {
       let n = 0;
-      setVisible(0);
       intervalId = window.setInterval(() => {
         if (cancelled) return;
         n += 1;
@@ -125,7 +119,6 @@ export function TypewriterHeadline({
 
     if (phase === "delete") {
       let n = len;
-      setVisible(len);
       intervalId = window.setInterval(() => {
         if (cancelled) return;
         n -= 1;
@@ -151,7 +144,7 @@ export function TypewriterHeadline({
     };
   }, [phase, phraseIndex, reduce, len, charMs, deleteMs, holdMs, phrases]);
 
-  const shown = tokens.slice(0, visible);
+  const shown = reduce ? phrases[0] : tokens.slice(0, visible);
   const words = groupIntoWords(shown);
 
   return (
@@ -178,11 +171,13 @@ export function TypewriterHeadline({
             </span>
           );
         })}
-        <span
-          className={`ml-0.5 inline-block h-[0.9em] w-[0.08em] translate-y-[0.08em] bg-accent align-baseline ${
-            phase === "hold" ? "hero-type-caret--blink" : "opacity-100"
-          }`}
-        />
+        {reduce ? null : (
+          <span
+            className={`ml-0.5 inline-block h-[0.9em] w-[0.08em] translate-y-[0.08em] bg-accent align-baseline ${
+              phase === "hold" ? "hero-type-caret--blink" : "opacity-100"
+            }`}
+          />
+        )}
       </span>
     </h1>
   );

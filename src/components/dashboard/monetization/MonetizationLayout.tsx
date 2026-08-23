@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { ChannelSelectDropdown } from "@/components/dashboard/channel-analytics/ChannelSelectDropdown";
-import { MonetizationChannelPicker } from "./MonetizationChannelPicker";
 import { MonetizationHeaderStats } from "./MonetizationHeaderStats";
 import { MonetizationProvider, useMonetization } from "./MonetizationProvider";
 
@@ -43,7 +42,9 @@ function MonetizationShell({ children }: { children: ReactNode }) {
           <>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted">
-                Switch channel to compare monetization across the workspace
+                {selectedId
+                  ? "Switch channel to compare monetization across the workspace"
+                  : "Combined revenue across every channel in the workspace"}
               </p>
               <ChannelSelectDropdown selectedId={selectedId} onChange={setSelectedId} />
             </div>
@@ -51,7 +52,7 @@ function MonetizationShell({ children }: { children: ReactNode }) {
             {children}
           </>
         ) : (
-          <MonetizationChannelPicker />
+          <p className="text-sm text-muted">No channel data available.</p>
         )}
       </div>
     </>

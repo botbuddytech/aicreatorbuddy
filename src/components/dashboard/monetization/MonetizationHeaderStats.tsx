@@ -8,14 +8,20 @@ import { useMonetization } from "./MonetizationProvider";
 
 export function MonetizationHeaderStats() {
   const { data, range, setRange, channel } = useMonetization();
-  if (!data || !channel) return null;
+  if (!data) return null;
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h2 className="font-display text-xl font-semibold text-foreground">{channel.name}</h2>
-          <p className="text-sm text-muted">Monetization performance for the selected period</p>
+          <h2 className="font-display text-xl font-semibold text-foreground">
+            {channel?.name ?? "All channels"}
+          </h2>
+          <p className="text-sm text-muted">
+            {channel
+              ? "Monetization performance for the selected period"
+              : "Combined earnings across every channel in the workspace"}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select

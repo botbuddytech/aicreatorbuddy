@@ -21,17 +21,24 @@ export function EditorWorkspace() {
   const selected =
     project.scenes.find((scene) => scene.id === selectedId) ?? project.scenes[0] ?? null;
 
-  useEffect(() => {
+  // Adjust selection during render (instead of an effect) when the scene list
+  // or the active playback scene changes, per https://react.dev/learn/you-might-not-need-an-effect
+  const [prevScenes, setPrevScenes] = useState(project.scenes);
+  if (project.scenes !== prevScenes) {
+    setPrevScenes(project.scenes);
     if (!project.scenes.some((scene) => scene.id === selectedId)) {
       setSelectedId(project.scenes[0]?.id ?? "");
     }
-  }, [project.scenes, selectedId]);
+  }
 
-  useEffect(() => {
-    if (playback.playing && playback.active) {
-      setSelectedId(playback.active.scene.id);
+  const activeSceneId = playback.playing ? playback.active?.scene.id : undefined;
+  const [prevActiveSceneId, setPrevActiveSceneId] = useState(activeSceneId);
+  if (activeSceneId !== prevActiveSceneId) {
+    setPrevActiveSceneId(activeSceneId);
+    if (activeSceneId) {
+      setSelectedId(activeSceneId);
     }
-  }, [playback.playing, playback.active]);
+  }
 
   useEffect(() => {
     const node = workspaceRef.current;

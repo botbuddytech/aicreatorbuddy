@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useId, useState, useSyncExternalStore, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
+import { memo, useEffect, useId, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useDashboardUi } from "@/components/dashboard/dashboardUi";
 import {
   AUTH_STORAGE_KEY,
@@ -261,7 +262,7 @@ function writeCollapsed(next: boolean) {
   collapsedListeners.forEach((listener) => listener());
 }
 
-export function Sidebar() {
+function SidebarNav() {
   const pathname = usePathname();
   const router = useRouter();
   const ui = useDashboardUi();
@@ -436,3 +437,6 @@ export function Sidebar() {
     </>
   );
 }
+
+export const Sidebar = memo(SidebarNav);
+Sidebar.displayName = "Sidebar";

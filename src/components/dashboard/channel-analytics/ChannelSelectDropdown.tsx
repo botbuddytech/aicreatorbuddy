@@ -45,7 +45,7 @@ export function ChannelSelectDropdown({
           <span className="h-2 w-2 rounded-full bg-success" />
         )}
         <span className="flex-1 truncate text-left">
-          {selected ? selected.name : "Select a channel"}
+          {selected ? selected.name : "All channels"}
         </span>
         <svg viewBox="0 0 24 24" className="h-4 w-4 text-muted" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M6 9l6 6 6-6" />

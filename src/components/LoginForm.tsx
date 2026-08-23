@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { AUTH_STORAGE_KEY, demoAuth } from "@/lib/dashboardContent";
 import { BrandMark } from "@/components/ui/BrandMark";
 
@@ -33,6 +33,11 @@ export function LoginForm() {
     setEmail(demoAuth.email);
     setPassword(demoAuth.password);
     setError("");
+  }
+
+  function continueDemo() {
+    window.localStorage.setItem(AUTH_STORAGE_KEY, "1");
+    router.push("/dashboard");
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -126,9 +131,7 @@ export function LoginForm() {
                 >
                   Password
                 </label>
-                <a href="#" className="text-xs font-medium text-accent hover:text-accent-dark">
-                  Forgot password?
-                </a>
+                <span className="text-xs text-muted">Demo login — no recovery needed</span>
               </div>
               <input
                 id="password"
@@ -166,7 +169,7 @@ export function LoginForm() {
 
           <button
             type="button"
-            onClick={fillDemo}
+            onClick={continueDemo}
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-soft px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-white/5"
           >
             Continue with demo account

@@ -3,7 +3,11 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { workspaceChannels, type ChannelStatus } from "@/lib/dashboardContent";
 import { type AnalyticsRange } from "@/lib/channelAnalyticsContent";
-import { getMonetizationData, type MonetizationData } from "@/lib/monetizationContent";
+import {
+  getCombinedMonetizationData,
+  getMonetizationData,
+  type MonetizationData,
+} from "@/lib/monetizationContent";
 
 type MonetizationContextValue = {
   selectedId: string | null;
@@ -25,10 +29,11 @@ export function MonetizationProvider({ children }: { children: ReactNode }) {
     [selectedId],
   );
 
-  const data = useMemo(
-    () => (channel ? getMonetizationData(channel, range) : null),
-    [channel, range],
-  );
+  const data = useMemo(() => {
+    if (channel) return getMonetizationData(channel, range);
+    if (workspaceChannels.length === 0) return null;
+    return getCombinedMonetizationData(workspaceChannels, range);
+  }, [channel, range]);
 
   const value = useMemo(
     () => ({ selectedId, setSelectedId, range, setRange, channel, data }),

@@ -718,6 +718,439 @@ export function getMonetizationData(
   return data;
 }
 
+function parseDeltaPercent(raw: string): number {
+  return Number.parseFloat(raw.replace(/[+%]/g, "")) || 0;
+}
+
+function parseCountPrefix(raw: string): number {
+  return parseCompact(raw.split(/\s/)[0] ?? "0");
+}
+
+function signedAmount(raw: string): number {
+  const value = parseCompact(raw);
+  return raw.trim().startsWith("-") ? -value : value;
+}
+
+function formatSignedUsd(value: number): string {
+  return `${value >= 0 ? "+" : "-"}${formatUsd(Math.abs(value))}`;
+}
+
+function formatDeltaValue(value: number): { text: string; positive: boolean } {
+  const positive = value >= 0;
+  return { text: `${positive ? "+" : ""}${value.toFixed(1)}%`, positive };
+}
+
+function sum(values: number[]): number {
+  return values.reduce((acc, value) => acc + value, 0);
+}
+
+function weightedAvg(values: number[], weights: number[]): number {
+  const totalWeight = sum(weights) || 1;
+  return values.reduce((acc, value, index) => acc + value * (weights[index] ?? 0), 0) / totalWeight;
+}
+
+function combineTrendBlocks(
+  blocks: TrendBlock[],
+  weights: number[],
+  mode: "sum" | "avg",
+): TrendBlock {
+  const first = blocks[0];
+  if (!first) return { labels: [], series: [] };
+
+  return {
+    labels: first.labels,
+    series: first.series.map((series, seriesIndex) => ({
+      label: series.label,
+      hex: series.hex,
+      values: series.values.map((_, pointIndex) => {
+        const pointValues = blocks.map((block) => block.series[seriesIndex]?.values[pointIndex] ?? 0);
+        const combined = mode === "sum" ? sum(pointValues) : weightedAvg(pointValues, weights);
+        return round(combined * 100) / 100;
+      }),
+    })),
+  };
+}
+
+function combineShares(lists: NamedShare[][], weights: number[]): NamedShare[] {
+  const first = lists[0];
+  if (!first) return [];
+
+  const weighted = first.map((item, index) => ({
+    ...item,
+    value: weightedAvg(
+      lists.map((list) => list[index]?.value ?? 0),
+      weights,
+    ),
+  }));
+  const total = sum(weighted.map((item) => item.value)) || 1;
+  return weighted.map((item) => ({
+    ...item,
+    value: Math.round((item.value / total) * 1000) / 10,
+  }));
+}
+
+function combineVideos(datasets: MonetizationData[]): EarningVideo[] {
+  return datasets
+    .flatMap((data) =>
+      data.topVideos.videos.map((video) => ({
+        ...video,
+        id: `${data.channel.id}-${video.id}`,
+        title: `${data.channel.initials} · ${video.title}`,
+      })),
+    )
+    .sort((a, b) => b.revenueValue - a.revenueValue);
+}
+
+function toCombinedChannel(channels: ChannelStatus[]): ChannelStatus {
+  return {
+    id: "all",
+    name: "All channels",
+    initials: "ALL",
+    color: "bg-success",
+    subscribers: formatCount(sum(channels.map((channel) => parseCompact(channel.subscribers)))),
+    views: formatCount(sum(channels.map((channel) => parseCompact(channel.views)))),
+    revenue: formatUsd(sum(channels.map((channel) => parseCompact(channel.revenue)))),
+    connected: channels.some((channel) => channel.connected),
+    lastSync: channels.find((channel) => channel.connected)?.lastSync ?? "Just now",
+  };
+}
+
+export function getCombinedMonetizationData(
+  channels: ChannelStatus[],
+  range: AnalyticsRange = "28d",
+): MonetizationData {
+  const source = channels.length > 0 ? channels : [];
+  const key = `all:${range}:${source.map((channel) => channel.id).join(",")}`;
+  const cached = cache.get(key);
+  if (cached) return cached;
+
+  const datasets = source.map((channel) => getMonetizationData(channel, range));
+  const first = datasets[0];
+  if (!first) {
+    throw new Error("getCombinedMonetizationData requires at least one channel");
+  }
+
+  const combinedChannel = toCombinedChannel(source);
+  const viewWeights = source.map((channel) => parseCompact(channel.views));
+  const revenueWeights = datasets.map((data) => parseCompact(data.header[0]?.value ?? "0"));
+  const totalRevenue = sum(revenueWeights);
+  const estimatedRevenue = sum(datasets.map((data) => parseCompact(data.header[1]?.value ?? "0")));
+  const rpm = weightedAvg(
+    datasets.map((data) => parseCompact(data.header[2]?.value ?? "0")),
+    viewWeights,
+  );
+  const cpm = weightedAvg(
+    datasets.map((data) => parseCompact(data.header[3]?.value ?? "0")),
+    viewWeights,
+  );
+  const revDelta = formatDeltaValue(weightedAvg(
+    datasets.map((data) => parseDeltaPercent(data.header[0]?.delta ?? "0")),
+    revenueWeights,
+  ));
+  const rpmDelta = formatDeltaValue(weightedAvg(
+    datasets.map((data) => parseDeltaPercent(data.header[2]?.delta ?? "0")),
+    viewWeights,
+  ));
+  const cpmDelta = formatDeltaValue(weightedAvg(
+    datasets.map((data) => parseDeltaPercent(data.header[3]?.delta ?? "0")),
+    viewWeights,
+  ));
+  const videoCount = sum(datasets.map((data) => parseCountPrefix(data.header[1]?.hint ?? "0")));
+  const days = range === "7d" ? 7 : range === "90d" ? 90 : 28;
+  const videos = combineVideos(datasets);
+  const topRpmVideos = [...videos]
+    .sort((a, b) => parseCompact(b.rpm) - parseCompact(a.rpm))
+    .slice(0, 6);
+  const sources = combineShares(
+    datasets.map((data) => data.overview.sources),
+    revenueWeights,
+  );
+  const adFormatBars = combineShares(
+    datasets.map((data) => data.overview.adFormatBars),
+    revenueWeights,
+  );
+  const adFormatCards = first.adFormats.cards.map((row, index) => {
+    const revenueValue = sum(datasets.map((data) => data.adFormats.cards[index]?.revenueValue ?? 0));
+    const formatTotal =
+      sum(
+        first.adFormats.cards.map((_, cardIndex) =>
+          sum(datasets.map((data) => data.adFormats.cards[cardIndex]?.revenueValue ?? 0)),
+        ),
+      ) || 1;
+    const deltaAvg = weightedAvg(
+      datasets.map((data) => parseDeltaPercent(data.adFormats.cards[index]?.delta ?? "0")),
+      revenueWeights,
+    );
+    return {
+      ...row,
+      revenueValue,
+      revenue: formatUsd(revenueValue),
+      share: Math.round((revenueValue / formatTotal) * 1000) / 10,
+      cpm: formatRate(
+        weightedAvg(
+          datasets.map((data) => parseCompact(data.adFormats.cards[index]?.cpm ?? "0")),
+          viewWeights,
+        ),
+      ),
+      delta: `${deltaAvg >= 0 ? "+" : ""}${deltaAvg.toFixed(1)}%`,
+      positive: row.id === "overlay" ? false : deltaAvg >= 0,
+    };
+  });
+  const regionAmounts = first.overview.regions.map((_, index) =>
+    sum(datasets.map((data) => parseCompact(data.overview.regions[index]?.amount ?? "0"))),
+  );
+  const regionTotal = sum(regionAmounts) || 1;
+  const memberships = first.overview.memberships.map((tier, index) => ({
+    ...tier,
+    revenue: formatUsd(
+      sum(datasets.map((data) => parseCompact(data.overview.memberships[index]?.revenue ?? "0"))),
+    ),
+    members: `${formatCount(
+      round(sum(datasets.map((data) => parseCountPrefix(data.overview.memberships[index]?.members ?? "0")))),
+    )} members`,
+  }));
+  const supporters = first.overview.supporters.map((row, index) => {
+    const amount = sum(
+      datasets.map((data) => parseCompact(data.overview.supporters[index]?.amount ?? "0")),
+    );
+    const count = round(
+      sum(datasets.map((data) => parseCountPrefix(data.overview.supporters[index]?.count ?? "0"))),
+    );
+    return {
+      ...row,
+      amount: formatUsd(amount),
+      count: `${count} Super Chats`,
+    };
+  });
+  const transactions = first.overview.transactions.map((row, index) => {
+    const amount = sum(datasets.map((data) => signedAmount(data.overview.transactions[index]?.amount ?? "0")));
+    return {
+      ...row,
+      amount: formatSignedUsd(amount),
+      positive: amount >= 0,
+    };
+  });
+  const playbacks = sum(datasets.map((data) => parseCompact(data.rpmCpm.cards[3]?.value ?? "0")));
+  const categoryAmounts = first.topVideos.categories.map((_, index) =>
+    sum(datasets.map((data) => parseCompact(data.topVideos.categories[index]?.amount ?? "0"))),
+  );
+  const categoryTotal = sum(categoryAmounts) || 1;
+  const largest = datasets.reduce((best, data) =>
+    parseCompact(data.header[0]?.value ?? "0") > parseCompact(best.header[0]?.value ?? "0") ? data : best,
+  );
+
+  const data: MonetizationData = {
+    channel: combinedChannel,
+    range,
+    header: [
+      {
+        label: "Total Revenue",
+        value: formatUsdCompact(totalRevenue),
+        delta: revDelta.text,
+        positive: revDelta.positive,
+        hint: `${source.length} channels`,
+      },
+      {
+        label: "Estimated Revenue",
+        value: formatUsdCompact(estimatedRevenue),
+        delta: formatDeltaValue(
+          weightedAvg(
+            datasets.map((item) => parseDeltaPercent(item.header[1]?.delta ?? "0")),
+            revenueWeights,
+          ),
+        ).text,
+        positive: true,
+        hint: `${formatInt(round(videoCount))} videos`,
+      },
+      {
+        label: "Average RPM",
+        value: formatRate(rpm),
+        delta: rpmDelta.text,
+        positive: rpmDelta.positive,
+        hint: "Per 1,000 views",
+      },
+      {
+        label: "Average CPM",
+        value: formatRate(cpm),
+        delta: cpmDelta.text,
+        positive: cpmDelta.positive,
+        hint: "Per 1,000 views",
+      },
+    ],
+    overview: {
+      revenueTrendDaily: combineTrendBlocks(
+        datasets.map((item) => item.overview.revenueTrendDaily),
+        revenueWeights,
+        "sum",
+      ),
+      revenueTrendWeekly: combineTrendBlocks(
+        datasets.map((item) => item.overview.revenueTrendWeekly),
+        revenueWeights,
+        "sum",
+      ),
+      revenueTrendMonthly: combineTrendBlocks(
+        datasets.map((item) => item.overview.revenueTrendMonthly),
+        revenueWeights,
+        "sum",
+      ),
+      sources,
+      adIncome: first.overview.adIncome.map((item, index) => {
+        const amount = sum(datasets.map((data) => parseCompact(data.overview.adIncome[index]?.value ?? "0")));
+        const delta = formatDeltaValue(
+          weightedAvg(
+            datasets.map((data) => parseDeltaPercent(data.overview.adIncome[index]?.delta ?? "0")),
+            revenueWeights,
+          ),
+        );
+        return {
+          label: item.label,
+          value: formatUsd(amount),
+          delta: delta.text,
+          positive: delta.positive,
+        };
+      }),
+      topVideos: videos.slice(0, 6),
+      adFormatBars,
+      regions: first.overview.regions.map((row, index) => ({
+        label: row.label,
+        flag: row.flag,
+        color: row.color,
+        value: Math.round((regionAmounts[index] / regionTotal) * 1000) / 10,
+        amount: formatUsdCompact(regionAmounts[index] ?? 0),
+      })),
+      memberships,
+      supporters,
+      transactions,
+    },
+    rpmCpm: {
+      cards: [
+        {
+          label: "Revenue Per Mille (RPM)",
+          value: formatRate(rpm),
+          delta: rpmDelta.text,
+          positive: rpmDelta.positive,
+          hint: `vs ${formatRate(rpm * 0.89)} last period`,
+          progress: clamp(round((rpm / 6.2) * 100), 48, 96),
+          progressLabel: `${clamp(round((rpm / 6.2) * 100), 48, 96)}% of target (${formatRate(6.2)})`,
+        },
+        {
+          label: "Cost Per Mille (CPM)",
+          value: formatRate(cpm),
+          delta: cpmDelta.text,
+          positive: cpmDelta.positive,
+          hint: `vs ${formatRate(cpm * 0.92)} last period`,
+          progress: clamp(round((cpm / 8.5) * 100), 52, 96),
+          progressLabel: `${clamp(round((cpm / 8.5) * 100), 52, 96)}% of target (${formatRate(8.5)})`,
+        },
+        {
+          label: "Estimated Revenue",
+          value: formatUsdCompact(totalRevenue),
+          delta: revDelta.text,
+          positive: revDelta.positive,
+          hint: range === "7d" ? "Last 7 days" : range === "90d" ? "Last 90 days" : "Last 28 days",
+          progress: 72,
+          progressLabel: `Daily avg: ${formatUsd(totalRevenue / days)}`,
+        },
+        {
+          label: "Monetized Playbacks",
+          value: formatCount(round(playbacks)),
+          delta: formatDeltaValue(
+            weightedAvg(
+              datasets.map((item) => parseDeltaPercent(item.rpmCpm.cards[3]?.delta ?? "0")),
+              viewWeights,
+            ),
+          ).text,
+          positive: true,
+          hint: first.rpmCpm.cards[3]?.hint ?? "Playback rate",
+          progress: 68,
+          progressLabel: `Ad impressions: ${formatCount(round(playbacks * 1.55))}`,
+        },
+      ],
+      trend7: combineTrendBlocks(
+        datasets.map((item) => item.rpmCpm.trend7),
+        viewWeights,
+        "avg",
+      ),
+      trend28: combineTrendBlocks(
+        datasets.map((item) => item.rpmCpm.trend28),
+        viewWeights,
+        "avg",
+      ),
+      trend90: combineTrendBlocks(
+        datasets.map((item) => item.rpmCpm.trend90),
+        viewWeights,
+        "avg",
+      ),
+      breakdown: sources,
+      insights: largest.rpmCpm.insights,
+      topRpmVideos,
+    },
+    topVideos: {
+      stats: [
+        {
+          label: "Total Revenue (30d)",
+          value: formatUsdCompact(totalRevenue),
+          delta: `${revDelta.text} vs last month`,
+          positive: revDelta.positive,
+          progress: 78,
+          progressLabel: "of monthly goal",
+        },
+        {
+          label: "Top Video Revenue",
+          value: videos[0]?.revenue ?? "$0",
+          delta: "#1 earner",
+          positive: true,
+          progress: 85,
+          progressLabel: "of monthly goal",
+        },
+        {
+          label: "Average RPM",
+          value: formatRate(rpm),
+          delta: `+${formatRate(0.35)} vs last month`,
+          positive: true,
+          progress: 72,
+          progressLabel: "of monthly goal",
+        },
+        {
+          label: "Videos Monetized",
+          value: formatInt(round(videoCount)),
+          delta: "98% eligible",
+          positive: true,
+          progress: 98,
+          progressLabel: `${round(sum(datasets.map((item) => parseCountPrefix(item.topVideos.stats[3]?.progressLabel ?? "0"))))} ads enabled`,
+        },
+      ],
+      leaderboard: videos.slice(0, 3),
+      breakdown: sources,
+      videos,
+      liveLeaderboard: videos.slice(0, 5),
+      trend: combineTrendBlocks(
+        datasets.map((item) => item.topVideos.trend),
+        revenueWeights,
+        "sum",
+      ),
+      categories: first.topVideos.categories.map((row, index) => ({
+        label: row.label,
+        color: row.color,
+        value: round(((categoryAmounts[index] ?? 0) / categoryTotal) * 100),
+        amount: formatUsdCompact(categoryAmounts[index] ?? 0),
+      })),
+    },
+    adFormats: {
+      formatBars: adFormatCards.map((item) => ({
+        label: item.label.replace(" Ads", "").replace(" Video", ""),
+        value: round(item.revenueValue),
+        hex: item.hex,
+      })),
+      distribution: adFormatBars,
+      cards: adFormatCards,
+    },
+  };
+
+  cache.set(key, data);
+  return data;
+}
+
 export function donutSegments(
   items: readonly NamedShare[],
 ): { label: string; value: number; color: string }[] {

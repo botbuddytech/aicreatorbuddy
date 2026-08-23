@@ -27,7 +27,13 @@ export function VideoLibraryView() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const status = videoStatusFromRoute(pathname, searchParams.get("status"));
-  const [query, setQuery] = useState("");
+  const urlQuery = searchParams.get("q") ?? "";
+  const [query, setQuery] = useState(urlQuery);
+  const [seenUrlQuery, setSeenUrlQuery] = useState(urlQuery);
+  if (urlQuery !== seenUrlQuery) {
+    setSeenUrlQuery(urlQuery);
+    setQuery(urlQuery);
+  }
   const [channelId, setChannelId] = useState("all");
   const [viewMode, setViewMode] = useState<LibraryViewMode>("grid");
 

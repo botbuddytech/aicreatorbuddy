@@ -1,17 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { DashboardTopNav } from "@/components/dashboard/DashboardTopNav";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { DashboardUiContext } from "@/components/dashboard/dashboardUi";
+import { RouteFade } from "@/components/ui/RouteFade";
+import { SidebarSkeleton } from "@/components/ui/skeletons/SidebarSkeleton";
 
 export function DashboardShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [navPathname, setNavPathname] = useState(pathname);
 
-  useEffect(() => {
-    setMobileNavOpen(false);
-  }, [pathname]);
+  if (pathname !== navPathname) {
+    setNavPathname(pathname);
+    if (mobileNavOpen) setMobileNavOpen(false);
+  }
 
   useEffect(() => {
     if (!mobileNavOpen) return;
@@ -39,8 +44,13 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <DashboardUiContext.Provider value={value}>
       <div className="flex min-h-screen bg-background">
-        <Sidebar />
-        <div className="min-w-0 flex-1 overflow-x-hidden">{children}</div>
+        <Suspense fallback={<SidebarSkeleton />}>
+          <Sidebar />
+        </Suspense>
+        <div className="min-w-0 flex-1 overflow-x-hidden">
+          <DashboardTopNav />
+          <RouteFade>{children}</RouteFade>
+        </div>
       </div>
     </DashboardUiContext.Provider>
   );

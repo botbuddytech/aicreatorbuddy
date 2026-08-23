@@ -5,23 +5,13 @@ import { useParams } from "next/navigation";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { CreateVideoWorkspace } from "@/components/create/CreateVideoWorkspace";
 import { VideoProjectProvider } from "@/components/create/VideoProjectProvider";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { VideoPlayerSkeleton } from "@/components/ui/skeletons/VideoPlayerSkeleton";
 
 function WorkspaceFallback() {
   return (
     <>
       <Topbar title="Create Video" subtitle="Loading draft…" />
-      <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
-        <div className="space-y-6">
-          <Skeleton className="h-36" />
-          <div className="flex gap-2">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton key={index} className="h-16 w-36 shrink-0" />
-            ))}
-          </div>
-          <Skeleton className="h-[28rem]" />
-        </div>
-      </div>
+      <VideoPlayerSkeleton label="Loading video workspace" />
     </>
   );
 }

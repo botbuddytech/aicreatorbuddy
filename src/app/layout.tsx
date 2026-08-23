@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, Sora } from "next/font/google";
+import NextTopLoader from "nextjs-toploader";
+import { ChatWidget } from "@/components/chat/ChatWidget";
 import { siteConfig } from "@/lib/seo";
 import "./globals.css";
 
@@ -70,9 +72,23 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       className={`${sora.variable} ${dmSans.variable} h-full overflow-x-hidden antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans atmosphere">{children}</body>
+      <body className="min-h-full flex flex-col font-sans atmosphere">
+        <NextTopLoader
+          color="#ff0000"
+          height={3}
+          showSpinner={false}
+          crawl
+          easing="ease"
+          speed={200}
+          shadow="0 0 10px #ff0000,0 0 5px #ff0000"
+          zIndex={99999}
+        />
+        {children}
+        <ChatWidget />
+      </body>
     </html>
   );
 }

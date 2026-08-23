@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter } from "nextjs-toploader/app";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Skeleton } from "@/components/ui/Skeleton";
+import { VideoGridSkeleton } from "@/components/ui/skeletons/VideoGridSkeleton";
 import { workspaceChannels } from "@/lib/dashboardContent";
 import { useProjectStore } from "@/lib/useVideoProjectDraft";
 import {
@@ -129,11 +129,7 @@ export default function CreateIndexPage() {
         ) : null}
 
         {!hydrated ? (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <Skeleton key={index} className="h-56" />
-            ))}
-          </div>
+          <VideoGridSkeleton count={3} variant="project" showToolbar={false} label="Loading drafts" />
         ) : projects.length === 0 ? (
           <EmptyState
             title="No video drafts yet"

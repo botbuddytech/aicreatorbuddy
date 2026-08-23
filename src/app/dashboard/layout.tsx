@@ -10,8 +10,8 @@ export const metadata: Metadata = {
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
-    <AuthGuard>
-      <DashboardShell>{children}</DashboardShell>
-    </AuthGuard>
+    <DashboardShell>
+      <AuthGuard>{children}</AuthGuard>
+    </DashboardShell>
   );
 }

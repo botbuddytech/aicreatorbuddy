@@ -31,8 +31,10 @@ export default async function OpenGraphImage() {
             gap: 16,
           }}
         >
+          {/* eslint-disable-next-line @next/next/no-img-element -- next/image is unsupported inside next/og ImageResponse */}
           <img
             src={`data:image/png;base64,${logo.toString("base64")}`}
+            alt=""
             width={64}
             height={64}
             style={{ borderRadius: 16 }}
