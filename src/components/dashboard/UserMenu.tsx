@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "nextjs-toploader/app";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AUTH_STORAGE_KEY, demoProfile } from "@/lib/dashboardContent";
+import { demoProfile } from "@/lib/dashboardContent";
+import { clearDemoAuth } from "@/lib/demoAuth.client";
 
 const itemClass =
   "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-foreground hover:bg-white/5";
@@ -37,7 +38,7 @@ export function UserMenu() {
   }, []);
 
   function logout() {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    clearDemoAuth();
     setOpen(false);
     router.push("/");
   }

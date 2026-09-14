@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ChannelConnectionStatus {
+  ACTIVE
+  NEEDS_REAUTH
+  REVOKED
+}
+
+/// One connected YouTube channel. Each row owns its own OAuth tokens because
+/// Google scopes a token to the account/brand channel chosen on the consent screen.
+model YoutubeChannel {
+  id                String                  @id @default(cuid())
+  workspaceId       String                  @default("default")
+  channelId         String                  @unique // "UC..."
+  title             String
+  customUrl         String?
+  thumbnailUrl      String?
+  subscriberCount   BigInt                  @default(0)
+  /// True when the channel hides its subscriber count; subscriberCount is then unreliable.
+  hiddenSubscriberCount Boolean             @default(false)
+  viewCount         BigInt                  @default(0)
+  /// YouTube reports public videos only, so this can be lower than the synced upload count.
+  videoCount        Int                     @default(0)
+  uploadsPlaylistId String
+  googleEmail       String?
+  scope             String
+  accessTokenEnc    String
+  refreshTokenEnc   String
+  tokenExpiresAt    DateTime
+  status            ChannelConnectionStatus @default(ACTIVE)
+  lastSyncedAt      DateTime?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  videos            YoutubeVideo[]
+
+  @@index([workspaceId])
+}
+
+model YoutubeVideo {
+  id            String         @id // YouTube video id
+  channelId     String
+  channel       YoutubeChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  title         String
+  description   String         @default("")
+  thumbnailUrl  String?
+  publishedAt   DateTime
+  durationSec   Int?
+  viewCount     BigInt         @default(0)
+  likeCount     BigInt         @default(0)
+  commentCount  BigInt         @default(0)
+  privacyStatus String         @default("private")
+  /// status.uploadStatus: uploaded | processed | failed | rejected | deleted
+  uploadStatus  String         @default("processed")
+  fetchedAt     DateTime       @default(now())
+
+  @@index([channelId, publishedAt(sort: Desc)])
+}

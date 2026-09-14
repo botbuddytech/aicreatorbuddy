@@ -104,8 +104,8 @@ export function getPageContext(pathname: string): PageContext {
     return workspace(
       path,
       "Channels",
-      "Multi-channel workspace. Growth Lab, Viral Cuts, and Studio Core are connected; NextWave is disconnected. Publish targets are per-channel. Demo only — no live YouTube connect.",
-      ["How should I split niches across channels?", "Should NextWave stay disconnected?"],
+      "Multi-channel workspace with live YouTube connections. Each channel is linked through its own Google account via OAuth; the page shows real profile, subscriber, view, and upload data pulled from the YouTube Data API, with Sync and Disconnect per channel.",
+      ["How should I split niches across channels?", "Which of my channels should I post to next?"],
     );
   }
 

@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { useRouter } from "nextjs-toploader/app";
 import { memo, useEffect, useId, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useDashboardUi } from "@/components/dashboard/dashboardUi";
+import { clearDemoAuth } from "@/lib/demoAuth.client";
 import {
-  AUTH_STORAGE_KEY,
   SIDEBAR_COLLAPSED_KEY,
   demoProfile,
   navItems,
@@ -291,7 +291,7 @@ function SidebarNav() {
   }
 
   function logout() {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    clearDemoAuth();
     router.push("/");
   }
 

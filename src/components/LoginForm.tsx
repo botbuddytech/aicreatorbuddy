@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "nextjs-toploader/app";
-import { AUTH_STORAGE_KEY, demoAuth } from "@/lib/dashboardContent";
+import { demoAuth } from "@/lib/dashboardContent";
+import { setDemoAuth } from "@/lib/demoAuth.client";
 import { BrandMark } from "@/components/ui/BrandMark";
 
 function Logo() {
@@ -36,7 +37,7 @@ export function LoginForm() {
   }
 
   function continueDemo() {
-    window.localStorage.setItem(AUTH_STORAGE_KEY, "1");
+    setDemoAuth();
     router.push("/dashboard");
   }
 
@@ -47,7 +48,7 @@ export function LoginForm() {
 
     window.setTimeout(() => {
       if (email === demoAuth.email && password === demoAuth.password) {
-        window.localStorage.setItem(AUTH_STORAGE_KEY, "1");
+        setDemoAuth();
         router.push("/dashboard");
         return;
       }

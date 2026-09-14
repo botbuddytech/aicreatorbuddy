@@ -3,6 +3,7 @@
 import { useRouter } from "nextjs-toploader/app";
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { AUTH_STORAGE_KEY } from "@/lib/dashboardContent";
+import { setDemoAuth } from "@/lib/demoAuth.client";
 import { DashboardContentSkeleton } from "@/components/ui/skeletons/DashboardContentSkeleton";
 
 function subscribeAuth(onChange: () => void) {
@@ -23,7 +24,13 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   const authed = useSyncExternalStore(subscribeAuth, getAuthSnapshot, getAuthServerSnapshot);
 
   useEffect(() => {
-    if (!authed) router.replace("/login");
+    if (!authed) {
+      router.replace("/login");
+      return;
+    }
+    // Sessions created before the cookie mirror existed: refresh the cookie so
+    // server routes (YouTube OAuth, server actions) see the login too.
+    setDemoAuth();
   }, [authed, router]);
 
   if (!authed) {

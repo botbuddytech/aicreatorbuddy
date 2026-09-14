@@ -10,6 +10,7 @@ import { ExportButton } from "@/components/create/ExportButton";
 import { useTimelinePlayback } from "@/components/create/useTimelinePlayback";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { mockStockClips } from "@/lib/mockAi";
+import { sceneVisualPreviewSrc } from "@/lib/sceneVisualImage";
 import {
   FILTER_CSS,
   formatTimecode,
@@ -56,6 +57,10 @@ function PreviewPlayer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const seekBarRef = useRef<HTMLButtonElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (total > 0) setPlaying(true);
+  }, [total, setPlaying]);
 
   useEffect(() => {
     const node = playerRef.current;
@@ -108,6 +113,9 @@ function PreviewPlayer({
       : overlay?.position === "center"
         ? "top-1/2 -translate-y-1/2"
         : "bottom-16";
+  const sceneVisualSrc = active ? sceneVisualPreviewSrc(active.scene.visuals) : null;
+  const showThumb = Boolean(active?.index === 0 && thumbUrl);
+  const frameSrc = showThumb ? thumbUrl : sceneVisualSrc;
 
   return (
     <div
@@ -121,10 +129,10 @@ function PreviewPlayer({
           }`}
           style={{ filter: FILTER_CSS[active?.scene.editing.filter ?? "none"] }}
         >
-          {active?.index === 0 && thumbUrl ? (
+          {frameSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={thumbUrl}
+              src={frameSrc}
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
             />

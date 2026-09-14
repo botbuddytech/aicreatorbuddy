@@ -45,8 +45,15 @@ export function Modal({
     previousFocus.current = document.activeElement as HTMLElement | null;
     dialogRef.current?.focus();
 
-    const previousOverflow = document.body.style.overflow;
+    const html = document.documentElement;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = html.style.overflow;
+    const previousBodyOverscroll = document.body.style.overscrollBehavior;
+    const previousHtmlOverscroll = html.style.overscrollBehavior;
     document.body.style.overflow = "hidden";
+    html.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    html.style.overscrollBehavior = "none";
 
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -55,10 +62,39 @@ export function Modal({
       }
     }
 
+    function isInsideScrollablePanel(target: EventTarget | null) {
+      const panel = dialogRef.current;
+      if (!panel || !(target instanceof Node) || !panel.contains(target)) return false;
+      let node: Element | null = target instanceof Element ? target : target.parentElement;
+      while (node && node !== panel.parentElement) {
+        if (node instanceof HTMLElement) {
+          const style = window.getComputedStyle(node);
+          const canScrollY =
+            (style.overflowY === "auto" || style.overflowY === "scroll") &&
+            node.scrollHeight > node.clientHeight;
+          if (canScrollY) return true;
+        }
+        node = node.parentElement;
+      }
+      return false;
+    }
+
+    function preventBackgroundScroll(event: WheelEvent | TouchEvent) {
+      if (isInsideScrollablePanel(event.target)) return;
+      event.preventDefault();
+    }
+
     document.addEventListener("keydown", onKey);
+    document.addEventListener("wheel", preventBackgroundScroll, { passive: false });
+    document.addEventListener("touchmove", preventBackgroundScroll, { passive: false });
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("wheel", preventBackgroundScroll);
+      document.removeEventListener("touchmove", preventBackgroundScroll);
+      document.body.style.overflow = previousBodyOverflow;
+      html.style.overflow = previousHtmlOverflow;
+      document.body.style.overscrollBehavior = previousBodyOverscroll;
+      html.style.overscrollBehavior = previousHtmlOverscroll;
       previousFocus.current?.focus();
     };
   }, [open]);
@@ -66,11 +102,11 @@ export function Modal({
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="modal-root flex items-center justify-center p-4">
       <button
         type="button"
         aria-label="Close dialog"
-        className="absolute inset-0 bg-black/60"
+        className="modal-backdrop-in absolute inset-0 bg-black/60 backdrop-blur-md"
         onClick={onClose}
       />
       <div
@@ -80,7 +116,7 @@ export function Modal({
         aria-labelledby={titleId}
         aria-describedby={subtitle ? subtitleId : undefined}
         tabIndex={-1}
-        className={`relative z-10 flex max-h-[85vh] w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface outline-none ${SIZES[size]}`}
+        className={`modal-panel-in relative z-10 flex max-h-[85vh] w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface outline-none ${SIZES[size]}`}
       >
         <div className="flex shrink-0 items-start justify-between gap-3 px-5 pt-5">
           <div className="min-w-0">
@@ -105,7 +141,7 @@ export function Modal({
           </button>
         </div>
         {header ? <div className="shrink-0 px-5">{header}</div> : null}
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-3">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5 pt-3">{children}</div>
       </div>
     </div>,
     document.body,

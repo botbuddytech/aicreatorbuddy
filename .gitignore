@@ -34,8 +34,13 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# env files
+# .env is committed intentionally for this single-maintainer project. Platform
+# variables (Railway) still win: Next.js resolves process.env before any .env file.
+.env*.local
+
+# prisma generated client
+/src/generated
 
 # vercel
 .vercel
@@ -43,3 +48,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
