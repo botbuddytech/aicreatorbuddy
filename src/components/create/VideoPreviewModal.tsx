@@ -91,18 +91,20 @@ function PreviewPlayer({
     Boolean(active?.scene.finalScript.trim()) ||
     (active?.scene.voiceover.status === "ready" && Boolean(active.scene.voiceover.audioUrl));
 
-  // Autoplay-with-sound is blocked outside a gesture. We may start muted once,
-  // but any Play / seek / restart click unlocks audio for the rest of the session.
   const audioUnlockedRef = useRef(false);
   const [audioMuted, setAudioMuted] = useState(false);
   const [voiceUnlocked, setVoiceUnlocked] = useState(false);
+  const [voiceSyncKey, setVoiceSyncKey] = useState(0);
+  const sceneLocalSeconds = Math.max(0, elapsed - activeStart);
 
   // Script / saved VO tracks the active beat while the cut plays.
-  useSyncedSceneVoiceover(
-    active?.scene ?? null,
-    playing && voiceUnlocked,
-    Boolean(hasVoiceover),
-  );
+  useSyncedSceneVoiceover({
+    scene: active?.scene ?? null,
+    playing: playing && voiceUnlocked,
+    enabled: Boolean(hasVoiceover),
+    sceneLocalSeconds,
+    syncKey: voiceSyncKey,
+  });
 
   function unlockAudio() {
     audioUnlockedRef.current = true;
@@ -113,6 +115,10 @@ function PreviewPlayer({
     node.muted = false;
     // Duck the clip under narration when this beat has a script.
     node.volume = hasVoiceover ? Math.min(activeVolume, 0.2) : activeVolume;
+  }
+
+  function bumpVoiceSync() {
+    setVoiceSyncKey((value) => value + 1);
   }
 
   useEffect(() => {
@@ -171,6 +177,7 @@ function PreviewPlayer({
     unlockAudio();
     seek(seconds);
     setSeekTick((value) => value + 1);
+    bumpVoiceSync();
   }
 
   function onToggle() {
@@ -178,10 +185,12 @@ function PreviewPlayer({
     // unlock sound instead of pausing — otherwise it feels like "no audio".
     if (playing && (audioMuted || videoRef.current?.muted)) {
       unlockAudio();
+      bumpVoiceSync();
       void videoRef.current?.play().catch(() => undefined);
       return;
     }
     unlockAudio();
+    if (!playing) bumpVoiceSync();
     toggle();
   }
 
@@ -189,6 +198,7 @@ function PreviewPlayer({
     unlockAudio();
     restart();
     setSeekTick((value) => value + 1);
+    bumpVoiceSync();
   }
 
   useEffect(() => {

@@ -71,10 +71,10 @@ function SceneLayer({
             src={scene.clipUrl}
             style={mediaStyle}
             objectFit="cover"
-            // Duck clip audio under narration when this beat has a script.
+            // When a beat has a script, keep clip audio nearly silent so VO leads.
             volume={
               scene.finalScript.trim()
-                ? Math.min(Math.max(0, scene.volume / 100), 0.2)
+                ? Math.min(Math.max(0, scene.volume / 100), 0.08)
                 : Math.max(0, Math.min(1, scene.volume / 100))
             }
             playbackRate={scene.speed > 0 ? scene.speed : 1}

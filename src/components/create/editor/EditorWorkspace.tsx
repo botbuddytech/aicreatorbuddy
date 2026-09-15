@@ -49,18 +49,23 @@ export function EditorWorkspace() {
   const total = meta.durationInFrames / FACELESS_FPS;
   const active = activeSceneAt(project.scenes, elapsed);
   const [voiceUnlocked, setVoiceUnlocked] = useState(false);
+  const [voiceSyncKey, setVoiceSyncKey] = useState(0);
+  const sceneLocalSeconds = active ? Math.max(0, elapsed - active.start) : 0;
 
   const hasVoiceover =
     Boolean(active?.scene.finalScript.trim()) ||
     (active?.scene.voiceover.status === "ready" &&
       Boolean(active.scene.voiceover.audioUrl));
 
-  // Same mapping as Timeline preview: speak this beat's script while Remotion plays.
-  useSyncedSceneVoiceover(
-    active?.scene ?? null,
-    playing && voiceUnlocked,
-    Boolean(hasVoiceover),
-  );
+  // Same mapping as Timeline preview: speak this beat's script while Remotion plays,
+  // re-locking to the playhead on seek / play / scene changes.
+  useSyncedSceneVoiceover({
+    scene: active?.scene ?? null,
+    playing: playing && voiceUnlocked,
+    enabled: Boolean(hasVoiceover),
+    sceneLocalSeconds,
+    syncKey: voiceSyncKey,
+  });
 
   const selected =
     project.scenes.find((scene) => scene.id === selectedId) ?? project.scenes[0] ?? null;
@@ -178,6 +183,8 @@ export function EditorWorkspace() {
     playerRef.current?.seekTo(frame);
     setElapsed(clamped);
     if (clamped >= total) setPlaying(false);
+    // Realign narration to wherever the playhead landed.
+    if (voiceUnlocked) setVoiceSyncKey((value) => value + 1);
   }
 
   function togglePlay() {
@@ -186,11 +193,14 @@ export function EditorWorkspace() {
     // Play click is the user gesture speechSynthesis / VO audio need.
     setVoiceUnlocked(true);
     if (elapsed >= total - 0.05) {
+      setVoiceSyncKey((value) => value + 1);
       player.seekTo(0);
       setElapsed(0);
       player.play();
       return;
     }
+    // Only re-lock narration when starting playback, not when pausing.
+    if (!playing) setVoiceSyncKey((value) => value + 1);
     player.toggle();
   }
 
@@ -198,6 +208,7 @@ export function EditorWorkspace() {
     const player = playerRef.current;
     if (!player) return;
     setVoiceUnlocked(true);
+    setVoiceSyncKey((value) => value + 1);
     player.seekTo(0);
     setElapsed(0);
     player.play();
