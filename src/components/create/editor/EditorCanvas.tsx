@@ -1,16 +1,20 @@
 "use client";
 
-import { useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { PlaceholderImage } from "@/components/create/PlaceholderImage";
-import { visualLabel } from "@/components/create/editor/visualLabel";
-import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import {
-  FILTER_CSS,
-  aspectClassName,
-  sceneDuration,
-  type Scene,
-} from "@/lib/videoProject";
+  useRef,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import { Player, type PlayerRef } from "@remotion/player";
+import { useVideoProject } from "@/components/create/VideoProjectProvider";
+import { aspectClassName, sceneDuration, type Scene } from "@/lib/videoProject";
 import type { ActiveClip } from "@/components/create/useTimelinePlayback";
+import {
+  FacelessVideo,
+  FACELESS_FPS,
+  type FacelessVideoProps,
+} from "@/remotion";
 
 function clock(seconds: number) {
   const safe = Math.max(0, Math.round(seconds));
@@ -62,6 +66,11 @@ export function EditorCanvas({
   elapsed,
   total,
   playing,
+  playerRef,
+  inputProps,
+  durationInFrames,
+  compositionWidth,
+  compositionHeight,
   onToggle,
   onRestart,
   onSplit,
@@ -72,6 +81,11 @@ export function EditorCanvas({
   elapsed: number;
   total: number;
   playing: boolean;
+  playerRef: RefObject<PlayerRef | null>;
+  inputProps: FacelessVideoProps;
+  durationInFrames: number;
+  compositionWidth: number;
+  compositionHeight: number;
   onToggle: () => void;
   onRestart: () => void;
   onSplit: () => void;
@@ -80,14 +94,6 @@ export function EditorCanvas({
   const { project, dispatch } = useVideoProject();
   const scrubRef = useRef<HTMLDivElement>(null);
   const display = active?.scene ?? scene;
-  const overlay = display?.editing.textOverlay;
-  const overlayClass =
-    overlay?.position === "top"
-      ? "top-8"
-      : overlay?.position === "center"
-        ? "top-1/2 -translate-y-1/2"
-        : "bottom-14";
-  const thumb = project.thumbnails.find((item) => item.id === project.selectedThumbnailId);
   const progress = total > 0 ? Math.min(elapsed / total, 1) : 0;
   const playLabel = playing ? "Pause" : elapsed >= total && total > 0 ? "Replay" : "Play";
 
@@ -161,45 +167,24 @@ export function EditorCanvas({
               : `w-full max-w-3xl ${aspectClassName(project.summary.aspectRatio)}`
           }`}
         >
-          {display ? (
-            <div
-              className="absolute inset-0"
-              style={{ filter: FILTER_CSS[display.editing.filter] }}
-            >
-              {active?.index === 0 && thumb?.customUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={thumb.customUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <PlaceholderImage
-                  label={visualLabel(display)}
-                  className="h-full w-full rounded-none"
-                />
-              )}
-            </div>
-          ) : (
-            <div className="flex h-full items-center justify-center text-sm text-muted">
-              No clips yet
-            </div>
-          )}
-
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/25" />
-
-          {overlay?.text.trim() ? (
-            <p
-              className={`pointer-events-none absolute inset-x-4 text-center text-lg font-semibold text-white drop-shadow ${overlayClass}`}
-            >
-              {overlay.text}
-            </p>
-          ) : null}
-
-          {project.editor.captions && display?.finalScript.trim() ? (
-            <p className="pointer-events-none absolute inset-x-6 bottom-8 line-clamp-2 text-center text-sm font-medium text-white">
-              {display.finalScript}
-            </p>
-          ) : null}
+          <Player
+            ref={playerRef}
+            component={FacelessVideo}
+            inputProps={inputProps}
+            durationInFrames={durationInFrames}
+            compositionWidth={compositionWidth}
+            compositionHeight={compositionHeight}
+            fps={FACELESS_FPS}
+            controls={false}
+            clickToPlay={false}
+            doubleClickToFullscreen={false}
+            spaceKeyToPlayOrPause={false}
+            acknowledgeRemotionLicense
+            style={{ width: "100%", height: "100%" }}
+          />
 
           {display ? (
-            <div className="absolute left-2.5 top-2.5">
+            <div className="pointer-events-none absolute left-2.5 top-2.5 z-10">
               <span className="inline-flex items-center rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white/90 backdrop-blur-sm">
                 {String(display.order + 1).padStart(2, "0")} · {display.sectionLabel}
               </span>
@@ -221,7 +206,12 @@ export function EditorCanvas({
               <path d="M7 5h3.5v14H7V5zm6.5 0H17v14h-3.5V5z" />
             </svg>
           ) : (
-            <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] ml-0.5" fill="currentColor" aria-hidden="true">
+            <svg
+              viewBox="0 0 24 24"
+              className="ml-0.5 h-[18px] w-[18px]"
+              fill="currentColor"
+              aria-hidden="true"
+            >
               <path d="M8 5.5v13l11-6.5L8 5.5z" />
             </svg>
           )}

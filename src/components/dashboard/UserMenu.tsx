@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "nextjs-toploader/app";
+import { signOut, useSession } from "next-auth/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { demoProfile } from "@/lib/dashboardContent";
-import { clearDemoAuth } from "@/lib/demoAuth.client";
+import { initialsFromName } from "@/lib/auth/profile";
 
 const itemClass =
   "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-foreground hover:bg-white/5";
@@ -18,9 +18,13 @@ function MenuIcon({ children }: { children: ReactNode }) {
 }
 
 export function UserMenu() {
-  const router = useRouter();
+  const { data: session } = useSession();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+
+  const name = session?.user?.name || demoProfile.name;
+  const email = session?.user?.email || demoProfile.email;
+  const initials = initialsFromName(session?.user?.name, session?.user?.email);
 
   useEffect(() => {
     function onPointerDown(event: MouseEvent) {
@@ -38,9 +42,8 @@ export function UserMenu() {
   }, []);
 
   function logout() {
-    clearDemoAuth();
     setOpen(false);
-    router.push("/");
+    void signOut({ callbackUrl: "/" });
   }
 
   return (
@@ -55,7 +58,7 @@ export function UserMenu() {
           open ? "ring-2 ring-accent/40" : ""
         }`}
       >
-        {demoProfile.initials}
+        {initials}
       </button>
       {open ? (
         <div
@@ -64,10 +67,10 @@ export function UserMenu() {
         >
           <div className="flex flex-col items-center px-5 pt-5 pb-4 text-center">
             <span className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/20 text-lg font-bold text-accent">
-              {demoProfile.initials}
+              {initials}
             </span>
-            <p className="mt-3 text-base font-semibold text-foreground">{demoProfile.name}</p>
-            <p className="mt-0.5 w-full truncate text-sm text-foreground">{demoProfile.email}</p>
+            <p className="mt-3 text-base font-semibold text-foreground">{name}</p>
+            <p className="mt-0.5 w-full truncate text-sm text-foreground">{email}</p>
           </div>
           <div className="border-t border-white/12 p-1.5">
             <Link

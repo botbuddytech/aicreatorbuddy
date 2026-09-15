@@ -1,6 +1,6 @@
 "use client";
 
-import { EmptyState } from "@/components/ui/EmptyState";
+import { useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
 import { ActionButton } from "@/components/ui/ActionButton";
@@ -12,9 +12,23 @@ import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { scriptScoreHash, summaryPrompt } from "@/lib/mockAi";
 import { providersForStep, selectedTitle, summaryLengthMinutes } from "@/lib/videoProject";
 
+const SCRIPT_FILE_ACCEPT = ".txt,.md,text/plain";
+
+function isAllowedScriptFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  return (
+    file.type === "text/plain" ||
+    file.type === "text/markdown" ||
+    name.endsWith(".txt") ||
+    name.endsWith(".md")
+  );
+}
+
 export function ScriptStep() {
   const { project, dispatch } = useVideoProject();
   const { busy, error, generate: runGenerate } = usePipelineGeneration();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const provider = project.providerByStep.script ?? "chatgpt";
   const title = selectedTitle(project)?.text;
   const prompt = [summaryPrompt(project.summary), title ? `Selected title: ${title}` : ""]
@@ -56,12 +70,41 @@ export function ScriptStep() {
     if (insight) dispatch({ type: "SET_SCRIPT_INSIGHT", insight });
   }
 
+  function onUpload(file: File) {
+    setUploadError(null);
+    if (!isAllowedScriptFile(file)) {
+      setUploadError("Use a .txt or .md file.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = typeof reader.result === "string" ? reader.result : "";
+      if (!text.trim()) {
+        setUploadError("That file was empty.");
+        return;
+      }
+      if (
+        project.fullScript.trim() &&
+        !window.confirm("Replace the current script with this file?")
+      ) {
+        return;
+      }
+      dispatch({ type: "SET_SCRIPT", script: text });
+      setUploadError(null);
+    };
+    reader.onerror = () => {
+      setUploadError("Could not read that file.");
+    };
+    reader.readAsText(file);
+  }
+
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-border bg-surface p-5">
         <h3 className="font-display text-lg font-semibold text-foreground">Video script</h3>
         <p className="mt-1 text-sm text-muted">
-          One full draft first. Score it with VidIQ for hook, retention, keyword fit, and CTA before
+          Generate a draft, paste your own, or upload a .txt / .md file. Score it with VidIQ before
           you break it into scenes.
         </p>
         <div className="mt-4">
@@ -76,9 +119,23 @@ export function ScriptStep() {
             hasOutput={project.fullScript.length > 0}
             generateLabel="Generate script"
             regenerateLabel="Regenerate script"
-            error={error}
+            error={error ?? uploadError}
             extra={
               <>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept={SCRIPT_FILE_ACCEPT}
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) onUpload(file);
+                    event.target.value = "";
+                  }}
+                />
+                <ActionButton variant="secondary" onClick={() => fileRef.current?.click()}>
+                  Upload script
+                </ActionButton>
                 <LowEffortCheck scope="script" variant="button" />
                 <ActionButton
                   variant="secondary"
@@ -103,20 +160,16 @@ export function ScriptStep() {
 
       {busy === "script" ? (
         <Skeleton className="h-80" />
-      ) : project.fullScript ? (
+      ) : (
         <div className="rounded-2xl border border-border bg-surface p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">Draft</p>
           <Textarea
             className="mt-3 min-h-[28rem] font-mono text-xs"
             value={project.fullScript}
+            placeholder="Paste or type your full video script here…"
             onChange={(event) => dispatch({ type: "SET_SCRIPT", script: event.target.value })}
           />
         </div>
-      ) : (
-        <EmptyState
-          title="No script yet"
-          description="Generate a full draft from the introduction, then jump to Timeline to break it into scenes."
-        />
       )}
     </div>
   );

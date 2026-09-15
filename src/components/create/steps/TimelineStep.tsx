@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { GenerateBar } from "@/components/create/GenerateBar";
@@ -13,10 +13,14 @@ import { VideoPreviewModal } from "@/components/create/VideoPreviewModal";
 import { usePipelineGeneration } from "@/components/create/useGeneration";
 import { useVoiceoverPreview } from "@/components/create/useVoiceoverPreview";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
+import { buildClipPoster, clipKindFor } from "@/lib/clipPoster";
+import { pruneClips, putClip } from "@/lib/clipStore";
 import { mockGenerate, summaryPrompt } from "@/lib/mockAi";
 import { sceneVisualPreviewSrc } from "@/lib/sceneVisualImage";
+import { readProjectStore } from "@/lib/useVideoProjectDraft";
 import {
   buildScenePrompt,
+  createEmptyScene,
   formatTimecode,
   providersForStep,
   selectedTitle,
@@ -25,7 +29,13 @@ import {
   type VideoProject,
 } from "@/lib/videoProject";
 
-type PreviewTarget = { mode: "cut" } | { mode: "visual"; id: string };
+const CLIP_ACCEPT = "image/*,video/*";
+const MAX_CLIP_BYTES = 100 * 1024 * 1024;
+const DEFAULT_CLIP_SECONDS = 8;
+
+type PreviewTarget =
+  | { mode: "cut"; sceneId?: string }
+  | { mode: "visual"; id: string };
 
 function scriptPromptFor(scene: Scene, project: VideoProject) {
   return buildScenePrompt(
@@ -62,8 +72,22 @@ export function TimelineStep() {
   const [selectedId, setSelectedId] = useState(project.scenes[0]?.id ?? "");
   const [view, setView] = useState<"strip" | "chart">("chart");
   const [preview, setPreview] = useState<PreviewTarget | null>(null);
+  const clipsRef = useRef<HTMLInputElement>(null);
+  const [uploadingClips, setUploadingClips] = useState(false);
+  const [clipError, setClipError] = useState<string | null>(null);
   const provider = project.providerByStep.timeline ?? "chatgpt";
   const generateLocked = Boolean(busy);
+
+  // Drop blobs left behind by deleted scenes or drafts.
+  useEffect(() => {
+    const keep = new Set<string>();
+    for (const item of readProjectStore().projects) {
+      for (const scene of item.scenes) {
+        if (scene.visuals.uploadedClipId) keep.add(scene.visuals.uploadedClipId);
+      }
+    }
+    void pruneClips(keep);
+  }, []);
 
   const selected =
     project.scenes.find((scene) => scene.id === selectedId) ?? project.scenes[0] ?? null;
@@ -200,10 +224,73 @@ export function TimelineStep() {
     });
   }
 
+  async function uploadClips(files: File[]) {
+    setClipError(null);
+    const usable = files.filter((file) => file.size <= MAX_CLIP_BYTES);
+    if (usable.length === 0) {
+      setClipError("Clips must be under 100MB.");
+      return;
+    }
+
+    setUploadingClips(true);
+    try {
+      const added: Scene[] = [];
+      for (const file of usable) {
+        const clipId = await putClip(file);
+        if (!clipId) {
+          setClipError("Could not store those clips on this device.");
+          break;
+        }
+        const { poster, durationSeconds } = await buildClipPoster(file);
+        const scene = createEmptyScene(project.scenes.length + added.length, {
+          sectionLabel: file.name,
+        });
+        scene.visuals = {
+          ...scene.visuals,
+          uploadedClipId: clipId,
+          uploadedClipName: file.name,
+          uploadedClipKind: clipKindFor(file),
+          uploadedClipDurationSeconds: durationSeconds,
+          thumbnailUrl: poster,
+          description: file.name,
+          needsCustomFootage: true,
+        };
+        // Floor, never round: a scene must not open already longer than its source.
+        scene.editing.durationSeconds = durationSeconds
+          ? Math.max(1, Math.floor(durationSeconds * 10) / 10)
+          : DEFAULT_CLIP_SECONDS;
+        added.push(scene);
+      }
+
+      if (added.length > 0) {
+        dispatch({ type: "SET_SCENES", scenes: [...project.scenes, ...added] });
+        setSelectedId(added[0]?.id ?? "");
+        setView("chart");
+      }
+      if (usable.length < files.length) {
+        setClipError("Some clips were skipped — each must be under 100MB.");
+      }
+    } finally {
+      setUploadingClips(false);
+    }
+  }
+
   function previewVoiceover(id: string) {
     const scene = project.scenes.find((item) => item.id === id);
     if (!scene) return;
     voiceover.preview(scene);
+  }
+
+  function previewVisual(id: string) {
+    voiceover.stop();
+    const scene = project.scenes.find((item) => item.id === id);
+    // Uploaded video clips need the real player (with audio unlock). Still/image
+    // beats keep the lightweight visual modal.
+    if (scene?.visuals.uploadedClipKind === "video" && scene.visuals.uploadedClipId) {
+      setPreview({ mode: "cut", sceneId: id });
+      return;
+    }
+    setPreview({ mode: "visual", id });
   }
 
   const total = totalTimelineSeconds(project.scenes);
@@ -213,8 +300,8 @@ export function TimelineStep() {
       <div className="rounded-2xl border border-border bg-surface p-5">
         <h3 className="font-display text-lg font-semibold text-foreground">Timeline / scenes</h3>
         <p className="mt-1 text-sm text-muted">
-          Edit each beat’s script and visuals, generate with AI, then listen to a voiceover or
-          preview the still.
+          Edit each beat’s script and visuals, generate with AI, or upload your own clip and script
+          per beat, then listen to a voiceover or preview the still.
         </p>
         <div className="mt-4">
           <GenerateBar
@@ -242,12 +329,33 @@ export function TimelineStep() {
                 <ActionButton variant="secondary" onClick={() => dispatch({ type: "ADD_SCENE" })}>
                   Add scene
                 </ActionButton>
+                <input
+                  ref={clipsRef}
+                  type="file"
+                  accept={CLIP_ACCEPT}
+                  multiple
+                  className="hidden"
+                  onChange={(event) => {
+                    const files = Array.from(event.target.files ?? []);
+                    if (files.length > 0) void uploadClips(files);
+                    event.target.value = "";
+                  }}
+                />
+                <ActionButton
+                  variant="secondary"
+                  loading={uploadingClips}
+                  loadingLabel="Uploading…"
+                  onClick={() => clipsRef.current?.click()}
+                >
+                  Upload clips
+                </ActionButton>
                 <LowEffortCheck scope="timeline" variant="button" />
               </>
             }
           />
         </div>
       </div>
+      {clipError ? <p className="text-sm text-accent">{clipError}</p> : null}
       <LowEffortCheck scope="timeline" variant="report" />
 
       {project.scenes.length === 0 ? (
@@ -255,8 +363,8 @@ export function TimelineStep() {
           title="No scenes yet"
           description={
             project.fullScript
-              ? "Break the script into scenes, or break into a timed production chart."
-              : "Generate a script first, or break into a chart from the introduction."
+              ? "Break the script into scenes, break into a timed production chart, or upload your own clips."
+              : "Generate a script first, break into a chart from the introduction, or upload your own clips."
           }
         />
       ) : (
@@ -335,10 +443,7 @@ export function TimelineStep() {
               onGenerateScript={generateScript}
               onGenerateVisuals={generateVisuals}
               onPreviewScript={previewVoiceover}
-              onPreviewVisuals={(id) => {
-                voiceover.stop();
-                setPreview({ mode: "visual", id });
-              }}
+              onPreviewVisuals={previewVisual}
               scriptPlayingId={voiceover.playingId}
             />
           ) : (
@@ -413,10 +518,7 @@ export function TimelineStep() {
                 generateDisabled={generateLocked && busy !== `visuals:${selected.id}`}
                 previewDisabled={!sceneVisualPreviewSrc(selected.visuals)}
                 onGenerate={() => generateVisuals(selected.id)}
-                onPreview={() => {
-                  voiceover.stop();
-                  setPreview({ mode: "visual", id: selected.id });
-                }}
+                onPreview={() => previewVisual(selected.id)}
               />
             </div>
           ) : null}
@@ -425,6 +527,7 @@ export function TimelineStep() {
 
       <VideoPreviewModal
         open={preview?.mode === "cut"}
+        sceneId={preview?.mode === "cut" ? preview.sceneId : undefined}
         onClose={() => setPreview(null)}
       />
       <SceneVisualPreviewModal

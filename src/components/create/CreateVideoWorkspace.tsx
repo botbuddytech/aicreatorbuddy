@@ -15,11 +15,18 @@ import { RenderPanel } from "@/components/create/steps/RenderPanel";
 import { EditorStep } from "@/components/create/editor/EditorStep";
 import { ProjectNameHeading } from "@/components/create/ProjectNameHeading";
 import { STEPS, type StepId } from "@/lib/videoProject";
+import type { ConnectedChannel } from "@/lib/youtube/repo";
 
-function StepBody({ step }: { step: StepId }) {
+function StepBody({
+  step,
+  channels,
+}: {
+  step: StepId;
+  channels: ConnectedChannel[];
+}) {
   switch (step) {
     case "summary":
-      return <SummaryStep />;
+      return <SummaryStep channels={channels} />;
     case "title":
       return <TitleStep />;
     case "thumbnail":
@@ -37,7 +44,11 @@ function StepBody({ step }: { step: StepId }) {
   }
 }
 
-export function CreateVideoWorkspace() {
+export function CreateVideoWorkspace({
+  channels,
+}: {
+  channels: ConnectedChannel[];
+}) {
   const { project, savedAt, activeStep, setActiveStep } = useVideoProject();
   const step = activeStep;
   const index = STEPS.findIndex((item) => item.id === step);
@@ -81,7 +92,7 @@ export function CreateVideoWorkspace() {
             aria-labelledby={`create-tab-${step}`}
             className="min-w-0 space-y-6"
           >
-            <StepBody step={step} />
+            <StepBody step={step} channels={channels} />
           </div>
         </div>
       </div>

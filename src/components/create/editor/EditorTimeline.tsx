@@ -6,11 +6,18 @@ import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import {
   sceneDuration,
   sceneRuntimeSeconds,
-  sceneTimeRange,
+  sceneSourceSeconds,
   type Scene,
 } from "@/lib/videoProject";
 
 const GUTTER = "w-[4.75rem]";
+
+const MIN_CLIP_SECONDS = 1;
+
+/** Trims land on tenths so a slow drag still reads as a deliberate value. */
+function snapSeconds(seconds: number) {
+  return Math.round(seconds * 10) / 10;
+}
 
 function clock(seconds: number) {
   const safe = Math.max(0, Math.round(seconds));
@@ -85,19 +92,76 @@ export function EditorTimeline({
     window.addEventListener("pointerup", up);
   }
 
-  function trimScene(scene: Scene, clientX: number, trackWidth: number) {
+  /**
+   * Both edges are delta-based off the pointerdown position: the scale is frozen
+   * at drag start so the clip resizing (and shrinking `total`) can't feed back
+   * into the pixels-to-seconds mapping mid-drag.
+   */
+  function beginTrim(scene: Scene, edge: "start" | "end", event: ReactPointerEvent) {
+    event.stopPropagation();
+    event.preventDefault();
+    const trackWidth = trackRef.current?.getBoundingClientRect().width ?? 0;
     if (trackWidth <= 0 || total <= 0) return;
-    const runtime = sceneRuntimeSeconds(scene);
-    const range = sceneTimeRange(scenes, scene.order);
-    const endX = ((range.start + runtime) / total) * trackWidth;
-    const deltaPx = clientX - (trackRef.current?.getBoundingClientRect().left ?? 0) - endX;
-    const deltaSeconds = (deltaPx / trackWidth) * total * scene.editing.speed;
-    const next = Math.max(1, Math.round(sceneDuration(scene) + deltaSeconds));
-    dispatch({
-      type: "PATCH_SCENE",
-      id: scene.id,
-      patch: { editing: { durationSeconds: next } },
-    });
+
+    const originX = event.clientX;
+    const startDuration = sceneDuration(scene);
+    const startTrim = scene.editing.trimStartSeconds;
+    const source = sceneSourceSeconds(scene);
+    const speed = scene.editing.speed > 0 ? scene.editing.speed : 1;
+    // Timeline pixels are runtime seconds; the stored duration is source seconds.
+    const secondsPerPixel = (total / trackWidth) * speed;
+
+    const move = (moveEvent: PointerEvent) => {
+      const delta = (moveEvent.clientX - originX) * secondsPerPixel;
+      if (edge === "end") {
+        // The tail can never pass the end of the footage: what's left of the
+        // source after the in-point is the hard ceiling.
+        const maxDuration =
+          source === null ? Infinity : Math.max(MIN_CLIP_SECONDS, source - startTrim);
+        dispatch({
+          type: "PATCH_SCENE",
+          id: scene.id,
+          patch: {
+            editing: {
+              durationSeconds: snapSeconds(
+                Math.min(maxDuration, Math.max(MIN_CLIP_SECONDS, startDuration + delta)),
+              ),
+            },
+          },
+        });
+        return;
+      }
+      // Dragging the head moves the in-point and eats the same amount of duration,
+      // so later scenes never shift and no gap opens up.
+      const shift = Math.max(-startTrim, Math.min(startDuration - MIN_CLIP_SECONDS, delta));
+      dispatch({
+        type: "PATCH_SCENE",
+        id: scene.id,
+        patch: {
+          editing: {
+            trimStartSeconds: snapSeconds(startTrim + shift),
+            durationSeconds: snapSeconds(startDuration - shift),
+          },
+        },
+      });
+    };
+
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
+  function trimHandlers(scene: Scene) {
+    const source = sceneSourceSeconds(scene);
+    return {
+      onTrimStart: (event: ReactPointerEvent) => beginTrim(scene, "start", event),
+      onTrimEnd: (event: ReactPointerEvent) => beginTrim(scene, "end", event),
+      endLocked:
+        source !== null && sceneDuration(scene) + scene.editing.trimStartSeconds >= source - 0.05,
+    };
   }
 
   return (
@@ -166,6 +230,7 @@ export function EditorTimeline({
                   label={overlay ? overlay : "Text"}
                   duration={runtime}
                   onSelect={() => onSelect(scene.id)}
+                  {...trimHandlers(scene)}
                 />
               );
             })}
@@ -187,19 +252,9 @@ export function EditorTimeline({
                     tone="video"
                     label={`${String(scene.order + 1).padStart(2, "0")} ${scene.sectionLabel}`}
                     duration={runtime}
+                    trimmed={scene.editing.trimStartSeconds > 0}
                     onSelect={() => onSelect(scene.id)}
-                    onTrim={(event) => {
-                      event.stopPropagation();
-                      const width = trackRef.current?.getBoundingClientRect().width ?? 0;
-                      const move = (moveEvent: PointerEvent) =>
-                        trimScene(scene, moveEvent.clientX, width);
-                      const up = () => {
-                        window.removeEventListener("pointermove", move);
-                        window.removeEventListener("pointerup", up);
-                      };
-                      window.addEventListener("pointermove", move);
-                      window.addEventListener("pointerup", up);
-                    }}
+                    {...trimHandlers(scene)}
                   />
                   {next && scene.editing.transition !== "none" ? (
                     <span className="pointer-events-none absolute -right-2 top-1/2 z-10 -translate-y-1/2 rounded bg-chart-purple px-1 py-px text-[9px] font-bold uppercase text-white">
@@ -233,6 +288,7 @@ export function EditorTimeline({
                   duration={sceneRuntimeSeconds(scene)}
                   waveform
                   onSelect={() => onSelect(scene.id)}
+                  {...trimHandlers(scene)}
                 />
               ))
             )}
@@ -300,6 +356,38 @@ function TrackRow({
   );
 }
 
+function TrimHandle({
+  side,
+  locked = false,
+  onPointerDown,
+}: {
+  side: "left" | "right";
+  locked?: boolean;
+  onPointerDown: (event: ReactPointerEvent) => void;
+}) {
+  return (
+    <span
+      role="separator"
+      aria-label={
+        locked
+          ? "Clip end — no source footage left"
+          : side === "left"
+            ? "Trim clip start"
+            : "Trim clip end"
+      }
+      title={locked ? "End of the source clip" : undefined}
+      className={`group absolute inset-y-0 z-20 flex w-2.5 cursor-ew-resize items-center justify-center ${
+        side === "left" ? "left-0" : "right-0"
+      } ${locked ? "bg-chart-amber/30 hover:bg-chart-amber/45" : "bg-white/10 hover:bg-white/35"}`}
+      onPointerDown={onPointerDown}
+    >
+      <span
+        className={`h-2.5 w-px ${locked ? "bg-chart-amber" : "bg-white/50 group-hover:bg-white"}`}
+      />
+    </span>
+  );
+}
+
 function ClipBlock({
   flex,
   selected,
@@ -307,8 +395,11 @@ function ClipBlock({
   label,
   duration,
   waveform = false,
+  trimmed = false,
+  endLocked = false,
   onSelect,
-  onTrim,
+  onTrimStart,
+  onTrimEnd,
 }: {
   flex: number;
   selected: boolean;
@@ -316,8 +407,11 @@ function ClipBlock({
   label: string;
   duration: number;
   waveform?: boolean;
+  trimmed?: boolean;
+  endLocked?: boolean;
   onSelect: () => void;
-  onTrim?: (event: ReactPointerEvent) => void;
+  onTrimStart?: (event: ReactPointerEvent) => void;
+  onTrimEnd?: (event: ReactPointerEvent) => void;
 }) {
   const tones = {
     text: {
@@ -351,16 +445,15 @@ function ClipBlock({
     >
       <span className={`absolute inset-y-0 left-0 w-[3px] ${tones[tone].strip}`} />
       {waveform ? <Waveform className="absolute inset-y-1 left-3 right-1 opacity-70" /> : null}
-      <span className="relative z-10 flex h-full items-center justify-between gap-2 py-1 pl-2.5 pr-3">
-        <span className="min-w-0 truncate text-[11px] font-semibold text-foreground">{label}</span>
+      <span className="relative z-10 flex h-full items-center justify-between gap-2 py-1 pl-3.5 pr-3">
+        <span className="min-w-0 truncate text-[11px] font-semibold text-foreground">
+          {trimmed ? "✂ " : ""}
+          {label}
+        </span>
         <span className="shrink-0 font-mono text-[9px] tabular-nums text-muted">{clock(duration)}</span>
       </span>
-      {onTrim ? (
-        <span
-          className="absolute inset-y-0 right-0 z-20 w-2.5 cursor-ew-resize bg-white/15 hover:bg-white/30"
-          onPointerDown={onTrim}
-        />
-      ) : null}
+      {onTrimStart ? <TrimHandle side="left" onPointerDown={onTrimStart} /> : null}
+      {onTrimEnd ? <TrimHandle side="right" locked={endLocked} onPointerDown={onTrimEnd} /> : null}
     </button>
   );
 }

@@ -22,8 +22,8 @@ export function BottomCTA() {
             <Button href="/login" className="px-6 py-3 text-base">
               Log in
             </Button>
-            <Button href="#pricing" variant="secondary" className="px-6 py-3 text-base">
-              See plans
+            <Button href="/signup" variant="secondary" className="px-6 py-3 text-base">
+              Sign up
             </Button>
           </div>
         </div>

@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRouter } from "nextjs-toploader/app";
 import { memo, useEffect, useId, useState, useSyncExternalStore, type ReactNode } from "react";
+import { signOut, useSession } from "next-auth/react";
 import { useDashboardUi } from "@/components/dashboard/dashboardUi";
-import { clearDemoAuth } from "@/lib/demoAuth.client";
+import { initialsFromName } from "@/lib/auth/profile";
 import {
   SIDEBAR_COLLAPSED_KEY,
   demoProfile,
@@ -264,7 +264,7 @@ function writeCollapsed(next: boolean) {
 
 function SidebarNav() {
   const pathname = usePathname();
-  const router = useRouter();
+  const { data: session } = useSession();
   const ui = useDashboardUi();
   const mobileOpen = ui?.mobileNavOpen ?? false;
   const collapsed = useSyncExternalStore(
@@ -272,6 +272,9 @@ function SidebarNav() {
     getCollapsedSnapshot,
     getCollapsedServerSnapshot,
   );
+
+  const displayName = session?.user?.name || demoProfile.name;
+  const initials = initialsFromName(session?.user?.name, session?.user?.email);
 
   useEffect(() => {
     function syncSidebarWidth() {
@@ -291,8 +294,7 @@ function SidebarNav() {
   }
 
   function logout() {
-    clearDemoAuth();
-    router.push("/");
+    void signOut({ callbackUrl: "/" });
   }
 
   const widthClass = collapsed ? "w-16" : "w-64";
@@ -379,14 +381,14 @@ function SidebarNav() {
             }`}
           >
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20 text-[11px] font-bold text-accent">
-              {demoProfile.initials}
+              {initials}
             </span>
             {collapsed ? (
               <span className="sr-only">Profile settings</span>
             ) : (
               <span className="min-w-0 flex-1 text-left">
                 <span className={`block truncate font-semibold ${settingsActive ? "" : "text-foreground"}`}>
-                  {demoProfile.name}
+                  {displayName}
                 </span>
                 <span className="block truncate text-[11px] text-muted">Profile settings</span>
               </span>

@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { isDemoAuthed } from "@/lib/demoAuth.server";
+import { getSessionUser } from "@/lib/auth/session";
 import {
   OAUTH_STATE_COOKIE,
   getAuthUrl,
@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const origin = resolveOrigin(request);
 
-  if (!(await isDemoAuthed())) {
+  if (!(await getSessionUser())) {
     return NextResponse.redirect(`${origin}/login`);
   }
 

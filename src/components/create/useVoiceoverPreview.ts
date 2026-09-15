@@ -1,37 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  spokenVoiceoverText,
+  startSceneVoiceover,
+} from "@/lib/sceneVoiceover";
 import type { Scene } from "@/lib/videoProject";
 
-export function spokenVoiceoverText(script: string) {
-  return script
-    .replace(/\s*(?:→|->)\s*/g, ". ")
-    .replace(/\n+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+export { spokenVoiceoverText };
 
 export function useVoiceoverPreview() {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const playingIdRef = useRef<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const speakTimerRef = useRef<number | null>(null);
+  const stopRef = useRef<(() => void) | null>(null);
 
   const stop = useCallback(() => {
-    if (speakTimerRef.current != null) {
-      window.clearTimeout(speakTimerRef.current);
-      speakTimerRef.current = null;
-    }
-    if (typeof window !== "undefined") {
-      window.speechSynthesis?.cancel();
-    }
-    const audio = audioRef.current;
-    if (audio) {
-      audio.pause();
-      audio.removeAttribute("src");
-      audioRef.current = null;
-    }
+    stopRef.current?.();
+    stopRef.current = null;
     playingIdRef.current = null;
     setPlayingId(null);
   }, []);
@@ -39,7 +25,7 @@ export function useVoiceoverPreview() {
   useEffect(() => () => stop(), [stop]);
 
   const preview = useCallback(
-    (scene: Pick<Scene, "id" | "finalScript" | "voiceover">) => {
+    (scene: Pick<Scene, "id" | "finalScript" | "voiceover" | "editing">) => {
       setError(null);
       if (playingIdRef.current === scene.id) {
         stop();
@@ -47,49 +33,33 @@ export function useVoiceoverPreview() {
       }
       stop();
 
-      const audioUrl =
-        scene.voiceover.status === "ready" ? scene.voiceover.audioUrl : null;
-      if (audioUrl) {
-        const audio = new Audio(audioUrl);
-        audioRef.current = audio;
-        audio.onended = () => {
-          if (playingIdRef.current === scene.id) stop();
-        };
-        audio.onerror = () => {
-          setError("Could not play the saved voiceover.");
-          stop();
-        };
-        playingIdRef.current = scene.id;
-        setPlayingId(scene.id);
-        void audio.play().catch(() => {
-          setError("Could not play the saved voiceover.");
-          stop();
-        });
-        return;
-      }
-
       const text = spokenVoiceoverText(scene.finalScript);
-      if (!text) {
+      const hasFile =
+        scene.voiceover.status === "ready" && Boolean(scene.voiceover.audioUrl);
+      if (!hasFile && !text) {
         setError("Add a script before previewing the voiceover.");
         return;
       }
-      if (typeof window === "undefined" || !window.speechSynthesis) {
-        setError("This browser cannot play a spoken voiceover preview.");
-        return;
-      }
 
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.onend = () => {
-        if (playingIdRef.current === scene.id) stop();
-      };
-      utterance.onerror = () => {
-        if (playingIdRef.current === scene.id) stop();
-      };
       playingIdRef.current = scene.id;
       setPlayingId(scene.id);
-      speakTimerRef.current = window.setTimeout(() => {
-        window.speechSynthesis.speak(utterance);
-      }, 50);
+
+      const handle = startSceneVoiceover(scene, {
+        onEnded: () => {
+          if (playingIdRef.current === scene.id) stop();
+        },
+        onError: (message) => {
+          setError(message);
+          stop();
+        },
+      });
+
+      if (!handle) {
+        setPlayingId(null);
+        playingIdRef.current = null;
+        return;
+      }
+      stopRef.current = handle.stop;
     },
     [stop],
   );

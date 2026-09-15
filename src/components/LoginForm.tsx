@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import { signIn } from "next-auth/react";
 import { useRouter } from "nextjs-toploader/app";
 import { demoAuth } from "@/lib/dashboardContent";
-import { setDemoAuth } from "@/lib/demoAuth.client";
 import { BrandMark } from "@/components/ui/BrandMark";
 
 function Logo() {
@@ -23,7 +23,16 @@ function Logo() {
   );
 }
 
-export function LoginForm() {
+const fieldClass =
+  "glass-field w-full rounded-xl border border-white/12 px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted/70 focus:border-accent/60 focus:ring-2 focus:ring-accent/25";
+
+export function LoginForm({
+  googleEnabled,
+  nextPath = "/dashboard",
+}: {
+  googleEnabled: boolean;
+  nextPath?: string;
+}) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,25 +45,47 @@ export function LoginForm() {
     setError("");
   }
 
-  function continueDemo() {
-    setDemoAuth();
-    router.push("/dashboard");
+  async function continueDemo() {
+    setError("");
+    setLoading(true);
+    const result = await signIn("credentials", {
+      email: demoAuth.email,
+      password: demoAuth.password,
+      redirect: false,
+    });
+    if (result?.error) {
+      setLoading(false);
+      setError("Demo login failed. Run db:seed if the demo user is missing.");
+      return;
+    }
+    router.push(nextPath);
+    router.refresh();
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setLoading(true);
 
-    window.setTimeout(() => {
-      if (email === demoAuth.email && password === demoAuth.password) {
-        setDemoAuth();
-        router.push("/dashboard");
-        return;
-      }
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
+
+    if (result?.error) {
       setLoading(false);
       setError("Invalid email or password. Use the demo credentials below.");
-    }, 400);
+      return;
+    }
+
+    router.push(nextPath);
+    router.refresh();
+  }
+
+  function continueWithGoogle() {
+    if (!googleEnabled) return;
+    void signIn("google", { callbackUrl: nextPath });
   }
 
   return (
@@ -120,7 +151,7 @@ export function LoginForm() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 placeholder="you@studio.com"
-                className="glass-field w-full rounded-xl border border-white/12 px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted/70 focus:border-accent/60 focus:ring-2 focus:ring-accent/25"
+                className={fieldClass}
               />
             </div>
 
@@ -132,7 +163,7 @@ export function LoginForm() {
                 >
                   Password
                 </label>
-                <span className="text-xs text-muted">Demo login — no recovery needed</span>
+                <span className="text-xs text-muted">Demo login available</span>
               </div>
               <input
                 id="password"
@@ -143,7 +174,7 @@ export function LoginForm() {
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="••••••••"
-                className="glass-field w-full rounded-xl border border-white/12 px-3.5 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted/70 focus:border-accent/60 focus:ring-2 focus:ring-accent/25"
+                className={fieldClass}
               />
             </div>
 
@@ -171,12 +202,45 @@ export function LoginForm() {
           <button
             type="button"
             onClick={continueDemo}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-soft px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-white/5"
+            disabled={loading}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-soft px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-white/5 disabled:opacity-70"
           >
             Continue with demo account
           </button>
+
+          <button
+            type="button"
+            onClick={continueWithGoogle}
+            disabled={!googleEnabled || loading}
+            title={googleEnabled ? undefined : "Google sign-in coming soon"}
+            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-soft px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <GoogleIcon />
+            Continue with Google
+          </button>
+          {!googleEnabled ? (
+            <p className="mt-2 text-center text-xs text-muted">Google sign-in coming soon</p>
+          ) : null}
+
+          <p className="mt-6 text-center text-sm text-muted">
+            Don&apos;t have an account?{" "}
+            <Link href="/signup" className="font-semibold text-accent hover:text-accent-dark">
+              Sign up
+            </Link>
+          </p>
         </div>
       </main>
     </div>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
+      <path
+        fill="#EA4335"
+        d="M12 10.2v3.6h5.1c-.2 1.2-1.5 3.6-5.1 3.6-3.1 0-5.6-2.5-5.6-5.6S8.9 6.2 12 6.2c1.7 0 2.9.7 3.6 1.4l2.4-2.4C16.7 3.9 14.6 3 12 3 7 3 3 7 3 12s4 9 9 9c5.2 0 8.6-3.6 8.6-8.7 0-.6-.1-1-.1-1.5H12z"
+      />
+    </svg>
   );
 }

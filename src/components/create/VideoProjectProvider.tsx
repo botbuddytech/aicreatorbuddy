@@ -10,13 +10,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import { useVideoProjectDraft } from "@/lib/useVideoProjectDraft";
 import {
   applySummaryPatch,
   cloneScene,
   createEmptyScene,
+  DEFAULT_STEP,
   emptyEditorSettings,
   inferStepStatus,
+  isStepId,
   reindexScenes,
   sceneDuration,
   type AiProvider,
@@ -288,6 +291,8 @@ type ProjectContextValue = {
 
 const VideoProjectContext = createContext<ProjectContextValue | null>(null);
 
+const STEP_PARAM = "step";
+
 export function VideoProjectProvider({
   projectId,
   children,
@@ -303,12 +308,30 @@ export function VideoProjectProvider({
   const [project, dispatch] = useReducer(reducer, null);
   const [loadedId, setLoadedId] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [activeStep, setActiveStep] = useState<StepId>("summary");
+
+  // The URL owns the step, so refresh, back/forward and shared links all land
+  // on the same place. An unknown or missing value reads as the first step.
+  const searchParams = useSearchParams();
+  const stepParam = searchParams.get(STEP_PARAM);
+  const activeStep: StepId = isStepId(stepParam) ? stepParam : DEFAULT_STEP;
+
+  const setActiveStep = useCallback((step: StepId) => {
+    const params = new URLSearchParams(window.location.search);
+    if (step === DEFAULT_STEP) params.delete(STEP_PARAM);
+    else params.set(STEP_PARAM, step);
+    const query = params.toString();
+    // Native history keeps this workspace mounted; router.push would re-run the
+    // force-dynamic page (and its channel query) on every step change.
+    window.history.pushState(
+      null,
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}`,
+    );
+  }, []);
 
   if (hydrated && loadedId !== projectId) {
     setLoadedId(projectId);
     setPreviewOpen(false);
-    setActiveStep("summary");
     dispatch({ type: "HYDRATE", project: initial });
   }
 
@@ -322,7 +345,7 @@ export function VideoProjectProvider({
       project
         ? { project, savedAt, dispatch, previewOpen, setPreviewOpen, activeStep, setActiveStep }
         : null,
-    [project, savedAt, previewOpen, activeStep],
+    [project, savedAt, previewOpen, activeStep, setActiveStep],
   );
 
   if (!hydrated) return <>{fallback}</>;

@@ -1,12 +1,14 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Badge } from "@/components/ui/Badge";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { initialsFromName } from "@/lib/auth/profile";
 import { demoProfile, workspaceChannels } from "@/lib/dashboardContent";
 
 const TIMEZONES = [
@@ -18,7 +20,13 @@ const TIMEZONES = [
 ] as const;
 
 export default function SettingsPage() {
-  const [name, setName] = useState<string>(demoProfile.name);
+  const { data: session } = useSession();
+  const sessionName = session?.user?.name || demoProfile.name;
+  const sessionEmail = session?.user?.email || demoProfile.email;
+  const initials = initialsFromName(session?.user?.name, session?.user?.email);
+
+  const [nameDraft, setNameDraft] = useState<string | null>(null);
+  const name = nameDraft ?? sessionName;
   const [timezone, setTimezone] = useState<string>(demoProfile.timezone);
   const [defaultChannelId, setDefaultChannelId] = useState<string>(demoProfile.defaultChannelId);
   const [emailAlerts, setEmailAlerts] = useState(true);
@@ -31,26 +39,26 @@ export default function SettingsPage() {
     setMessage("");
     window.setTimeout(() => {
       setSaving(false);
-      setMessage("Saved — demo only. These settings are not persisted.");
+      setMessage("Saved — preferences are not persisted yet.");
     }, 600);
   }
 
   return (
     <>
-      <Topbar title="Profile settings" subtitle="Dummy account preferences for this demo workspace" />
+      <Topbar title="Profile settings" subtitle="Account preferences for your workspace" />
       <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
         <div className="rounded-2xl border border-border bg-surface p-5">
           <div className="flex flex-wrap items-center gap-4">
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/20 text-sm font-bold text-accent">
-              {demoProfile.initials}
+              {initials}
             </span>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-display text-lg font-semibold text-foreground">{demoProfile.name}</h2>
+                <h2 className="font-display text-lg font-semibold text-foreground">{sessionName}</h2>
                 <Badge tone="accent">{demoProfile.plan}</Badge>
                 <Badge>{demoProfile.role}</Badge>
               </div>
-              <p className="mt-1 text-sm text-muted">{demoProfile.email}</p>
+              <p className="mt-1 text-sm text-muted">{sessionEmail}</p>
             </div>
           </div>
         </div>
@@ -69,12 +77,12 @@ export default function SettingsPage() {
               <Input
                 id="profile-name"
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(event) => setNameDraft(event.target.value)}
                 autoComplete="name"
               />
             </Field>
-            <Field label="Email" htmlFor="profile-email" hint="Demo login cannot be changed.">
-              <Input id="profile-email" value={demoProfile.email} readOnly />
+            <Field label="Email" htmlFor="profile-email" hint="Email cannot be changed here.">
+              <Input id="profile-email" value={sessionEmail} readOnly />
             </Field>
             <Field label="Timezone" htmlFor="profile-timezone">
               <Select

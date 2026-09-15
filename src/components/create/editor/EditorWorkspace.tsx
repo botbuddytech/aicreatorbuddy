@@ -1,28 +1,56 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { PlayerRef } from "@remotion/player";
 import { EditorCanvas } from "@/components/create/editor/EditorCanvas";
 import { EditorInspector } from "@/components/create/editor/EditorInspector";
 import { EditorLeftRail, type EditorRailId } from "@/components/create/editor/EditorLeftRail";
 import { EditorTimeline } from "@/components/create/editor/EditorTimeline";
 import { ExportButton } from "@/components/create/ExportButton";
-import { useTimelinePlayback } from "@/components/create/useTimelinePlayback";
+import { activeSceneAt } from "@/components/create/useTimelinePlayback";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
+import { measureVideoSeconds } from "@/lib/clipPoster";
+import { useClipUrls } from "@/lib/useClipUrl";
 import { sceneDuration, sceneRuntimeSeconds } from "@/lib/videoProject";
+import {
+  buildInputProps,
+  FACELESS_FPS,
+  playerCompositionMeta,
+} from "@/remotion";
+
+function round1(seconds: number) {
+  return Math.round(seconds * 10) / 10;
+}
 
 export function EditorWorkspace() {
   const { project, dispatch } = useVideoProject();
   const [rail, setRail] = useState<EditorRailId>("assets");
   const [selectedId, setSelectedId] = useState(project.scenes[0]?.id ?? "");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const workspaceRef = useRef<HTMLDivElement>(null);
-  const playback = useTimelinePlayback(project.scenes);
+  const playerRef = useRef<PlayerRef>(null);
+
+  const clipIds = useMemo(
+    () =>
+      project.scenes
+        .map((scene) => scene.visuals.uploadedClipId)
+        .filter((id): id is string => Boolean(id)),
+    [project.scenes],
+  );
+  const clipUrls = useClipUrls(clipIds);
+  const inputProps = useMemo(
+    () => buildInputProps(project, clipUrls),
+    [project, clipUrls],
+  );
+  const meta = useMemo(() => playerCompositionMeta(inputProps), [inputProps]);
+  const total = meta.durationInFrames / FACELESS_FPS;
+  const active = activeSceneAt(project.scenes, elapsed);
 
   const selected =
     project.scenes.find((scene) => scene.id === selectedId) ?? project.scenes[0] ?? null;
 
-  // Adjust selection during render (instead of an effect) when the scene list
-  // or the active playback scene changes, per https://react.dev/learn/you-might-not-need-an-effect
   const [prevScenes, setPrevScenes] = useState(project.scenes);
   if (project.scenes !== prevScenes) {
     setPrevScenes(project.scenes);
@@ -31,7 +59,7 @@ export function EditorWorkspace() {
     }
   }
 
-  const activeSceneId = playback.playing ? playback.active?.scene.id : undefined;
+  const activeSceneId = playing ? active?.scene.id : undefined;
   const [prevActiveSceneId, setPrevActiveSceneId] = useState(activeSceneId);
   if (activeSceneId !== prevActiveSceneId) {
     setPrevActiveSceneId(activeSceneId);
@@ -39,6 +67,68 @@ export function EditorWorkspace() {
       setSelectedId(activeSceneId);
     }
   }
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player) return;
+
+    const onFrame = (event: { detail: { frame: number } }) => {
+      setElapsed(event.detail.frame / FACELESS_FPS);
+    };
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
+    const onEnded = () => setPlaying(false);
+
+    player.addEventListener("frameupdate", onFrame);
+    player.addEventListener("play", onPlay);
+    player.addEventListener("pause", onPause);
+    player.addEventListener("ended", onEnded);
+    return () => {
+      player.removeEventListener("frameupdate", onFrame);
+      player.removeEventListener("play", onPlay);
+      player.removeEventListener("pause", onPause);
+      player.removeEventListener("ended", onEnded);
+    };
+  }, [meta.durationInFrames, meta.compositionWidth, meta.compositionHeight]);
+
+  // Clips uploaded before source length was recorded have no trim ceiling yet.
+  // Measure them once, and pull back any scene already running past its footage.
+  const measuredRef = useRef(new Set<string>());
+  useEffect(() => {
+    for (const scene of project.scenes) {
+      const clipId = scene.visuals.uploadedClipId;
+      if (
+        !clipId ||
+        scene.visuals.uploadedClipKind !== "video" ||
+        scene.visuals.uploadedClipDurationSeconds !== null ||
+        measuredRef.current.has(clipId)
+      ) {
+        continue;
+      }
+      const url = clipUrls[clipId];
+      if (!url) continue;
+
+      measuredRef.current.add(clipId);
+      const sceneId = scene.id;
+      const trimStart = scene.editing.trimStartSeconds;
+      const duration = sceneDuration(scene);
+
+      void measureVideoSeconds(url).then((seconds) => {
+        if (!seconds) return;
+        const overrun = duration + trimStart > seconds;
+        dispatch({
+          type: "PATCH_SCENE",
+          id: sceneId,
+          patch: {
+            visuals: { uploadedClipDurationSeconds: seconds },
+            ...(overrun
+              ? { editing: { durationSeconds: Math.max(1, round1(seconds - trimStart)) } }
+              : {}),
+          },
+        });
+      });
+    }
+  }, [project.scenes, clipUrls, dispatch]);
 
   useEffect(() => {
     const node = workspaceRef.current;
@@ -68,11 +158,38 @@ export function EditorWorkspace() {
     }
   }
 
+  function seekSeconds(seconds: number) {
+    const clamped = Math.max(0, Math.min(total, seconds));
+    const frame = Math.round(clamped * FACELESS_FPS);
+    playerRef.current?.seekTo(frame);
+    setElapsed(clamped);
+    if (clamped >= total) setPlaying(false);
+  }
+
+  function togglePlay() {
+    const player = playerRef.current;
+    if (!player || total <= 0) return;
+    if (elapsed >= total - 0.05) {
+      player.seekTo(0);
+      setElapsed(0);
+      player.play();
+      return;
+    }
+    player.toggle();
+  }
+
+  function restart() {
+    const player = playerRef.current;
+    if (!player) return;
+    player.seekTo(0);
+    setElapsed(0);
+    player.play();
+  }
+
   function splitAtPlayhead() {
-    const active = playback.active;
     if (!active) return;
     const fraction =
-      active.duration > 0 ? (playback.elapsed - active.start) / active.duration : 0;
+      active.duration > 0 ? (elapsed - active.start) / active.duration : 0;
     const atSeconds = fraction * sceneDuration(active.scene);
     dispatch({ type: "SPLIT_SCENE", id: active.scene.id, atSeconds });
   }
@@ -108,22 +225,27 @@ export function EditorWorkspace() {
         <EditorLeftRail rail={rail} onRail={setRail} scene={selected} />
         <EditorCanvas
           scene={selected}
-          active={playback.active}
-          elapsed={playback.elapsed}
-          total={playback.total}
-          playing={playback.playing}
-          onToggle={playback.toggle}
-          onRestart={playback.restart}
+          active={active}
+          elapsed={elapsed}
+          total={total}
+          playing={playing}
+          playerRef={playerRef}
+          inputProps={inputProps}
+          durationInFrames={meta.durationInFrames}
+          compositionWidth={meta.compositionWidth}
+          compositionHeight={meta.compositionHeight}
+          onToggle={togglePlay}
+          onRestart={restart}
           onSplit={splitAtPlayhead}
-          onSeek={playback.seek}
+          onSeek={seekSeconds}
         />
         <EditorInspector scene={selected} />
       </div>
       <EditorTimeline
         scenes={project.scenes}
         selectedId={selected?.id ?? null}
-        elapsed={playback.elapsed}
-        total={playback.total}
+        elapsed={elapsed}
+        total={total}
         onSelect={(id) => {
           setSelectedId(id);
           const index = project.scenes.findIndex((scene) => scene.id === id);
@@ -133,9 +255,9 @@ export function EditorWorkspace() {
             const scene = project.scenes[i];
             if (scene) start += sceneRuntimeSeconds(scene);
           }
-          playback.seek(start);
+          seekSeconds(start);
         }}
-        onSeek={playback.seek}
+        onSeek={seekSeconds}
       />
     </div>
   );

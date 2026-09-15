@@ -60,7 +60,13 @@ function emitStoreChange() {
 }
 
 export function writeProjectStore(store: ProjectStore) {
-  window.localStorage.setItem(VIDEO_PROJECTS_KEY, JSON.stringify(store));
+  try {
+    window.localStorage.setItem(VIDEO_PROJECTS_KEY, JSON.stringify(store));
+  } catch (error) {
+    // Autosave runs from a timer, so an unreported throw here loses every later save.
+    console.error("[drafts] could not save to localStorage", error);
+    return;
+  }
   emitStoreChange();
 }
 

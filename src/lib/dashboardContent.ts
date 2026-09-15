@@ -1,4 +1,3 @@
-export const AUTH_STORAGE_KEY = "yb_auth";
 export const SIDEBAR_COLLAPSED_KEY = "yb_sidebar_collapsed";
 
 export const demoAuth = {

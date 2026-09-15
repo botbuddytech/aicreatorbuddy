@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
-import { isDemoAuthed } from "@/lib/demoAuth.server";
+import { getSessionUser } from "@/lib/auth/session";
 import { fetchMyChannel } from "@/lib/youtube/api";
 import {
   OAUTH_STATE_COOKIE,
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const origin = resolveOrigin(request);
 
-  if (!(await isDemoAuthed())) {
+  if (!(await getSessionUser())) {
     return NextResponse.redirect(`${origin}/login`);
   }
 

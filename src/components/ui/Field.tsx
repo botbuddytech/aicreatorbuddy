@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 type FieldProps = {
   label: string;
-  hint?: string;
+  hint?: ReactNode;
   error?: string;
   htmlFor?: string;
   children: ReactNode;

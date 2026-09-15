@@ -1,12 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
-import { workspaceChannels } from "@/lib/dashboardContent";
 import {
   createEmptyReference,
   FORMAT_LABELS,
@@ -16,16 +16,19 @@ import {
   type VideoFormat,
   type VideoIntent,
 } from "@/lib/videoProject";
+import type { ConnectedChannel } from "@/lib/youtube/repo";
 
 function looksLikeYouTube(url: string): boolean {
   return /youtu\.be\/|youtube\.com\//i.test(url.trim());
 }
 
-export function SummaryStep() {
+export function SummaryStep({ channels }: { channels: ConnectedChannel[] }) {
   const { project, dispatch } = useVideoProject();
   const { summary } = project;
   const lengthOptions = lengthOptionsForFormat(summary.format);
   const canAddReference = summary.references.length < MAX_REFERENCES;
+  const selectedStillConnected = channels.some((channel) => channel.id === project.channelId);
+  const channelValue = selectedStillConnected ? project.channelId : "";
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-5">
@@ -35,18 +38,34 @@ export function SummaryStep() {
       </p>
 
       <div className="mt-5 space-y-4">
-        <Field label="Target channel" htmlFor="summary-channel">
+        <Field
+          label="Target channel"
+          htmlFor="summary-channel"
+          hint={
+            channels.length === 0 ? (
+              <>
+                No channels connected yet.{" "}
+                <Link href="/dashboard/channels" className="font-semibold text-accent hover:text-accent-dark">
+                  Connect one
+                </Link>
+              </>
+            ) : undefined
+          }
+        >
           <Select
             id="summary-channel"
-            value={project.channelId}
+            value={channelValue}
+            disabled={channels.length === 0}
             onChange={(event) =>
               dispatch({ type: "SET_CHANNEL", channelId: event.target.value })
             }
           >
-            <option value="">Select a channel</option>
-            {workspaceChannels.map((channel) => (
+            <option value="">
+              {channels.length === 0 ? "Connect a channel first" : "Select a channel"}
+            </option>
+            {channels.map((channel) => (
               <option key={channel.id} value={channel.id}>
-                {channel.name}
+                {channel.title}
               </option>
             ))}
           </Select>

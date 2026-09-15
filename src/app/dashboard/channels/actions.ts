@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireDemoAuth } from "@/lib/demoAuth.server";
+import { requireUser } from "@/lib/auth/session";
 import { revokeToken } from "@/lib/youtube/oauth";
 import { getChannelVideos, type VideoPage } from "@/lib/youtube/repo";
 import { syncChannel } from "@/lib/youtube/sync";
@@ -17,7 +17,7 @@ function toError(error: unknown, fallback: string): string {
 
 export async function syncChannelAction(channelDbId: string): Promise<ActionResult> {
   try {
-    await requireDemoAuth();
+    await requireUser();
     const count = await syncChannel(channelDbId);
     revalidatePath("/dashboard/channels");
     return { ok: true, message: `Synced ${count} video${count === 1 ? "" : "s"}.` };
@@ -28,7 +28,7 @@ export async function syncChannelAction(channelDbId: string): Promise<ActionResu
 
 export async function disconnectChannelAction(channelDbId: string): Promise<ActionResult> {
   try {
-    await requireDemoAuth();
+    await requireUser();
     const channel = await prisma.youtubeChannel.findUnique({
       where: { id: channelDbId },
       select: { refreshTokenEnc: true },
@@ -48,6 +48,6 @@ export async function loadChannelVideosAction(
   channelDbId: string,
   cursor: string | null,
 ): Promise<VideoPage> {
-  await requireDemoAuth();
+  await requireUser();
   return getChannelVideos(channelDbId, { cursor, limit: 24 });
 }

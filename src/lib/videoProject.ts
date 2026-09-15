@@ -54,6 +54,8 @@ export type TextOverlay = {
 export type SceneEditing = {
   notes: string;
   durationSeconds: number | null;
+  /** In-point inside the source clip, in source seconds. Head trim, not a timeline offset. */
+  trimStartSeconds: number;
   transition: TransitionId;
   transitionSeconds: number;
   filter: FilterId;
@@ -118,6 +120,12 @@ export interface Scene {
     stockFootageId: string | null;
     thumbnailUrl: string | null;
     needsCustomFootage: boolean;
+    /** Key into the IndexedDB clip store; the blob never enters the draft. */
+    uploadedClipId: string | null;
+    uploadedClipName: string | null;
+    uploadedClipKind: "image" | "video" | null;
+    /** Real source length, so trimming can't run past the end of the footage. */
+    uploadedClipDurationSeconds: number | null;
   };
   editing: SceneEditing;
   status: SceneStatus;
@@ -281,6 +289,12 @@ export const STEPS: StepMeta[] = [
     providers: [],
   },
 ];
+
+export const DEFAULT_STEP: StepId = "summary";
+
+export function isStepId(value: unknown): value is StepId {
+  return typeof value === "string" && STEPS.some((step) => step.id === value);
+}
 
 export const MAX_REFERENCES = 5;
 
@@ -447,6 +461,7 @@ export function emptyEditing(): SceneEditing {
   return {
     notes: "",
     durationSeconds: null,
+    trimStartSeconds: 0,
     transition: "none",
     transitionSeconds: 0.5,
     filter: "none",
@@ -492,6 +507,10 @@ export function normalizeEditing(raw: unknown): SceneEditing {
       : source.durationSeconds === null
         ? null
         : base.durationSeconds;
+  const trimStartSeconds =
+    typeof source.trimStartSeconds === "number" && source.trimStartSeconds > 0
+      ? source.trimStartSeconds
+      : base.trimStartSeconds;
   const speed =
     typeof source.speed === "number" && source.speed > 0
       ? Math.min(2, Math.max(0.5, source.speed))
@@ -515,6 +534,7 @@ export function normalizeEditing(raw: unknown): SceneEditing {
   return {
     notes: typeof source.notes === "string" ? source.notes : "",
     durationSeconds,
+    trimStartSeconds,
     transition: isTransitionId(source.transition) ? source.transition : base.transition,
     transitionSeconds,
     filter: isFilterId(source.filter) ? source.filter : base.filter,
@@ -628,6 +648,18 @@ export function normalizeScenes(raw: unknown): Scene[] {
           stockFootageId: item.visuals?.stockFootageId ?? null,
           thumbnailUrl: item.visuals?.thumbnailUrl ?? null,
           needsCustomFootage: Boolean(item.visuals?.needsCustomFootage),
+          uploadedClipId: item.visuals?.uploadedClipId ?? null,
+          uploadedClipName: item.visuals?.uploadedClipName ?? null,
+          uploadedClipKind:
+            item.visuals?.uploadedClipKind === "video" ||
+            item.visuals?.uploadedClipKind === "image"
+              ? item.visuals.uploadedClipKind
+              : null,
+          uploadedClipDurationSeconds:
+            typeof item.visuals?.uploadedClipDurationSeconds === "number" &&
+            item.visuals.uploadedClipDurationSeconds > 0
+              ? item.visuals.uploadedClipDurationSeconds
+              : null,
         },
         editing: normalizeEditing(item.editing),
         status:
@@ -712,6 +744,10 @@ export function createEmptyScene(
       stockFootageId: null,
       thumbnailUrl: null,
       needsCustomFootage: false,
+      uploadedClipId: null,
+      uploadedClipName: null,
+      uploadedClipKind: null,
+      uploadedClipDurationSeconds: null,
     },
     editing: emptyEditing(),
     status: "draft",
@@ -895,6 +931,16 @@ export function sceneDuration(scene: Scene): number {
   return scene.editing.durationSeconds && scene.editing.durationSeconds > 0
     ? scene.editing.durationSeconds
     : 15;
+}
+
+/**
+ * Hard ceiling for `editing.durationSeconds`, in source seconds. Stills and
+ * placeholder scenes have no footage to run out of, so they return null.
+ */
+export function sceneSourceSeconds(scene: Scene): number | null {
+  if (scene.visuals.uploadedClipKind !== "video") return null;
+  const source = scene.visuals.uploadedClipDurationSeconds;
+  return source && source > 0 ? source : null;
 }
 
 export function sceneRuntimeSeconds(scene: Scene): number {
