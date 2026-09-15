@@ -10,6 +10,7 @@ import { ExportButton } from "@/components/create/ExportButton";
 import { activeSceneAt } from "@/components/create/useTimelinePlayback";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { measureVideoSeconds } from "@/lib/clipPoster";
+import { useSyncedSceneVoiceover } from "@/lib/sceneVoiceover";
 import { useClipUrls } from "@/lib/useClipUrl";
 import { sceneDuration, sceneRuntimeSeconds } from "@/lib/videoProject";
 import {
@@ -47,6 +48,19 @@ export function EditorWorkspace() {
   const meta = useMemo(() => playerCompositionMeta(inputProps), [inputProps]);
   const total = meta.durationInFrames / FACELESS_FPS;
   const active = activeSceneAt(project.scenes, elapsed);
+  const [voiceUnlocked, setVoiceUnlocked] = useState(false);
+
+  const hasVoiceover =
+    Boolean(active?.scene.finalScript.trim()) ||
+    (active?.scene.voiceover.status === "ready" &&
+      Boolean(active.scene.voiceover.audioUrl));
+
+  // Same mapping as Timeline preview: speak this beat's script while Remotion plays.
+  useSyncedSceneVoiceover(
+    active?.scene ?? null,
+    playing && voiceUnlocked,
+    Boolean(hasVoiceover),
+  );
 
   const selected =
     project.scenes.find((scene) => scene.id === selectedId) ?? project.scenes[0] ?? null;
@@ -169,6 +183,8 @@ export function EditorWorkspace() {
   function togglePlay() {
     const player = playerRef.current;
     if (!player || total <= 0) return;
+    // Play click is the user gesture speechSynthesis / VO audio need.
+    setVoiceUnlocked(true);
     if (elapsed >= total - 0.05) {
       player.seekTo(0);
       setElapsed(0);
@@ -181,6 +197,7 @@ export function EditorWorkspace() {
   function restart() {
     const player = playerRef.current;
     if (!player) return;
+    setVoiceUnlocked(true);
     player.seekTo(0);
     setElapsed(0);
     player.play();

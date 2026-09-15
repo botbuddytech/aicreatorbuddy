@@ -71,7 +71,12 @@ function SceneLayer({
             src={scene.clipUrl}
             style={mediaStyle}
             objectFit="cover"
-            volume={Math.max(0, Math.min(1, scene.volume / 100))}
+            // Duck clip audio under narration when this beat has a script.
+            volume={
+              scene.finalScript.trim()
+                ? Math.min(Math.max(0, scene.volume / 100), 0.2)
+                : Math.max(0, Math.min(1, scene.volume / 100))
+            }
             playbackRate={scene.speed > 0 ? scene.speed : 1}
             trimBefore={framesFromSeconds(scene.trimStartSeconds)}
           />
