@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { resolveVoice } from "@/lib/speechVoices";
 import type { Scene } from "@/lib/videoProject";
 
 export function spokenVoiceoverText(script: string) {
@@ -102,6 +103,11 @@ export function startSceneVoiceover(
   utterance.volume = volume;
   // Slightly brisk so short beats finish closer to the cut.
   utterance.rate = 1.05;
+  const voice = resolveVoice(scene.voiceover.voiceId);
+  if (voice) {
+    utterance.voice = voice;
+    utterance.lang = voice.lang;
+  }
   let stopped = false;
   const stop = () => {
     if (stopped) return;
@@ -160,7 +166,7 @@ export function useSyncedSceneVoiceover({
 
   const sceneId = scene?.id ?? null;
   const scriptKey = scene
-    ? `${scene.finalScript}\0${scene.voiceover.status}\0${scene.voiceover.audioUrl ?? ""}\0${scene.editing.volume}`
+    ? `${scene.finalScript}\0${scene.voiceover.status}\0${scene.voiceover.audioUrl ?? ""}\0${scene.voiceover.voiceId ?? ""}\0${scene.editing.volume}`
     : "";
 
   useEffect(() => {

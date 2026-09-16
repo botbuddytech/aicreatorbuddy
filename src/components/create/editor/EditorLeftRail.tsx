@@ -3,6 +3,7 @@
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
+import { VoicePicker } from "@/components/create/scene/VoicePicker";
 import { useVoiceoverPreview } from "@/components/create/useVoiceoverPreview";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { mockMusicTracks, mockStockClips } from "@/lib/mockAi";
@@ -197,14 +198,22 @@ export function EditorLeftRail({
                 Voiceover
               </p>
               {scene ? (
-                <ActionButton
-                  size="sm"
-                  variant="secondary"
-                  disabled={!scene.finalScript.trim()}
-                  onClick={() => voiceover.preview(scene)}
-                >
-                  {voiceover.playingId === scene.id ? "Stop" : "Listen"}
-                </ActionButton>
+                <div className="flex flex-wrap items-center gap-2">
+                  <ActionButton
+                    size="sm"
+                    variant="secondary"
+                    disabled={!scene.finalScript.trim()}
+                    onClick={() => voiceover.preview(scene)}
+                  >
+                    {voiceover.playingId === scene.id ? "Stop" : "Listen"}
+                  </ActionButton>
+                  <VoicePicker
+                    scene={scene}
+                    onVoiceChange={() => {
+                      if (voiceover.playingId === scene.id) voiceover.stop();
+                    }}
+                  />
+                </div>
               ) : (
                 <p className="text-xs text-muted">Select a clip first.</p>
               )}

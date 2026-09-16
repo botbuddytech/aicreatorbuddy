@@ -50,7 +50,7 @@ export async function signUp(
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
-    return { fieldErrors: { email: "An account with this email already exists." } };
+    return { fieldErrors: { email: "Email already used." } };
   }
 
   const passwordHash = await hashPassword(password);
@@ -68,7 +68,7 @@ export async function signUp(
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      return { fieldErrors: { email: "An account with this email already exists." } };
+      return { fieldErrors: { email: "Email already used." } };
     }
     return { error: "Could not create your account. Please try again." };
   }

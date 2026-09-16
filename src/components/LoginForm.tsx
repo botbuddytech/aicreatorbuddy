@@ -4,7 +4,6 @@ import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "nextjs-toploader/app";
-import { demoAuth } from "@/lib/dashboardContent";
 import { BrandMark } from "@/components/ui/BrandMark";
 
 function Logo() {
@@ -39,29 +38,6 @@ export function LoginForm({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function fillDemo() {
-    setEmail(demoAuth.email);
-    setPassword(demoAuth.password);
-    setError("");
-  }
-
-  async function continueDemo() {
-    setError("");
-    setLoading(true);
-    const result = await signIn("credentials", {
-      email: demoAuth.email,
-      password: demoAuth.password,
-      redirect: false,
-    });
-    if (result?.error) {
-      setLoading(false);
-      setError("Demo login failed. Run db:seed if the demo user is missing.");
-      return;
-    }
-    router.push(nextPath);
-    router.refresh();
-  }
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -75,7 +51,7 @@ export function LoginForm({
 
     if (result?.error) {
       setLoading(false);
-      setError("Invalid email or password. Use the demo credentials below.");
+      setError("Invalid email or password.");
       return;
     }
 
@@ -117,23 +93,6 @@ export function LoginForm({
             Manage every YouTube channel, teammate, and insight from one place.
           </p>
 
-          <div className="mt-5 rounded-xl border border-border bg-surface-soft px-3.5 py-3 text-sm text-muted">
-            <p className="font-medium text-foreground">Demo account</p>
-            <p className="mt-1">
-              Email: <span className="text-foreground">{demoAuth.email}</span>
-            </p>
-            <p>
-              Password: <span className="text-foreground">{demoAuth.password}</span>
-            </p>
-            <button
-              type="button"
-              onClick={fillDemo}
-              className="mt-2 text-xs font-semibold text-accent hover:text-accent-dark"
-            >
-              Use demo credentials
-            </button>
-          </div>
-
           <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
             <div>
               <label
@@ -163,7 +122,6 @@ export function LoginForm({
                 >
                   Password
                 </label>
-                <span className="text-xs text-muted">Demo login available</span>
               </div>
               <input
                 id="password"
@@ -201,19 +159,10 @@ export function LoginForm({
 
           <button
             type="button"
-            onClick={continueDemo}
-            disabled={loading}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-soft px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-white/5 disabled:opacity-70"
-          >
-            Continue with demo account
-          </button>
-
-          <button
-            type="button"
             onClick={continueWithGoogle}
             disabled={!googleEnabled || loading}
             title={googleEnabled ? undefined : "Google sign-in coming soon"}
-            className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-soft px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-soft px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <GoogleIcon />
             Continue with Google

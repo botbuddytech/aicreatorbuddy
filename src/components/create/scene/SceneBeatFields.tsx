@@ -4,6 +4,7 @@ import { useRef, useState, type SyntheticEvent } from "react";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Textarea } from "@/components/ui/Textarea";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
+import { VoicePicker } from "@/components/create/scene/VoicePicker";
 import { buildClipPoster, clipKindFor } from "@/lib/clipPoster";
 import { deleteClip, putClip } from "@/lib/clipStore";
 import type { Scene } from "@/lib/videoProject";
@@ -252,6 +253,14 @@ export function SceneBeatFields({
               : "Listen"
             : "Preview"}
         </ActionButton>
+        {column === "script" ? (
+          <VoicePicker
+            scene={scene}
+            onVoiceChange={() => {
+              if (previewing) onPreview();
+            }}
+          />
+        ) : null}
       </div>
 
       {uploadError ? <p className="text-[11px] text-accent">{uploadError}</p> : null}

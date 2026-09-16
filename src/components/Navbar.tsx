@@ -22,7 +22,7 @@ function Logo() {
   );
 }
 
-export function Navbar() {
+export function Navbar({ isLoggedIn = false }: { isLoggedIn?: boolean }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -43,12 +43,26 @@ export function Navbar() {
         </nav>
 
         <div className="hidden items-center gap-2 sm:flex">
-          <Button href="/signup" variant="ghost" className="px-3">
-            Sign up
-          </Button>
-          <Button href="/login" className="shadow-[0_10px_30px_-12px_rgba(255,59,78,0.75)]">
-            Log in
-          </Button>
+          {isLoggedIn ? (
+            <Button
+              href="/dashboard"
+              className="shadow-[0_10px_30px_-12px_rgba(255,59,78,0.75)]"
+            >
+              Dashboard
+            </Button>
+          ) : (
+            <>
+              <Button href="/signup" variant="ghost" className="px-3">
+                Sign up
+              </Button>
+              <Button
+                href="/login"
+                className="shadow-[0_10px_30px_-12px_rgba(255,59,78,0.75)]"
+              >
+                Log in
+              </Button>
+            </>
+          )}
         </div>
 
         <button
@@ -93,10 +107,16 @@ export function Navbar() {
             ))}
           </div>
           <div className="mt-4 flex flex-col gap-2">
-            <Button href="/signup" variant="secondary">
-              Sign up
-            </Button>
-            <Button href="/login">Log in</Button>
+            {isLoggedIn ? (
+              <Button href="/dashboard">Dashboard</Button>
+            ) : (
+              <>
+                <Button href="/signup" variant="secondary">
+                  Sign up
+                </Button>
+                <Button href="/login">Log in</Button>
+              </>
+            )}
           </div>
         </div>
       ) : null}

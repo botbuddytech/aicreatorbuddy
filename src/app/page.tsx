@@ -13,6 +13,7 @@ import { Pricing } from "@/components/Pricing";
 import { FAQ } from "@/components/FAQ";
 import { BottomCTA } from "@/components/BottomCTA";
 import { Footer } from "@/components/Footer";
+import { auth } from "@/lib/auth";
 import { getLandingJsonLd, jsonLdScript, siteConfig } from "@/lib/seo";
 
 export const metadata: Metadata = {
@@ -26,7 +27,8 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth();
   const jsonLd = getLandingJsonLd();
 
   return (
@@ -41,7 +43,7 @@ export default function Home() {
       >
         Skip to main content
       </a>
-      <Navbar />
+      <Navbar isLoggedIn={Boolean(session?.user)} />
       <main id="main-content" className="flex-1">
         <Hero />
         <ResultsStrip />
