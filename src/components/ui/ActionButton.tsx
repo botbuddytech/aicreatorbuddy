@@ -41,7 +41,15 @@ export function ActionButton({
       className={`inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-60 ${variants[variant]} ${sizes[size]} ${className}`}
       {...rest}
     >
-      {loading ? (loadingLabel ?? "Working…") : children}
+      {loading ? (
+        <>
+          <span
+            className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-r-transparent"
+            aria-hidden
+          />
+          {loadingLabel ?? "Working…"}
+        </>
+      ) : children}
     </button>
   );
 }

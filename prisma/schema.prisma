@@ -13,18 +13,76 @@ enum ChannelConnectionStatus {
   REVOKED
 }
 
+enum VideoSessionStatus {
+  DRAFT
+  IN_PROGRESS
+  RENDERED
+  EXPORTED
+  ABANDONED
+}
+
+enum CreateStep {
+  SUMMARY
+  TITLE
+  THUMBNAIL
+  SCRIPT
+  TIMELINE
+  DESCRIPTION
+  RENDER
+  EDITOR
+}
+
+enum StepState {
+  NOT_STARTED
+  DRAFT
+  GENERATED
+  APPROVED
+}
+
+enum VideoAssetKind {
+  UPLOADED_CLIP
+  AI_IMAGE
+  VOICEOVER
+  CUSTOM_THUMBNAIL
+  STOCK
+}
+
+enum VideoAssetSource {
+  MANUAL_UPLOAD
+  AI_GENERATED
+  STOCK
+  EXTERNAL_URL
+}
+
+enum VideoExportStatus {
+  STARTED
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum ReferenceTranscriptStatus {
+  EMPTY
+  FETCHING
+  READY
+  FAILED
+}
+
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  passwordHash  String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  accounts      Account[]
-  sessions      Session[]
+  id              String           @id @default(cuid())
+  name            String?
+  email           String           @unique
+  emailVerified   DateTime?
+  image           String?
+  passwordHash    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  accounts        Account[]
+  sessions        Session[]
   youtubeChannels YoutubeChannel[]
+  channelShares   ChannelShare[]   @relation("ChannelShareMember")
+  channelSharesSent ChannelShare[] @relation("ChannelShareInviter")
+  videoSessions   VideoSession[]
 }
 
 model Account {
@@ -64,38 +122,58 @@ model VerificationToken {
 /// One connected YouTube channel. Each row owns its own OAuth tokens because
 /// Google scopes a token to the account/brand channel chosen on the consent screen.
 model YoutubeChannel {
-  id                String                  @id @default(cuid())
-  userId            String
-  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  channelId         String                  // "UC..."
-  title             String
-  customUrl         String?
-  thumbnailUrl      String?
-  subscriberCount   BigInt                  @default(0)
+  id                    String                  @id @default(cuid())
+  userId                String
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channelId             String // "UC..."
+  title                 String
+  customUrl             String?
+  thumbnailUrl          String?
+  subscriberCount       BigInt                  @default(0)
   /// True when the channel hides its subscriber count; subscriberCount is then unreliable.
-  hiddenSubscriberCount Boolean             @default(false)
-  viewCount         BigInt                  @default(0)
+  hiddenSubscriberCount Boolean                 @default(false)
+  viewCount             BigInt                  @default(0)
   /// YouTube reports public videos only, so this can be lower than the synced upload count.
-  videoCount        Int                     @default(0)
-  uploadsPlaylistId String
-  googleEmail       String?
-  scope             String
-  accessTokenEnc    String
-  refreshTokenEnc   String
-  tokenExpiresAt    DateTime
-  status            ChannelConnectionStatus @default(ACTIVE)
-  lastSyncedAt      DateTime?
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
-  videos            YoutubeVideo[]
+  videoCount            Int                     @default(0)
+  uploadsPlaylistId     String
+  googleEmail           String?
+  scope                 String
+  accessTokenEnc        String
+  refreshTokenEnc       String
+  tokenExpiresAt        DateTime
+  status                ChannelConnectionStatus @default(ACTIVE)
+  lastSyncedAt          DateTime?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  videos                YoutubeVideo[]
+  videoSessions         VideoSession[]
+  shares                ChannelShare[]
 
   @@unique([userId, channelId])
   @@index([userId])
 }
 
+model ChannelShare {
+  id          String         @id @default(cuid())
+  channelId   String
+  channel     YoutubeChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  /// Normalized lowercase invite address; the grant may exist before the account does.
+  email       String
+  userId      String?
+  user        User?          @relation("ChannelShareMember", fields: [userId], references: [id], onDelete: Cascade)
+  invitedById String
+  invitedBy   User           @relation("ChannelShareInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+  createdAt   DateTime       @default(now())
+  acceptedAt  DateTime?
+
+  @@unique([channelId, email])
+  @@index([userId])
+  @@index([email])
+}
+
 model YoutubeVideo {
   id            String         @id @default(cuid())
-  videoId       String         // YouTube video id
+  videoId       String // YouTube video id
   channelId     String
   channel       YoutubeChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
   title         String
@@ -113,4 +191,212 @@ model YoutubeVideo {
 
   @@unique([channelId, videoId])
   @@index([channelId, publishedAt(sort: Desc)])
+}
+
+model VideoSession {
+  id                 String                @id
+  userId             String
+  workspaceId        String                @default("default")
+  name               String                @default("Untitled video")
+  status             VideoSessionStatus    @default(DRAFT)
+  currentStep        CreateStep            @default(SUMMARY)
+  channelId          String?
+  channelTitle       String?
+  topic              String                @default("")
+  format             String                @default("long-form")
+  aspectRatio        String                @default("16:9")
+  intent             String                @default("educational")
+  targetDurationSec  Int                   @default(480)
+  referenceCount     Int                   @default(0)
+  apiCallCount       Int                   @default(0)
+  generationCount    Int                   @default(0)
+  regenerateCount    Int                   @default(0)
+  manualClipCount    Int                   @default(0)
+  aiVisualCount      Int                   @default(0)
+  voiceoverCount     Int                   @default(0)
+  sceneCount         Int                   @default(0)
+  approvedStepCount  Int                   @default(0)
+  exportAttemptCount Int                   @default(0)
+  exportSuccessCount Int                   @default(0)
+  timelineSeconds    Int                   @default(0)
+  estimatedCostUsd   Decimal               @default(0) @db.Decimal(12, 6)
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  lastActiveAt       DateTime              @default(now())
+  renderedAt         DateTime?
+  firstExportedAt    DateTime?
+  deletedAt          DateTime?
+  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel            YoutubeChannel?       @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  steps              VideoSessionStep[]
+  events             VideoSessionEvent[]
+  apiCalls           VideoSessionApiCall[]
+  assets             VideoSessionAsset[]
+  scenes             VideoSessionScene[]
+  exports            VideoSessionExport[]
+  checks             VideoSessionCheck[]
+  references         VideoSessionReference[]
+
+  @@index([userId, lastActiveAt(sort: Desc)])
+  @@index([channelId])
+  @@index([status])
+}
+
+model VideoSessionStep {
+  id               String       @id @default(cuid())
+  sessionId        String
+  step             CreateStep
+  state            StepState    @default(NOT_STARTED)
+  provider         String?
+  data             Json         @default("{}")
+  visitCount       Int          @default(0)
+  generationCount  Int          @default(0)
+  editCount        Int          @default(0)
+  apiCallCount     Int          @default(0)
+  timeSpentMs      Int          @default(0)
+  enteredAt        DateTime?
+  firstGeneratedAt DateTime?
+  approvedAt       DateTime?
+  updatedAt        DateTime     @updatedAt
+  session          VideoSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, step])
+}
+
+model VideoSessionEvent {
+  id            String       @id @default(cuid())
+  sessionId     String
+  step          CreateStep?
+  type          String
+  at            DateTime
+  sequence      Int
+  payload       Json         @default("{}")
+  clientEventId String       @unique
+  session       VideoSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, at])
+  @@index([sessionId, sequence])
+}
+
+model VideoSessionApiCall {
+  id           String       @id @default(cuid())
+  sessionId    String
+  step         CreateStep
+  tool         String
+  kind         String
+  estimatedUsd Decimal      @default(0) @db.Decimal(12, 6)
+  ok           Boolean      @default(true)
+  latencyMs    Int?
+  at           DateTime
+  clientCallId String       @unique
+  session      VideoSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, at])
+}
+
+model VideoSessionAsset {
+  id          String           @id @default(cuid())
+  sessionId   String
+  sceneKey    String?
+  kind        VideoAssetKind
+  source      VideoAssetSource
+  addedAtStep CreateStep
+  fileName    String?
+  mimeType    String?
+  sizeBytes   Int?
+  durationSec Float?
+  localClipId String?
+  storageUrl  String?
+  addedAt     DateTime         @default(now())
+  removedAt   DateTime?
+  session     VideoSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, localClipId])
+  @@index([sessionId, addedAt])
+}
+
+model VideoSessionScene {
+  id           String       @id @default(cuid())
+  sessionId    String
+  sceneKey     String
+  order        Int
+  sectionLabel String
+  status       String
+  durationSec  Float
+  trimStartSec Float
+  transition   String
+  filter       String
+  speed        Float
+  volume       Int
+  hasClip      Boolean
+  hasVoiceover Boolean
+  wordCount    Int
+  session      VideoSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, sceneKey])
+  @@index([sessionId, order])
+}
+
+model VideoSessionExport {
+  id           String            @id
+  sessionId    String
+  attempt      Int
+  status       VideoExportStatus
+  fileName     String?
+  format       String
+  aspectRatio  String
+  resolution   String
+  runtimeSec   Float
+  sceneCount   Int
+  durationMs   Int?
+  errorMessage String?
+  startedAt    DateTime
+  finishedAt   DateTime?
+  session      VideoSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, startedAt])
+}
+
+model VideoSessionCheck {
+  id         String       @id @default(cuid())
+  sessionId  String
+  scope      String
+  verdict    String
+  score      Int
+  sourceHash String
+  findings   Json         @default("[]")
+  checkedAt  DateTime
+  session    VideoSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, scope, sourceHash])
+  @@index([sessionId, checkedAt])
+}
+
+model VideoSessionReference {
+  id           String                    @id @default(cuid())
+  sessionId    String
+  /// Client-side ReferenceVideo.id, stable across snapshot syncs.
+  referenceKey String
+  order        Int                       @default(0)
+  url          String                    @default("")
+  videoId      String?
+  status       ReferenceTranscriptStatus @default(EMPTY)
+  source       String                    @default("manual")
+  lang         String?
+  transcript   String                    @default("")
+  /// [{ text, offsetMs, durationMs }] kept server-side for later scene alignment.
+  segments     Json                      @default("[]")
+  charCount    Int                       @default(0)
+  wordCount    Int                       @default(0)
+  durationSec  Float?
+  errorCode    String?
+  errorMessage String?
+  fetchedAt    DateTime?
+  removedAt    DateTime?
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  session      VideoSession              @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, referenceKey])
+  @@index([sessionId, order])
 }

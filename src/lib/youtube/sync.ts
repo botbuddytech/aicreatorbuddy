@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import type { SessionUser } from "@/lib/auth/session";
+import { requireChannelAccess } from "@/lib/youtube/access";
 import { fetchAllUploads, fetchMyChannel } from "@/lib/youtube/api";
 import { getAuthedClientForChannel } from "@/lib/youtube/oauth";
 
@@ -7,14 +9,13 @@ const UPSERT_CHUNK = 20;
 /** Refresh channel stats and upsert every upload. Returns the number of videos synced. */
 export async function syncChannel({
   channelDbId,
-  userId,
+  user,
 }: {
   channelDbId: string;
-  userId: string;
+  user: SessionUser;
 }): Promise<number> {
-  const channel = await prisma.youtubeChannel.findFirstOrThrow({
-    where: { id: channelDbId, userId },
-  });
+  await requireChannelAccess(user, channelDbId);
+  const channel = await prisma.youtubeChannel.findUniqueOrThrow({ where: { id: channelDbId } });
   const auth = await getAuthedClientForChannel(channel);
 
   const fresh = await fetchMyChannel(auth);

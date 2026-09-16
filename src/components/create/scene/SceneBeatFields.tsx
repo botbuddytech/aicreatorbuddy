@@ -7,6 +7,7 @@ import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { VoicePicker } from "@/components/create/scene/VoicePicker";
 import { buildClipPoster, clipKindFor } from "@/lib/clipPoster";
 import { deleteClip, putClip } from "@/lib/clipStore";
+import { trackSessionEvent } from "@/lib/session/telemetry";
 import type { Scene } from "@/lib/videoProject";
 
 const MAX_SCRIPT_BYTES = 1024 * 1024;
@@ -45,7 +46,7 @@ export function SceneBeatFields({
   onGenerate: () => void;
   onPreview: () => void;
 }) {
-  const { dispatch } = useVideoProject();
+  const { project, dispatch } = useVideoProject();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -119,6 +120,18 @@ export function SceneBeatFields({
               : scene.editing.durationSeconds,
           },
           status: "draft",
+        },
+      });
+      trackSessionEvent(project.id, {
+        type: "asset.clip_added",
+        step: "timeline",
+        payload: {
+          sceneKey: scene.id,
+          localClipId: clipId,
+          fileName: file.name,
+          mimeType: file.type || null,
+          sizeBytes: file.size,
+          durationSec: durationSeconds,
         },
       });
       if (previous) await deleteClip(previous);

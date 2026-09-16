@@ -5,6 +5,7 @@ import { ActionButton } from "@/components/ui/ActionButton";
 import { Modal } from "@/components/ui/Modal";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { exportProjectWithRemotion } from "@/lib/exportRemotion";
+import { trackSessionEvent } from "@/lib/session/telemetry";
 import {
   FORMAT_LABELS,
   formatTimecode,
@@ -27,6 +28,8 @@ export function ExportButton({
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const exportRef = useRef<{ id: string; attempt: number; startedAt: string } | null>(null);
+  const attemptRef = useRef(0);
 
   const canExport = project.scenes.length > 0;
   const exported = Boolean(project.editor.exportedAt);
@@ -52,6 +55,27 @@ export function ExportButton({
     setError(null);
     setProgress(0);
     setFileName(null);
+    const exportRun = {
+      id: crypto.randomUUID(),
+      attempt: ++attemptRef.current,
+      startedAt: new Date().toISOString(),
+    };
+    exportRef.current = exportRun;
+    const exportPayload = {
+      exportId: exportRun.id,
+      attempt: exportRun.attempt,
+      startedAt: exportRun.startedAt,
+      format: project.summary.format,
+      aspectRatio: project.summary.aspectRatio,
+      resolution,
+      runtimeSec: totalTimelineSeconds(project.scenes),
+      sceneCount: project.scenes.length,
+    };
+    trackSessionEvent(project.id, {
+      type: "export.started",
+      step: "editor",
+      payload: exportPayload,
+    });
 
     try {
       const result = await exportProjectWithRemotion(project, {
@@ -62,22 +86,60 @@ export function ExportButton({
         type: "UPDATE_EDITOR",
         patch: { exportedAt: new Date().toISOString() },
       });
+      trackSessionEvent(project.id, {
+        type: "export.succeeded",
+        step: "editor",
+        payload: {
+          ...exportPayload,
+          fileName: result.fileName,
+          durationMs: Date.now() - new Date(exportRun.startedAt).getTime(),
+        },
+      });
       setFileName(result.fileName);
       setOpen(true);
     } catch (err) {
       if (controller.signal.aborted) return;
       const message =
         err instanceof Error ? err.message : "Export failed. Try Chrome or Firefox.";
+      trackSessionEvent(project.id, {
+        type: "export.failed",
+        step: "editor",
+        payload: {
+          ...exportPayload,
+          errorMessage: message,
+          durationMs: Date.now() - new Date(exportRun.startedAt).getTime(),
+        },
+      });
       setError(message);
       setOpen(true);
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
+      if (exportRef.current?.id === exportRun.id) exportRef.current = null;
       setBusy(false);
       setProgress(0);
     }
   }
 
   function onCancel() {
+    const active = exportRef.current;
+    if (active) {
+      trackSessionEvent(project.id, {
+        type: "export.cancelled",
+        step: "editor",
+        payload: {
+          exportId: active.id,
+          attempt: active.attempt,
+          startedAt: active.startedAt,
+          format: project.summary.format,
+          aspectRatio: project.summary.aspectRatio,
+          resolution,
+          runtimeSec: totalTimelineSeconds(project.scenes),
+          sceneCount: project.scenes.length,
+          durationMs: Date.now() - new Date(active.startedAt).getTime(),
+        },
+      });
+      exportRef.current = null;
+    }
     abortRef.current?.abort();
     abortRef.current = null;
     setBusy(false);

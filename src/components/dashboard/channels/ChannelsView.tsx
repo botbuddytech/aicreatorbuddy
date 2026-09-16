@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "nextjs-toploader/app";
 import { ChannelCard } from "@/components/dashboard/ChannelCard";
 import { ChannelVideosPanel } from "@/components/dashboard/channels/ChannelVideosPanel";
+import { ShareChannelModal } from "@/components/dashboard/channels/ShareChannelModal";
 import type { ConnectedChannel, VideoPage } from "@/lib/youtube/repo";
 import { loadChannelVideosAction } from "@/app/dashboard/channels/actions";
 
@@ -21,9 +22,13 @@ export function ChannelsView({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [videoPage, setVideoPage] = useState<VideoPage | null>(null);
   const [loadingVideos, setLoadingVideos] = useState(false);
+  const [accessChannelId, setAccessChannelId] = useState<string | null>(null);
   const requestRef = useRef(0);
 
   const selected = channels.find((c) => c.id === selectedId) ?? null;
+  const accessChannel = channels.find((c) => c.id === accessChannelId && c.isOwner) ?? null;
+  const ownedChannels = channels.filter((channel) => channel.isOwner);
+  const sharedChannels = channels.filter((channel) => !channel.isOwner);
 
   function openChannel(id: string) {
     const requestId = ++requestRef.current;
@@ -62,10 +67,10 @@ export function ChannelsView({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-medium text-foreground">
-            {channels.length} connected channel{channels.length === 1 ? "" : "s"}
+            {channels.length} available channel{channels.length === 1 ? "" : "s"}
           </p>
           <p className="text-xs text-muted">
-            Each channel signs in with its own Google account. Add as many as you need.
+            {ownedChannels.length} yours · {sharedChannels.length} shared with you
           </p>
         </div>
         <a
@@ -107,23 +112,67 @@ export function ChannelsView({
             channel={selected}
             initialPage={videoPage}
             onBack={closeChannel}
+            onManageAccess={
+              selected.isOwner ? () => setAccessChannelId(selected.id) : undefined
+            }
           />
         )
       ) : channels.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {channels.map((channel) => (
-            <ChannelCard
-              key={channel.id}
-              channel={channel}
-              onOpenVideos={() => openChannel(channel.id)}
-              onNotice={setNotice}
-            />
-          ))}
-          <AddTile />
+        <div className="space-y-8">
+          <section>
+            <div className="mb-3">
+              <h2 className="font-display text-base font-semibold text-foreground">Your channels</h2>
+              <p className="text-xs text-muted">Channels you connected and own.</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {ownedChannels.map((channel) => (
+                <ChannelCard
+                  key={channel.id}
+                  channel={channel}
+                  onOpenVideos={() => openChannel(channel.id)}
+                  onManageAccess={() => setAccessChannelId(channel.id)}
+                  onNotice={setNotice}
+                />
+              ))}
+              <AddTile />
+            </div>
+          </section>
+
+          {sharedChannels.length > 0 ? (
+            <section>
+              <div className="mb-3">
+                <h2 className="font-display text-base font-semibold text-foreground">
+                  Shared with you
+                </h2>
+                <p className="text-xs text-muted">
+                  Channels another account has granted you access to.
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {sharedChannels.map((channel) => (
+                  <ChannelCard
+                    key={channel.id}
+                    channel={channel}
+                    onOpenVideos={() => openChannel(channel.id)}
+                    onNotice={setNotice}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
       )}
+
+      {accessChannel ? (
+        <ShareChannelModal
+          key={accessChannel.id}
+          channel={accessChannel}
+          onClose={() => setAccessChannelId(null)}
+          onNotice={setNotice}
+        />
+      ) : null}
     </div>
   );
 }

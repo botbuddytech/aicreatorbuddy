@@ -14,7 +14,7 @@ export default async function CreateProjectPage({ params }: PageProps) {
 
   let channels: ConnectedChannel[] = [];
   try {
-    channels = await listChannels(user.id);
+    channels = await listChannels(user);
   } catch (err) {
     console.error("[create] failed to load channels", err);
   }

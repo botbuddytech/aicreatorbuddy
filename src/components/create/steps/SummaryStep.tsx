@@ -5,25 +5,48 @@ import { ActionButton } from "@/components/ui/ActionButton";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
+import { useReferenceTranscript } from "@/lib/useReferenceTranscript";
 import {
   createEmptyReference,
   FORMAT_LABELS,
   INTENT_LABELS,
   lengthOptionsForFormat,
   MAX_REFERENCES,
+  type ReferenceVideo,
   type VideoFormat,
   type VideoIntent,
 } from "@/lib/videoProject";
 import type { ConnectedChannel } from "@/lib/youtube/repo";
 
 function looksLikeYouTube(url: string): boolean {
-  return /youtu\.be\/|youtube\.com\//i.test(url.trim());
+  const value = url.trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(value)) return true;
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+    const pathParts = parsed.pathname.split("/").filter(Boolean);
+    const candidate =
+      host === "youtu.be"
+        ? pathParts[0]
+        : host === "youtube.com" || host.endsWith(".youtube.com")
+          ? parsed.searchParams.get("v") ??
+            (["shorts", "embed", "live"].includes(pathParts[0] ?? "")
+              ? pathParts[1]
+              : null)
+          : null;
+    return Boolean(candidate && /^[A-Za-z0-9_-]{11}$/.test(candidate));
+  } catch {
+    return false;
+  }
 }
 
 export function SummaryStep({ channels }: { channels: ConnectedChannel[] }) {
   const { project, dispatch } = useVideoProject();
+  const { fetchTranscript, removeReference, pending, errors } =
+    useReferenceTranscript(project.id);
   const { summary } = project;
   const lengthOptions = lengthOptionsForFormat(summary.format);
   const canAddReference = summary.references.length < MAX_REFERENCES;
@@ -138,100 +161,57 @@ export function SummaryStep({ channels }: { channels: ConnectedChannel[] }) {
             Paste links and optional transcripts. Fetch captions is not required to continue.
           </p>
           <div className="space-y-3">
-            {summary.references.map((reference, index) => {
-              const url = reference.url.trim();
-              const urlHint =
-                url && !looksLikeYouTube(url)
-                  ? "Doesn’t look like a YouTube link — you can still keep it."
-                  : undefined;
-              return (
-                <div
-                  key={reference.id}
-                  className="rounded-xl border border-border bg-surface-soft p-4"
-                >
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-foreground">
-                      Reference {index + 1}
-                    </p>
-                    <ActionButton
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        dispatch({
-                          type: "UPDATE_SUMMARY",
-                          patch: {
-                            references: summary.references.filter(
-                              (item) => item.id !== reference.id,
-                            ),
-                          },
-                        })
-                      }
-                    >
-                      Remove
-                    </ActionButton>
-                  </div>
-                  <Field
-                    label="Video link"
-                    htmlFor={`reference-url-${reference.id}`}
-                    hint={urlHint}
-                  >
-                    <Input
-                      id={`reference-url-${reference.id}`}
-                      value={reference.url}
-                      placeholder="https://youtube.com/watch?v=…"
-                      onChange={(event) =>
-                        dispatch({
-                          type: "UPDATE_SUMMARY",
-                          patch: {
-                            references: summary.references.map((item) =>
-                              item.id === reference.id
-                                ? { ...item, url: event.target.value }
-                                : item,
-                            ),
-                          },
-                        })
-                      }
-                    />
-                  </Field>
-                  <div className="mt-3">
-                    <Field
-                      label="Transcript"
-                      htmlFor={`reference-transcript-${reference.id}`}
-                      hint="Optional. Paste captions if you have them."
-                    >
-                      <Textarea
-                        id={`reference-transcript-${reference.id}`}
-                        rows={4}
-                        value={reference.transcript}
-                        placeholder="Paste transcript (optional)"
-                        onChange={(event) =>
-                          dispatch({
-                            type: "UPDATE_SUMMARY",
-                            patch: {
-                              references: summary.references.map((item) =>
-                                item.id === reference.id
-                                  ? { ...item, transcript: event.target.value }
-                                  : item,
-                              ),
-                            },
-                          })
-                        }
-                      />
-                    </Field>
-                  </div>
-                  <div className="mt-3">
-                    <ActionButton
-                      size="sm"
-                      variant="secondary"
-                      disabled
-                      title="Coming soon"
-                    >
-                      Fetch captions — soon
-                    </ActionButton>
-                  </div>
-                </div>
-              );
-            })}
+            {summary.references.map((reference, index) => (
+              <ReferenceCard
+                key={reference.id}
+                reference={reference}
+                index={index}
+                pending={Boolean(pending[reference.id])}
+                error={errors[reference.id] ?? null}
+                onRemove={() => {
+                  removeReference(reference.id);
+                  dispatch({
+                    type: "UPDATE_SUMMARY",
+                    patch: {
+                      references: summary.references.filter(
+                        (item) => item.id !== reference.id,
+                      ),
+                    },
+                  });
+                }}
+                onChange={(next) =>
+                  dispatch({
+                    type: "UPDATE_SUMMARY",
+                    patch: {
+                      references: summary.references.map((item) =>
+                        item.id === reference.id ? next : item,
+                      ),
+                    },
+                  })
+                }
+                onFetch={async () => {
+                  const result = await fetchTranscript({ reference, order: index });
+                  if (!result) return;
+                  dispatch({
+                    type: "UPDATE_SUMMARY",
+                    patch: {
+                      references: summary.references.map((item) =>
+                        item.id === reference.id
+                          ? {
+                              ...item,
+                              transcript: result.transcript,
+                              transcriptSource: "fetched",
+                              fetchedUrl: reference.url.trim(),
+                              lang: result.lang,
+                              fetchedAt: result.fetchedAt,
+                            }
+                          : item,
+                      ),
+                    },
+                  });
+                }}
+              />
+            ))}
           </div>
           {canAddReference ? (
             <button
@@ -252,6 +232,108 @@ export function SummaryStep({ channels }: { channels: ConnectedChannel[] }) {
             <p className="mt-3 text-xs text-muted">Up to {MAX_REFERENCES} references.</p>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ReferenceCard({
+  reference,
+  index,
+  pending,
+  error,
+  onRemove,
+  onChange,
+  onFetch,
+}: {
+  reference: ReferenceVideo;
+  index: number;
+  pending: boolean;
+  error: string | null;
+  onRemove: () => void;
+  onChange: (reference: ReferenceVideo) => void;
+  onFetch: () => Promise<void>;
+}) {
+  const url = reference.url.trim();
+  const parseable = looksLikeYouTube(url);
+  const stale = Boolean(reference.fetchedUrl && reference.fetchedUrl !== url);
+  const wordCount = reference.transcript.trim()
+    ? reference.transcript.trim().split(/\s+/).length
+    : 0;
+  const transcriptHint = stale
+    ? "Link changed since the last fetch — refetch to update."
+    : reference.transcriptSource === "fetched"
+      ? `${wordCount.toLocaleString()} words${reference.lang ? ` · ${reference.lang}` : ""}`
+      : "Optional. Paste captions if you have them.";
+  const urlHint =
+    url && !parseable
+      ? "Enter a YouTube video link to fetch its transcript."
+      : undefined;
+
+  return (
+    <div className="rounded-xl border border-border bg-surface-soft p-4">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-foreground">Reference {index + 1}</p>
+        <ActionButton size="sm" variant="ghost" disabled={pending} onClick={onRemove}>
+          Remove
+        </ActionButton>
+      </div>
+      <Field
+        label="Video link"
+        htmlFor={`reference-url-${reference.id}`}
+        hint={urlHint}
+      >
+        <Input
+          id={`reference-url-${reference.id}`}
+          value={reference.url}
+          placeholder="https://youtube.com/watch?v=…"
+          disabled={pending}
+          onChange={(event) => onChange({ ...reference, url: event.target.value })}
+        />
+      </Field>
+      <div className="mt-3">
+        <Field
+          label="Transcript"
+          htmlFor={`reference-transcript-${reference.id}`}
+          hint={transcriptHint}
+          error={error ?? undefined}
+        >
+          {pending ? (
+            <div aria-live="polite" aria-busy="true">
+              <span className="sr-only">Fetching transcript</span>
+              <Skeleton className="h-[106px] w-full" />
+            </div>
+          ) : (
+            <Textarea
+              id={`reference-transcript-${reference.id}`}
+              rows={4}
+              value={reference.transcript}
+              placeholder="Paste transcript (optional)"
+              onChange={(event) =>
+                onChange({
+                  ...reference,
+                  transcript: event.target.value,
+                  transcriptSource: event.target.value.trim() ? "manual" : null,
+                  fetchedUrl: null,
+                  lang: null,
+                  fetchedAt: null,
+                })
+              }
+            />
+          )}
+        </Field>
+      </div>
+      <div className="mt-3">
+        <ActionButton
+          size="sm"
+          variant="secondary"
+          loading={pending}
+          loadingLabel="Fetching transcript…"
+          disabled={!parseable}
+          onClick={() => void onFetch()}
+        >
+          {reference.transcript ? "Refetch transcript" : "Fetch transcript"}
+        </ActionButton>
       </div>
     </div>
   );

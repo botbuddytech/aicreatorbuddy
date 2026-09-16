@@ -17,6 +17,7 @@ import { buildClipPoster, clipKindFor } from "@/lib/clipPoster";
 import { pruneClips, putClip } from "@/lib/clipStore";
 import { mockGenerate, summaryPrompt } from "@/lib/mockAi";
 import { sceneVisualPreviewSrc } from "@/lib/sceneVisualImage";
+import { trackSessionEvent } from "@/lib/session/telemetry";
 import { readProjectStore } from "@/lib/useVideoProjectDraft";
 import {
   buildScenePrompt,
@@ -260,6 +261,18 @@ export function TimelineStep() {
           ? Math.max(1, Math.floor(durationSeconds * 10) / 10)
           : DEFAULT_CLIP_SECONDS;
         added.push(scene);
+        trackSessionEvent(project.id, {
+          type: "asset.clip_added",
+          step: "timeline",
+          payload: {
+            sceneKey: scene.id,
+            localClipId: clipId,
+            fileName: file.name,
+            mimeType: file.type || null,
+            sizeBytes: file.size,
+            durationSec: durationSeconds,
+          },
+        });
       }
 
       if (added.length > 0) {

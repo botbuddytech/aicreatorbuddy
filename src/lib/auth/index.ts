@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/db";
 import { isGoogleAuthEnabled } from "@/lib/auth/google";
 import { normalizeEmail, verifyPassword } from "@/lib/auth/password";
+import { linkPendingShares } from "@/lib/channels/shares";
 
 export { isGoogleAuthEnabled } from "@/lib/auth/google";
 
@@ -55,6 +56,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         ]
       : []),
   ],
+  events: {
+    async signIn({ user }) {
+      if (user.id && user.email) {
+        await linkPendingShares({ userId: user.id, email: user.email });
+      }
+    },
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user?.id) {

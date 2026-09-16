@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { ChannelConnectionStatus } from "@/generated/prisma/enums";
+import type { SessionUser } from "@/lib/auth/session";
+import { channelAccessWhere } from "@/lib/youtube/access";
 
 /** Token-free, JSON-serializable channel shape for the UI. */
 export type ConnectedChannel = {
@@ -17,6 +19,9 @@ export type ConnectedChannel = {
   status: ChannelConnectionStatus;
   lastSyncedAt: string | null;
   createdAt: string;
+  isOwner: boolean;
+  ownerEmail: string | null;
+  shareCount: number;
 };
 
 export type ChannelVideo = {
@@ -40,6 +45,7 @@ export type VideoPage = {
 
 const channelSelect = {
   id: true,
+  userId: true,
   channelId: true,
   title: true,
   customUrl: true,
@@ -52,10 +58,12 @@ const channelSelect = {
   status: true,
   lastSyncedAt: true,
   createdAt: true,
+  user: { select: { email: true } },
 } as const;
 
 type ChannelRow = {
   id: string;
+  userId: string;
   channelId: string;
   title: string;
   customUrl: string | null;
@@ -68,11 +76,12 @@ type ChannelRow = {
   status: ChannelConnectionStatus;
   lastSyncedAt: Date | null;
   createdAt: Date;
-  _count: { videos: number };
+  user: { email: string };
+  _count: { videos: number; shares: number };
 };
 
-function toChannel(row: ChannelRow): ConnectedChannel {
-  const { _count, ...rest } = row;
+function toChannel(row: ChannelRow, viewerId: string): ConnectedChannel {
+  const { _count, user, userId, ...rest } = row;
   return {
     ...rest,
     subscriberCount: Number(row.subscriberCount),
@@ -80,39 +89,45 @@ function toChannel(row: ChannelRow): ConnectedChannel {
     syncedVideoCount: _count.videos,
     lastSyncedAt: row.lastSyncedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
+    isOwner: userId === viewerId,
+    ownerEmail: user.email,
+    shareCount: _count.shares,
   };
 }
 
 const withVideoCount = {
   ...channelSelect,
-  _count: { select: { videos: true } },
+  _count: { select: { videos: true, shares: true } },
 } as const;
 
-export async function listChannels(userId: string): Promise<ConnectedChannel[]> {
+export async function listChannels(user: SessionUser): Promise<ConnectedChannel[]> {
   const rows = await prisma.youtubeChannel.findMany({
-    where: { userId },
+    where: channelAccessWhere(user),
     select: withVideoCount,
     orderBy: { createdAt: "asc" },
   });
-  return rows.map(toChannel);
+  return rows.map((row) => toChannel(row, user.id));
 }
 
-export async function getChannel(userId: string, id: string): Promise<ConnectedChannel | null> {
+export async function getChannel(user: SessionUser, id: string): Promise<ConnectedChannel | null> {
   const row = await prisma.youtubeChannel.findFirst({
-    where: { id, userId },
+    where: { id, ...channelAccessWhere(user) },
     select: withVideoCount,
   });
-  return row ? toChannel(row) : null;
+  return row ? toChannel(row, user.id) : null;
 }
 
 export async function getChannelVideos(
-  userId: string,
+  user: SessionUser,
   channelDbId: string,
   opts: { cursor?: string | null; limit?: number } = {},
 ): Promise<VideoPage> {
   const limit = Math.min(Math.max(opts.limit ?? 24, 1), 50);
   const rows = await prisma.youtubeVideo.findMany({
-    where: { channelId: channelDbId, channel: { userId } },
+    where: {
+      channelId: channelDbId,
+      channel: { is: channelAccessWhere(user) },
+    },
     orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
     take: limit + 1,
     ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),

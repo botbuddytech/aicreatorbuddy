@@ -7,11 +7,16 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { useSearchParams } from "next/navigation";
 import { useVideoProjectDraft } from "@/lib/useVideoProjectDraft";
+import { mapActionToEvents } from "@/lib/session/events";
+import { buildSnapshot } from "@/lib/session/snapshot";
+import { scheduleSnapshotSync, trackSessionEvent } from "@/lib/session/telemetry";
+import type { ConnectedChannel } from "@/lib/youtube/repo";
 import {
   applySummaryPatch,
   cloneScene,
@@ -295,19 +300,22 @@ const STEP_PARAM = "step";
 
 export function VideoProjectProvider({
   projectId,
+  channels,
   children,
   fallback,
   missing,
 }: {
   projectId: string;
+  channels: ConnectedChannel[];
   children: ReactNode;
   fallback: ReactNode;
   missing: ReactNode;
 }) {
   const { hydrated, initial, persist, savedAt } = useVideoProjectDraft(projectId);
-  const [project, dispatch] = useReducer(reducer, null);
+  const [project, rawDispatch] = useReducer(reducer, null);
   const [loadedId, setLoadedId] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const openedIdRef = useRef<string | null>(null);
 
   // The URL owns the step, so refresh, back/forward and shared links all land
   // on the same place. An unknown or missing value reads as the first step.
@@ -327,12 +335,28 @@ export function VideoProjectProvider({
       "",
       `${window.location.pathname}${query ? `?${query}` : ""}`,
     );
-  }, []);
+    if (project) {
+      trackSessionEvent(project.id, {
+        type: "step.entered",
+        step,
+        payload: { previousStep: activeStep },
+      });
+    }
+  }, [project, activeStep]);
+
+  const dispatch = useCallback((action: ProjectAction) => {
+    if (project && action.type !== "HYDRATE") {
+      for (const item of mapActionToEvents(action, project)) {
+        trackSessionEvent(project.id, item);
+      }
+    }
+    rawDispatch(action);
+  }, [project]);
 
   if (hydrated && loadedId !== projectId) {
     setLoadedId(projectId);
     setPreviewOpen(false);
-    dispatch({ type: "HYDRATE", project: initial });
+    rawDispatch({ type: "HYDRATE", project: initial });
   }
 
   useEffect(() => {
@@ -340,12 +364,29 @@ export function VideoProjectProvider({
     persist(project);
   }, [project, persist, loadedId, projectId]);
 
+  useEffect(() => {
+    if (!project || loadedId !== projectId) return;
+    const channelTitle = channels.find((channel) => channel.id === project.channelId)?.title ?? null;
+    scheduleSnapshotSync(buildSnapshot(project, activeStep, channelTitle));
+  }, [project, activeStep, channels, loadedId, projectId]);
+
+  useEffect(() => {
+    if (!project || loadedId !== projectId) return;
+    if (openedIdRef.current === project.id) return;
+    openedIdRef.current = project.id;
+    trackSessionEvent(project.id, {
+      type: "session.opened",
+      step: activeStep,
+      payload: {},
+    });
+  }, [project, activeStep, loadedId, projectId]);
+
   const value = useMemo(
     () =>
       project
         ? { project, savedAt, dispatch, previewOpen, setPreviewOpen, activeStep, setActiveStep }
         : null,
-    [project, savedAt, previewOpen, activeStep, setActiveStep],
+    [project, savedAt, dispatch, previewOpen, activeStep, setActiveStep],
   );
 
   if (!hydrated) return <>{fallback}</>;

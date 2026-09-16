@@ -11,10 +11,12 @@ export function ChannelVideosPanel({
   channel,
   initialPage,
   onBack,
+  onManageAccess,
 }: {
   channel: ConnectedChannel;
   initialPage: VideoPage;
   onBack: () => void;
+  onManageAccess?: () => void;
 }) {
   const [items, setItems] = useState<ChannelVideo[]>(initialPage.items);
   const [cursor, setCursor] = useState<string | null>(initialPage.nextCursor);
@@ -57,16 +59,32 @@ export function ChannelVideosPanel({
               {formatInt(channel.syncedVideoCount)} uploads ({formatInt(channel.videoCount)} public) · synced{" "}
               {timeAgo(channel.lastSyncedAt)}
             </p>
+            {!channel.isOwner && channel.ownerEmail ? (
+              <p className="mt-1 text-xs font-medium text-muted">
+                Shared by {channel.ownerEmail}
+              </p>
+            ) : null}
           </div>
         </div>
-        <a
-          href={`https://www.youtube.com/channel/${channel.channelId}`}
-          target="_blank"
-          rel="noreferrer"
-          className="text-sm font-semibold text-accent hover:text-accent-dark"
-        >
-          Open on YouTube ↗
-        </a>
+        <div className="flex items-center gap-3">
+          {channel.isOwner && onManageAccess ? (
+            <button
+              type="button"
+              onClick={onManageAccess}
+              className="rounded-lg border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-white/5"
+            >
+              Manage access{channel.shareCount > 0 ? ` · ${channel.shareCount}` : ""}
+            </button>
+          ) : null}
+          <a
+            href={`https://www.youtube.com/channel/${channel.channelId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="text-sm font-semibold text-accent hover:text-accent-dark"
+          >
+            Open on YouTube ↗
+          </a>
+        </div>
       </div>
 
       {items.length === 0 ? (

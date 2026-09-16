@@ -51,6 +51,7 @@ export function CreateProjectClient({
       <VideoProjectProvider
         key={projectId}
         projectId={projectId}
+        channels={channels}
         fallback={<WorkspaceFallback />}
         missing={<MissingProject />}
       >

@@ -8,7 +8,7 @@ export default async function CreateIndexPage() {
   const user = await requireUser();
   let channels: ConnectedChannel[] = [];
   try {
-    channels = await listChannels(user.id);
+    channels = await listChannels(user);
   } catch (err) {
     console.error("[create] failed to load channels", err);
   }

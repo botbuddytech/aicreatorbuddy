@@ -20,7 +20,7 @@ export default async function ChannelsPage({ searchParams }: { searchParams: Sea
   let channels: ConnectedChannel[] = [];
   let loadError: string | null = null;
   try {
-    channels = await listChannels(user.id);
+    channels = await listChannels(user);
   } catch (err) {
     console.error("[channels] failed to load", err);
     loadError = "Could not reach the database. Check DATABASE_URL and try again.";

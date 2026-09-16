@@ -4,7 +4,11 @@ import { useState, useTransition } from "react";
 import { formatCount } from "@/lib/dashboardContent";
 import type { ConnectedChannel } from "@/lib/youtube/repo";
 import { channelInitials, timeAgo } from "@/lib/youtube/format";
-import { disconnectChannelAction, syncChannelAction } from "@/app/dashboard/channels/actions";
+import {
+  disconnectChannelAction,
+  leaveChannelAction,
+  syncChannelAction,
+} from "@/app/dashboard/channels/actions";
 
 export function ChannelAvatar({
   channel,
@@ -37,14 +41,16 @@ export function ChannelAvatar({
 export function ChannelCard({
   channel,
   onOpenVideos,
+  onManageAccess,
   onNotice,
 }: {
   channel: ConnectedChannel;
   onOpenVideos?: () => void;
+  onManageAccess?: () => void;
   onNotice?: (notice: { kind: "success" | "error"; text: string }) => void;
 }) {
   const [pending, startTransition] = useTransition();
-  const [busy, setBusy] = useState<"sync" | "disconnect" | null>(null);
+  const [busy, setBusy] = useState<"sync" | "disconnect" | "leave" | null>(null);
   const needsReauth = channel.status !== "ACTIVE";
 
   function sync() {
@@ -61,7 +67,7 @@ export function ChannelCard({
   }
 
   function disconnect() {
-    if (!window.confirm(`Disconnect "${channel.title}"? Its synced videos will be removed from this workspace.`)) {
+    if (!window.confirm(`Disconnect "${channel.title}"? It will be removed for everyone with access.`)) {
       return;
     }
     setBusy("disconnect");
@@ -76,8 +82,28 @@ export function ChannelCard({
     });
   }
 
+  function leave() {
+    if (!window.confirm(`Leave "${channel.title}"? This only removes your access; the owner keeps the channel.`)) {
+      return;
+    }
+    setBusy("leave");
+    startTransition(async () => {
+      const result = await leaveChannelAction(channel.id);
+      onNotice?.(
+        result.ok
+          ? { kind: "success", text: `${channel.title} removed from your account.` }
+          : { kind: "error", text: `${channel.title}: ${result.error}` },
+      );
+      setBusy(null);
+    });
+  }
+
   return (
-    <article className="rounded-2xl border border-border bg-surface p-5">
+    <article
+      className={`rounded-2xl border bg-surface p-5 ${
+        channel.isOwner ? "border-border" : "border-dashed border-border"
+      }`}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <ChannelAvatar channel={channel} />
@@ -88,15 +114,31 @@ export function ChannelCard({
             <p className="truncate text-xs text-muted">
               {channel.googleEmail ?? channel.customUrl ?? channel.channelId}
             </p>
+            {!channel.isOwner && channel.ownerEmail ? (
+              <p className="mt-1 truncate text-xs font-medium text-muted">
+                Shared by {channel.ownerEmail}
+              </p>
+            ) : null}
           </div>
         </div>
-        <span
-          className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-            needsReauth ? "bg-accent/15 text-accent" : "bg-success/15 text-success"
-          }`}
-        >
-          {needsReauth ? "Reconnect needed" : "Connected"}
-        </span>
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <span
+            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+              needsReauth ? "bg-accent/15 text-accent" : "bg-success/15 text-success"
+            }`}
+          >
+            {needsReauth ? "Reconnect needed" : "Connected"}
+          </span>
+          {!channel.isOwner ? (
+            <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-muted">
+              Shared with you
+            </span>
+          ) : channel.shareCount > 0 ? (
+            <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-muted">
+              Shared with {channel.shareCount}
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <div className="mt-5 grid grid-cols-3 gap-3 text-center">
@@ -129,13 +171,22 @@ export function ChannelCard({
           </button>
         ) : null}
         <div className="grid grid-cols-2 gap-2">
-          {needsReauth ? (
+          {needsReauth && channel.isOwner ? (
             <a
               href="/api/youtube/connect"
               className="inline-flex items-center justify-center rounded-xl border border-accent/40 bg-accent/10 px-3 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent/20"
             >
               Reconnect
             </a>
+          ) : needsReauth ? (
+            <button
+              type="button"
+              disabled
+              title="The channel owner must reconnect this channel."
+              className="rounded-xl border border-border px-3 py-2.5 text-sm font-semibold text-muted opacity-60"
+            >
+              Owner reconnect
+            </button>
           ) : (
             <button
               type="button"
@@ -148,13 +199,26 @@ export function ChannelCard({
           )}
           <button
             type="button"
-            onClick={disconnect}
+            onClick={channel.isOwner ? disconnect : leave}
             disabled={pending}
             className="rounded-xl border border-border px-3 py-2.5 text-sm font-semibold text-muted transition-colors hover:bg-white/5 hover:text-foreground disabled:opacity-60"
           >
-            {busy === "disconnect" ? "Removing…" : "Disconnect"}
+            {busy === "disconnect" || busy === "leave"
+              ? "Removing…"
+              : channel.isOwner
+                ? "Disconnect"
+                : "Leave channel"}
           </button>
         </div>
+        {channel.isOwner && onManageAccess ? (
+          <button
+            type="button"
+            onClick={onManageAccess}
+            className="w-full rounded-xl border border-border px-3 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-white/5"
+          >
+            Manage access{channel.shareCount > 0 ? ` · ${channel.shareCount}` : ""}
+          </button>
+        ) : null}
       </div>
     </article>
   );

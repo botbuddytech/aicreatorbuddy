@@ -12,6 +12,7 @@ import {
   newId,
   type VideoProject,
 } from "@/lib/videoProject";
+import { trackSessionEvent } from "@/lib/session/telemetry";
 
 export const VIDEO_PROJECTS_KEY = "yb_video_projects";
 const STORE_VERSION = 1;
@@ -110,6 +111,11 @@ export function useProjectStore() {
     const project = createEmptyProject({ channelId });
     const current = readProjectStore().projects.filter((item) => item.id !== project.id);
     writeProjectStore({ version: STORE_VERSION, projects: [project, ...current] });
+    trackSessionEvent(project.id, {
+      type: "session.created",
+      step: "summary",
+      payload: { channelId: channelId || null, createdAt: project.createdAt },
+    });
     return project;
   }, []);
 
@@ -129,10 +135,16 @@ export function useProjectStore() {
       version: STORE_VERSION,
       projects: [copy, ...readProjectStore().projects],
     });
+    trackSessionEvent(copy.id, {
+      type: "session.duplicated",
+      step: "summary",
+      payload: { sourceSessionId: source.id, createdAt: now },
+    });
     return copy;
   }, []);
 
   const deleteProject = useCallback((id: string) => {
+    trackSessionEvent(id, { type: "session.deleted", payload: {} });
     writeProjectStore({
       version: STORE_VERSION,
       projects: readProjectStore().projects.filter((item) => item.id !== id),

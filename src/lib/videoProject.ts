@@ -23,6 +23,10 @@ export type ReferenceVideo = {
   id: string;
   url: string;
   transcript: string;
+  transcriptSource: "manual" | "fetched" | null;
+  fetchedUrl: string | null;
+  lang: string | null;
+  fetchedAt: string | null;
 };
 
 export type VideoSummary = {
@@ -376,7 +380,15 @@ export function aspectClassName(aspect: AspectRatio): string {
 }
 
 export function createEmptyReference(): ReferenceVideo {
-  return { id: newId(), url: "", transcript: "" };
+  return {
+    id: newId(),
+    url: "",
+    transcript: "",
+    transcriptSource: null,
+    fetchedUrl: null,
+    lang: null,
+    fetchedAt: null,
+  };
 }
 
 export function emptySummary(): VideoSummary {
@@ -442,9 +454,26 @@ export function normalizeSummary(raw: unknown): VideoSummary {
         id: typeof item.id === "string" && item.id ? item.id : newId(),
         url: typeof item.url === "string" ? item.url : "",
         transcript: typeof item.transcript === "string" ? item.transcript : "",
+        transcriptSource:
+          item.transcriptSource === "fetched" || item.transcriptSource === "manual"
+            ? item.transcriptSource
+            : typeof item.transcript === "string" && item.transcript.trim()
+              ? "manual"
+              : null,
+        fetchedUrl: typeof item.fetchedUrl === "string" ? item.fetchedUrl : null,
+        lang: typeof item.lang === "string" ? item.lang : null,
+        fetchedAt: typeof item.fetchedAt === "string" ? item.fetchedAt : null,
       }));
   } else if (typeof source.sourceMaterial === "string" && source.sourceMaterial.trim()) {
-    references = [{ id: newId(), url: "", transcript: source.sourceMaterial }];
+    references = [{
+      id: newId(),
+      url: "",
+      transcript: source.sourceMaterial,
+      transcriptSource: "manual",
+      fetchedUrl: null,
+      lang: null,
+      fetchedAt: null,
+    }];
   }
 
   return {

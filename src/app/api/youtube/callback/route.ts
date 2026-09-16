@@ -103,7 +103,7 @@ export async function GET(request: Request) {
     });
 
     try {
-      await syncChannel({ channelDbId: saved.id, userId: user.id });
+      await syncChannel({ channelDbId: saved.id, user });
     } catch (error) {
       console.error("[youtube] initial sync failed", error);
       return back(origin, {
