@@ -267,6 +267,7 @@ function SidebarNav() {
   const { data: session } = useSession();
   const ui = useDashboardUi();
   const mobileOpen = ui?.mobileNavOpen ?? false;
+  const [logoutLoading, setLogoutLoading] = useState(false);
   const collapsed = useSyncExternalStore(
     subscribeCollapsed,
     getCollapsedSnapshot,
@@ -293,8 +294,13 @@ function SidebarNav() {
     writeCollapsed(!collapsed);
   }
 
-  function logout() {
-    void signOut({ callbackUrl: "/" });
+  async function logout() {
+    setLogoutLoading(true);
+    try {
+      await signOut({ callbackUrl: "/" });
+    } catch {
+      setLogoutLoading(false);
+    }
   }
 
   const widthClass = collapsed ? "w-16" : "w-64";
@@ -396,13 +402,26 @@ function SidebarNav() {
           </Link>
           <button
             type="button"
-            onClick={logout}
+            onClick={() => void logout()}
+            disabled={logoutLoading}
             title={collapsed ? "Log out" : undefined}
-            className={`flex w-full items-center rounded-xl border border-border text-sm font-semibold text-muted transition-colors hover:bg-white/5 hover:text-foreground ${
+            className={`flex w-full items-center rounded-xl border border-border text-sm font-semibold text-muted transition-colors hover:bg-white/5 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-70 ${
               collapsed ? "justify-center px-0 py-2.5" : "justify-center px-3 py-2.5"
             }`}
           >
-            {collapsed ? (
+            {logoutLoading ? (
+              <>
+                <span
+                  className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent"
+                  aria-hidden
+                />
+                {collapsed ? (
+                  <span className="sr-only">Logging out</span>
+                ) : (
+                  <span className="ml-2">Logging out…</span>
+                )}
+              </>
+            ) : collapsed ? (
               <>
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />

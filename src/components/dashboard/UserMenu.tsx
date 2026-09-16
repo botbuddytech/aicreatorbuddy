@@ -20,6 +20,7 @@ function MenuIcon({ children }: { children: ReactNode }) {
 export function UserMenu() {
   const { data: session } = useSession();
   const [open, setOpen] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const name = session?.user?.name || demoProfile.name;
@@ -41,9 +42,13 @@ export function UserMenu() {
     };
   }, []);
 
-  function logout() {
-    setOpen(false);
-    void signOut({ callbackUrl: "/" });
+  async function logout() {
+    setLogoutLoading(true);
+    try {
+      await signOut({ callbackUrl: "/" });
+    } catch {
+      setLogoutLoading(false);
+    }
   }
 
   return (
@@ -97,13 +102,26 @@ export function UserMenu() {
               </MenuIcon>
               Settings
             </Link>
-            <button type="button" role="menuitem" className={itemClass} onClick={logout}>
-              <MenuIcon>
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </MenuIcon>
-              Logout
+            <button
+              type="button"
+              role="menuitem"
+              className={itemClass}
+              onClick={() => void logout()}
+              disabled={logoutLoading}
+            >
+              {logoutLoading ? (
+                <span
+                  className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent"
+                  aria-hidden
+                />
+              ) : (
+                <MenuIcon>
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </MenuIcon>
+              )}
+              {logoutLoading ? "Logging out…" : "Logout"}
             </button>
           </div>
         </div>

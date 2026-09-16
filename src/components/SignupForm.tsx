@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { signIn } from "next-auth/react";
 import { BrandMark } from "@/components/ui/BrandMark";
 import { signUp, type SignUpState } from "@/app/signup/actions";
@@ -29,10 +29,16 @@ const initialState: SignUpState = {};
 
 export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
   const [state, formAction, pending] = useActionState(signUp, initialState);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-  function continueWithGoogle() {
+  async function continueWithGoogle() {
     if (!googleEnabled) return;
-    void signIn("google", { callbackUrl: "/dashboard" });
+    setGoogleLoading(true);
+    try {
+      await signIn("google", { callbackUrl: "/dashboard" });
+    } catch {
+      setGoogleLoading(false);
+    }
   }
 
   return (
@@ -153,7 +159,7 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
 
             <button
               type="submit"
-              disabled={pending}
+              disabled={pending || googleLoading}
               className="inline-flex w-full items-center justify-center rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold tracking-tight text-white shadow-[0_10px_30px_-12px_rgba(255,59,78,0.65)] transition-colors hover:bg-accent-dark disabled:opacity-70"
             >
               {pending ? "Creating account…" : "Sign up"}
@@ -168,13 +174,25 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
 
           <button
             type="button"
-            onClick={continueWithGoogle}
-            disabled={!googleEnabled}
+            onClick={() => void continueWithGoogle()}
+            disabled={!googleEnabled || pending || googleLoading}
             title={googleEnabled ? undefined : "Google sign-in coming soon"}
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-soft px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <GoogleIcon />
-            Continue with Google
+            {googleLoading ? (
+              <>
+                <span
+                  className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent"
+                  aria-hidden
+                />
+                Connecting to Google…
+              </>
+            ) : (
+              <>
+                <GoogleIcon />
+                Continue with Google
+              </>
+            )}
           </button>
           {!googleEnabled ? (
             <p className="mt-2 text-center text-xs text-muted">Google sign-in coming soon</p>

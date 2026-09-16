@@ -37,6 +37,7 @@ export function LoginForm({
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,9 +60,15 @@ export function LoginForm({
     router.refresh();
   }
 
-  function continueWithGoogle() {
+  async function continueWithGoogle() {
     if (!googleEnabled) return;
-    void signIn("google", { callbackUrl: nextPath });
+    setGoogleLoading(true);
+    try {
+      await signIn("google", { callbackUrl: nextPath });
+    } catch {
+      setGoogleLoading(false);
+      setError("Could not connect to Google. Please try again.");
+    }
   }
 
   return (
@@ -144,7 +151,7 @@ export function LoginForm({
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || googleLoading}
               className="inline-flex w-full items-center justify-center rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold tracking-tight text-white shadow-[0_10px_30px_-12px_rgba(255,59,78,0.65)] transition-colors hover:bg-accent-dark disabled:opacity-70"
             >
               {loading ? "Signing in…" : "Log in"}
@@ -159,13 +166,25 @@ export function LoginForm({
 
           <button
             type="button"
-            onClick={continueWithGoogle}
-            disabled={!googleEnabled || loading}
+            onClick={() => void continueWithGoogle()}
+            disabled={!googleEnabled || loading || googleLoading}
             title={googleEnabled ? undefined : "Google sign-in coming soon"}
             className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-soft px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <GoogleIcon />
-            Continue with Google
+            {googleLoading ? (
+              <>
+                <span
+                  className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent"
+                  aria-hidden
+                />
+                Connecting to Google…
+              </>
+            ) : (
+              <>
+                <GoogleIcon />
+                Continue with Google
+              </>
+            )}
           </button>
           {!googleEnabled ? (
             <p className="mt-2 text-center text-xs text-muted">Google sign-in coming soon</p>
