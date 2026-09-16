@@ -17,8 +17,8 @@ function toError(error: unknown, fallback: string): string {
 
 export async function syncChannelAction(channelDbId: string): Promise<ActionResult> {
   try {
-    await requireUser();
-    const count = await syncChannel(channelDbId);
+    const user = await requireUser();
+    const count = await syncChannel({ channelDbId, userId: user.id });
     revalidatePath("/dashboard/channels");
     return { ok: true, message: `Synced ${count} video${count === 1 ? "" : "s"}.` };
   } catch (error) {
@@ -28,9 +28,9 @@ export async function syncChannelAction(channelDbId: string): Promise<ActionResu
 
 export async function disconnectChannelAction(channelDbId: string): Promise<ActionResult> {
   try {
-    await requireUser();
-    const channel = await prisma.youtubeChannel.findUnique({
-      where: { id: channelDbId },
+    const user = await requireUser();
+    const channel = await prisma.youtubeChannel.findFirst({
+      where: { id: channelDbId, userId: user.id },
       select: { refreshTokenEnc: true },
     });
     if (!channel) return { ok: false, error: "Channel not found." };
@@ -48,6 +48,6 @@ export async function loadChannelVideosAction(
   channelDbId: string,
   cursor: string | null,
 ): Promise<VideoPage> {
-  await requireUser();
-  return getChannelVideos(channelDbId, { cursor, limit: 24 });
+  const user = await requireUser();
+  return getChannelVideos(user.id, channelDbId, { cursor, limit: 24 });
 }

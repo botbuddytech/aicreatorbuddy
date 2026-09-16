@@ -21,6 +21,7 @@ export type ConnectedChannel = {
 
 export type ChannelVideo = {
   id: string;
+  videoId: string;
   title: string;
   thumbnailUrl: string | null;
   publishedAt: string;
@@ -87,30 +88,31 @@ const withVideoCount = {
   _count: { select: { videos: true } },
 } as const;
 
-export async function listChannels(workspaceId = "default"): Promise<ConnectedChannel[]> {
+export async function listChannels(userId: string): Promise<ConnectedChannel[]> {
   const rows = await prisma.youtubeChannel.findMany({
-    where: { workspaceId },
+    where: { userId },
     select: withVideoCount,
     orderBy: { createdAt: "asc" },
   });
   return rows.map(toChannel);
 }
 
-export async function getChannel(id: string): Promise<ConnectedChannel | null> {
-  const row = await prisma.youtubeChannel.findUnique({
-    where: { id },
+export async function getChannel(userId: string, id: string): Promise<ConnectedChannel | null> {
+  const row = await prisma.youtubeChannel.findFirst({
+    where: { id, userId },
     select: withVideoCount,
   });
   return row ? toChannel(row) : null;
 }
 
 export async function getChannelVideos(
+  userId: string,
   channelDbId: string,
   opts: { cursor?: string | null; limit?: number } = {},
 ): Promise<VideoPage> {
   const limit = Math.min(Math.max(opts.limit ?? 24, 1), 50);
   const rows = await prisma.youtubeVideo.findMany({
-    where: { channelId: channelDbId },
+    where: { channelId: channelDbId, channel: { userId } },
     orderBy: [{ publishedAt: "desc" }, { id: "asc" }],
     take: limit + 1,
     ...(opts.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
@@ -119,6 +121,7 @@ export async function getChannelVideos(
   const hasMore = rows.length > limit;
   const items = rows.slice(0, limit).map((v) => ({
     id: v.id,
+    videoId: v.videoId,
     title: v.title,
     thumbnailUrl: v.thumbnailUrl,
     publishedAt: v.publishedAt.toISOString(),

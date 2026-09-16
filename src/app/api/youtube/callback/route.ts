@@ -25,7 +25,8 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const origin = resolveOrigin(request);
 
-  if (!(await getSessionUser())) {
+  const user = await getSessionUser();
+  if (!user) {
     return NextResponse.redirect(`${origin}/login`);
   }
 
@@ -40,7 +41,13 @@ export async function GET(request: Request) {
 
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  if (!code || !state || !expectedState || state !== expectedState) {
+  if (
+    !code ||
+    !state ||
+    !expectedState ||
+    state !== expectedState ||
+    !state.startsWith(`${user.id}.`)
+  ) {
     return back(origin, { error: "Invalid OAuth state. Please try connecting again." });
   }
 
@@ -52,13 +59,20 @@ export async function GET(request: Request) {
     const channel = await fetchMyChannel(client);
 
     const saved = await prisma.youtubeChannel.upsert({
-      where: { channelId: channel.channelId },
+      where: {
+        userId_channelId: {
+          userId: user.id,
+          channelId: channel.channelId,
+        },
+      },
       create: {
+        userId: user.id,
         channelId: channel.channelId,
         title: channel.title,
         customUrl: channel.customUrl,
         thumbnailUrl: channel.thumbnailUrl,
         subscriberCount: channel.subscriberCount,
+        hiddenSubscriberCount: channel.hiddenSubscriberCount,
         viewCount: channel.viewCount,
         videoCount: channel.videoCount,
         uploadsPlaylistId: channel.uploadsPlaylistId,
@@ -74,6 +88,7 @@ export async function GET(request: Request) {
         customUrl: channel.customUrl,
         thumbnailUrl: channel.thumbnailUrl,
         subscriberCount: channel.subscriberCount,
+        hiddenSubscriberCount: channel.hiddenSubscriberCount,
         viewCount: channel.viewCount,
         videoCount: channel.videoCount,
         uploadsPlaylistId: channel.uploadsPlaylistId,
@@ -88,7 +103,7 @@ export async function GET(request: Request) {
     });
 
     try {
-      await syncChannel(saved.id);
+      await syncChannel({ channelDbId: saved.id, userId: user.id });
     } catch (error) {
       console.error("[youtube] initial sync failed", error);
       return back(origin, {

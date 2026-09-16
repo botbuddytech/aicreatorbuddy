@@ -92,7 +92,7 @@ export function ChannelVideosPanel({
                 <tr key={video.id} className="border-b border-border/60 last:border-0 hover:bg-white/[0.03]">
                   <td className="px-5 py-3">
                     <a
-                      href={`https://www.youtube.com/watch?v=${video.id}`}
+                      href={`https://www.youtube.com/watch?v=${video.videoId}`}
                       target="_blank"
                       rel="noreferrer"
                       className="flex items-center gap-3"

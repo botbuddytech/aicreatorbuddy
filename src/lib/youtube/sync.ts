@@ -5,8 +5,16 @@ import { getAuthedClientForChannel } from "@/lib/youtube/oauth";
 const UPSERT_CHUNK = 20;
 
 /** Refresh channel stats and upsert every upload. Returns the number of videos synced. */
-export async function syncChannel(channelDbId: string): Promise<number> {
-  const channel = await prisma.youtubeChannel.findUniqueOrThrow({ where: { id: channelDbId } });
+export async function syncChannel({
+  channelDbId,
+  userId,
+}: {
+  channelDbId: string;
+  userId: string;
+}): Promise<number> {
+  const channel = await prisma.youtubeChannel.findFirstOrThrow({
+    where: { id: channelDbId, userId },
+  });
   const auth = await getAuthedClientForChannel(channel);
 
   const fresh = await fetchMyChannel(auth);
@@ -17,11 +25,11 @@ export async function syncChannel(channelDbId: string): Promise<number> {
   for (let i = 0; i < videos.length; i += UPSERT_CHUNK) {
     const chunk = videos.slice(i, i + UPSERT_CHUNK);
     await prisma.$transaction(
-      chunk.map((v) =>
+      chunk.map(({ id: videoId, ...video }) =>
         prisma.youtubeVideo.upsert({
-          where: { id: v.id },
-          create: { ...v, channelId: channelDbId, fetchedAt: now },
-          update: { ...v, channelId: channelDbId, fetchedAt: now },
+          where: { channelId_videoId: { channelId: channelDbId, videoId } },
+          create: { ...video, videoId, channelId: channelDbId, fetchedAt: now },
+          update: { ...video, fetchedAt: now },
         }),
       ),
     );

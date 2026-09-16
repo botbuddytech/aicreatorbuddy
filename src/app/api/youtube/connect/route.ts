@@ -14,12 +14,13 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const origin = resolveOrigin(request);
 
-  if (!(await getSessionUser())) {
+  const user = await getSessionUser();
+  if (!user) {
     return NextResponse.redirect(`${origin}/login`);
   }
 
   let authUrl: string;
-  const state = randomBytes(24).toString("base64url");
+  const state = `${user.id}.${randomBytes(24).toString("base64url")}`;
   try {
     authUrl = getAuthUrl(state, redirectUriFor(request));
   } catch (error) {

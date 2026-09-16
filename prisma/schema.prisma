@@ -24,6 +24,7 @@ model User {
   updatedAt     DateTime  @updatedAt
   accounts      Account[]
   sessions      Session[]
+  youtubeChannels YoutubeChannel[]
 }
 
 model Account {
@@ -64,8 +65,9 @@ model VerificationToken {
 /// Google scopes a token to the account/brand channel chosen on the consent screen.
 model YoutubeChannel {
   id                String                  @id @default(cuid())
-  workspaceId       String                  @default("default")
-  channelId         String                  @unique // "UC..."
+  userId            String
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channelId         String                  // "UC..."
   title             String
   customUrl         String?
   thumbnailUrl      String?
@@ -87,11 +89,13 @@ model YoutubeChannel {
   updatedAt         DateTime                @updatedAt
   videos            YoutubeVideo[]
 
-  @@index([workspaceId])
+  @@unique([userId, channelId])
+  @@index([userId])
 }
 
 model YoutubeVideo {
-  id            String         @id // YouTube video id
+  id            String         @id @default(cuid())
+  videoId       String         // YouTube video id
   channelId     String
   channel       YoutubeChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
   title         String
@@ -107,5 +111,6 @@ model YoutubeVideo {
   uploadStatus  String         @default("processed")
   fetchedAt     DateTime       @default(now())
 
+  @@unique([channelId, videoId])
   @@index([channelId, publishedAt(sort: Desc)])
 }
