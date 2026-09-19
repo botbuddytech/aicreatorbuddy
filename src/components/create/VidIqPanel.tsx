@@ -1,8 +1,8 @@
 import { Badge } from "@/components/ui/Badge";
 import {
   vidiqGradeTone,
+  type ScriptScore,
   type VidIqGrade,
-  type VidIqScriptInsight,
   type VidIqThumbInsight,
   type VidIqTitleInsight,
 } from "@/lib/videoProject";
@@ -108,19 +108,21 @@ export function VidIqThumbStats({ insight }: { insight: VidIqThumbInsight }) {
   );
 }
 
-export function VidIqScriptStats({
+export function ScriptScoreStats({
   insight,
   stale,
 }: {
-  insight: VidIqScriptInsight;
+  insight: ScriptScore;
   stale?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-chart-blue/30 bg-surface p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <h4 className="font-display text-base font-semibold text-foreground">VidIQ script score</h4>
-          <VidIqMark />
+          <h4 className="font-display text-base font-semibold text-foreground">Script score</h4>
+          <Badge tone={insight.provider === "cursor" ? "accent" : "blue"}>
+            {insight.provider === "cursor" ? "Cursor" : "VidIQ"}
+          </Badge>
         </div>
         <div className="flex items-center gap-2">
           <span className="font-display text-2xl font-semibold tabular-nums text-foreground">
@@ -135,7 +137,7 @@ export function VidIqScriptStats({
         </p>
       ) : (
         <p className="mt-1 text-xs text-muted">
-          Mock analysis of hook, retention, keyword fit, and CTA. Swap for the real VidIQ API later.
+          Analysis of hook, retention, keyword fit, and call to action.
         </p>
       )}
       <div className="mt-4 grid gap-3 sm:grid-cols-2">

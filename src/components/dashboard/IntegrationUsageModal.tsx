@@ -17,6 +17,7 @@ import {
   type Integration,
   type IntegrationCallLog,
 } from "@/lib/dashboardContent";
+import type { UserIntegrationState } from "@/lib/integrations/repo";
 
 type UsageTab = "overview" | "usage" | "logs";
 type LogFilter = "all" | "2xx" | "4xx" | "5xx";
@@ -47,7 +48,22 @@ function statusPillClass(status: number): string {
   return "bg-success/15 text-success";
 }
 
-function QuotaBar({ integration }: { integration: Integration }) {
+function QuotaBar({
+  integration,
+  liveState,
+}: {
+  integration: Integration;
+  liveState: UserIntegrationState | null;
+}) {
+  const isVidiq = liveState?.integrationId === "vidiq";
+  if (isVidiq && !liveState.quotaLimit) {
+    return (
+      <div className="rounded-xl border border-border bg-surface-soft p-4">
+        <p className="text-sm font-medium text-foreground">Credits remaining</p>
+        <p className="mt-1 text-sm text-muted">—</p>
+      </div>
+    );
+  }
   const percent = quotaPercent(integration.quota);
   const barColor =
     percent >= 90 ? "bg-accent" : percent >= 75 ? "bg-chart-amber" : "bg-success";
@@ -55,7 +71,9 @@ function QuotaBar({ integration }: { integration: Integration }) {
   return (
     <div className="rounded-xl border border-border bg-surface-soft p-4">
       <div className="flex items-center justify-between gap-3 text-sm">
-        <p className="font-medium text-foreground">Quota</p>
+        <p className="font-medium text-foreground">
+          {isVidiq ? "Credits remaining" : "Quota"}
+        </p>
         <p className="text-muted">
           {formatInt(integration.quota.used)} / {formatInt(integration.quota.limit)}{" "}
           {integration.quota.unit}
@@ -65,9 +83,7 @@ function QuotaBar({ integration }: { integration: Integration }) {
         <div className={`h-full rounded-full ${barColor}`} style={{ width: `${percent}%` }} />
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-        <span>
-          {percent.toFixed(0)}% of {integration.quota.window.toLowerCase()} window
-        </span>
+        <span>{isVidiq ? `${percent.toFixed(0)}% available` : `${percent.toFixed(0)}% of ${integration.quota.window.toLowerCase()} window`}</span>
         <span>Resets {integration.quota.resetsOn}</span>
       </div>
     </div>
@@ -85,8 +101,15 @@ function DisconnectedEmptyState({ note }: { note: string }) {
   );
 }
 
-function OverviewTab({ integration }: { integration: Integration }) {
-  const calls = sumTrend(integration.trend);
+function OverviewTab({
+  integration,
+  liveState,
+}: {
+  integration: Integration;
+  liveState: UserIntegrationState | null;
+}) {
+  const isVidiq = liveState?.integrationId === "vidiq";
+  const calls = isVidiq ? liveState.usage?.callsMonth : sumTrend(integration.trend);
   const meta = [
     { label: "Plan", value: integration.plan },
     { label: "Environment", value: integration.environment },
@@ -94,10 +117,22 @@ function OverviewTab({ integration }: { integration: Integration }) {
     { label: "Key created", value: integration.keyCreated },
   ];
   const stats = [
-    { label: "Calls MTD", value: formatInt(calls) },
-    { label: "Spend MTD", value: formatUsd(integration.cost.monthToDate) },
-    { label: "Success rate", value: `${integration.health.successRate}%` },
-    { label: "p95 latency", value: formatLatency(integration.health.p95Latency) },
+    { label: "Calls MTD", value: calls == null ? "—" : formatInt(calls) },
+    { label: "Spend MTD", value: isVidiq ? "—" : formatUsd(integration.cost.monthToDate) },
+    {
+      label: "Success rate",
+      value:
+        isVidiq && liveState.usage?.successRate == null
+          ? "—"
+          : `${integration.health.successRate}%`,
+    },
+    {
+      label: "p95 latency",
+      value:
+        isVidiq && liveState.usage?.p95LatencyMs == null
+          ? "—"
+          : formatLatency(integration.health.p95Latency),
+    },
   ];
 
   return (
@@ -111,7 +146,7 @@ function OverviewTab({ integration }: { integration: Integration }) {
           </div>
         ))}
       </dl>
-      <QuotaBar integration={integration} />
+      <QuotaBar integration={integration} liveState={liveState} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((item) => (
           <div key={item.label} className="rounded-xl border border-border bg-surface-soft px-4 py-3">
@@ -165,14 +200,34 @@ function OverviewTab({ integration }: { integration: Integration }) {
   );
 }
 
-function UsageTab({ integration }: { integration: Integration }) {
+function UsageTab({
+  integration,
+  liveState,
+}: {
+  integration: Integration;
+  liveState: UserIntegrationState | null;
+}) {
   if (integration.status === "disconnected") {
     return <DisconnectedEmptyState note={integration.statusNote} />;
+  }
+  const isVidiq = liveState?.integrationId === "vidiq";
+  if (isVidiq && !liveState.usage?.hasData) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border bg-surface-soft px-5 py-10 text-center">
+        <p className="font-display text-lg font-semibold text-foreground">No live usage yet</p>
+        <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">
+          vidIQ call history will appear after this app makes its first MCP request.
+        </p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
-      <UsageTrendChart values={integration.trend} dates={INTEGRATION_TREND_DATES} />
+      <UsageTrendChart
+        values={integration.trend}
+        dates={isVidiq ? liveState.usage?.trendDates ?? [] : INTEGRATION_TREND_DATES}
+      />
       <div className="grid gap-4 lg:grid-cols-2">
         <BarList
           title="By pipeline step"
@@ -185,7 +240,7 @@ function UsageTab({ integration }: { integration: Integration }) {
           formatValue={(value) => formatInt(value)}
         />
       </div>
-      <div className="rounded-2xl border border-border bg-surface p-5">
+      {!isVidiq ? <div className="rounded-2xl border border-border bg-surface p-5">
         <h3 className="font-display text-lg font-semibold text-foreground">Cost this month</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="rounded-xl bg-surface-soft px-4 py-3">
@@ -205,7 +260,7 @@ function UsageTab({ integration }: { integration: Integration }) {
             <p className="mt-1 text-sm font-medium text-foreground">{integration.cost.perUnitLabel}</p>
           </div>
         </div>
-      </div>
+      </div> : null}
     </div>
   );
 }
@@ -303,9 +358,11 @@ function LogsTab({
 
 function UsageModalBody({
   integration,
+  liveState,
   onClose,
 }: {
   integration: Integration;
+  liveState: UserIntegrationState | null;
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<UsageTab>("overview");
@@ -351,8 +408,12 @@ function UsageModalBody({
         </div>
       }
     >
-      {tab === "overview" ? <OverviewTab integration={integration} /> : null}
-      {tab === "usage" ? <UsageTab integration={integration} /> : null}
+      {tab === "overview" ? (
+        <OverviewTab integration={integration} liveState={liveState} />
+      ) : null}
+      {tab === "usage" ? (
+        <UsageTab integration={integration} liveState={liveState} />
+      ) : null}
       {tab === "logs" ? (
         <LogsTab
           calls={integration.recentCalls}
@@ -366,11 +427,20 @@ function UsageModalBody({
 
 export function IntegrationUsageModal({
   integration,
+  liveState,
   onClose,
 }: {
   integration: Integration | null;
+  liveState: UserIntegrationState | null;
   onClose: () => void;
 }) {
   if (!integration) return null;
-  return <UsageModalBody key={integration.id} integration={integration} onClose={onClose} />;
+  return (
+    <UsageModalBody
+      key={integration.id}
+      integration={integration}
+      liveState={liveState}
+      onClose={onClose}
+    />
+  );
 }

@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/session";
+import {
+  isDeletedVideoSession,
+  isDeletedVideoSessionError,
+} from "@/lib/session/deletion";
 import { jsonValue } from "@/lib/session/server";
 import {
   fetchReferenceTranscript,
@@ -37,9 +41,14 @@ async function updateReferenceCount(sessionId: string) {
 }
 
 export async function POST(request: Request, { params }: RouteContext) {
+  let requestedSessionId: string | null = null;
   try {
     const user = await requireUser();
     const { sessionId } = await params;
+    requestedSessionId = sessionId;
+    if (await isDeletedVideoSession(sessionId)) {
+      return Response.json({ error: "Video was permanently deleted." }, { status: 410 });
+    }
     const raw = await request.json();
     if (!isObject(raw)) {
       return Response.json({ error: "Invalid request.", code: "INVALID_REQUEST" }, { status: 400 });
@@ -141,6 +150,12 @@ export async function POST(request: Request, { params }: RouteContext) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return Response.json({ error: "Unauthorized." }, { status: 401 });
     }
+    if (
+      isDeletedVideoSessionError(error) ||
+      (requestedSessionId && await isDeletedVideoSession(requestedSessionId))
+    ) {
+      return Response.json({ error: "Video was permanently deleted." }, { status: 410 });
+    }
     console.error("[video-session] reference transcript fetch failed", error);
     return Response.json({ error: "Could not fetch the transcript." }, { status: 500 });
   }
@@ -150,6 +165,9 @@ export async function DELETE(request: Request, { params }: RouteContext) {
   try {
     const user = await requireUser();
     const { sessionId } = await params;
+    if (await isDeletedVideoSession(sessionId)) {
+      return Response.json({ error: "Video was permanently deleted." }, { status: 410 });
+    }
     const referenceKey = new URL(request.url).searchParams.get("referenceKey")?.trim();
     if (!referenceKey) {
       return Response.json({ error: "Reference key is required." }, { status: 400 });

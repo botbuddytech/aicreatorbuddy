@@ -1,23 +1,48 @@
 "use client";
 
+import { useState } from "react";
 import { Badge } from "@/components/ui/Badge";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { ActionButton } from "@/components/ui/ActionButton";
 import { GenerateBar } from "@/components/create/GenerateBar";
 import { OptionCard } from "@/components/create/OptionCard";
-import { VidIqLeaderboard, VidIqMark, VidIqTitleStats } from "@/components/create/VidIqPanel";
+import { CursorTitleActions } from "@/features/cursor-title-generator/CursorTitleActions";
+import { TitleScoreActions } from "@/features/cursor-title-generator/TitleScoreActions";
+import { VidiqTitleActions } from "@/features/vidiq/VidiqTitleActions";
 import { usePipelineGeneration } from "@/components/create/useGeneration";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { summaryPrompt } from "@/lib/mockAi";
-import { PROVIDER_LABELS, providersForStep, type AiProvider } from "@/lib/videoProject";
+import {
+  FORMAT_LABELS,
+  INTENT_LABELS,
+  PROVIDER_LABELS,
+  formatDurationLabel,
+  providersForStep,
+} from "@/lib/videoProject";
+
+function scoreGrade(score: number): "A" | "B" | "C" | "D" {
+  if (score >= 85) return "A";
+  if (score >= 70) return "B";
+  if (score >= 55) return "C";
+  return "D";
+}
 
 export function TitleStep() {
+  const [scoreConfirmOpen, setScoreConfirmOpen] = useState(false);
   const { project, dispatch } = useVideoProject();
-  const { busy, error, generate } = usePipelineGeneration();
+  const { busy, error, run, generate, recordCost } = usePipelineGeneration();
   const provider = project.providerByStep.title ?? "chatgpt";
   const prompt = summaryPrompt(project.summary);
-  const scored = project.titles.filter((title) => title.vidiq);
+  const cursorContext = {
+    topic: project.summary.topic,
+    format: `${FORMAT_LABELS[project.summary.format]} (${project.summary.aspectRatio})`,
+    intent: INTENT_LABELS[project.summary.intent],
+    duration: formatDurationLabel(
+      project.summary.durationSeconds,
+      project.summary.format,
+    ),
+  };
 
   async function generateAll() {
     const titles = await generate("all", "titles", { prompt, count: 5 }, provider, "title");
@@ -32,40 +57,51 @@ export function TitleStep() {
 
   async function scoreAll() {
     if (project.titles.length === 0) return;
-    const insights = await generate(
-      "vidiq",
+    setScoreConfirmOpen(false);
+    const titlesInput = project.titles.map(({ id, text }) => ({ id, text }));
+    const payload = await run("vidiq", async () => {
+      const response = await fetch("/api/vidiq/titles/score", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          titles: titlesInput,
+          format: project.summary.format,
+          sessionId: project.id,
+        }),
+      });
+      const body = (await response.json().catch(() => null)) as
+        | { scores?: Array<{ id: string; score: number; rank: number }>; error?: string }
+        | null;
+      if (!response.ok || !body?.scores) {
+        throw new Error(body?.error || "vidIQ could not score the titles.");
+      }
+      return body;
+    });
+    const scores = payload?.scores;
+    if (!scores) return;
+    recordCost(
       "vidiqTitles",
-      {
-        titles: project.titles.map((title) => ({ id: title.id, text: title.text })),
-        topic: project.summary.topic,
-      },
+      { titles: titlesInput, topic: project.summary.topic },
       provider,
       "title",
     );
-    if (insights) dispatch({ type: "SET_TITLE_INSIGHTS", insights });
+    dispatch({
+      type: "SET_TITLE_SCORES",
+      scores: Object.fromEntries(
+        scores.map((item) => [
+          item.id,
+          { provider: "vidiq", score: item.score, rank: item.rank },
+        ]),
+      ),
+    });
   }
-
-  async function scoreOne(id: string) {
-    const title = project.titles.find((item) => item.id === id);
-    if (!title) return;
-    const insights = await generate(
-      `vidiq-${id}`,
-      "vidiqTitles",
-      { titles: [{ id: title.id, text: title.text }], topic: project.summary.topic },
-      provider,
-      "title",
-    );
-    if (insights) dispatch({ type: "SET_TITLE_INSIGHTS", insights });
-  }
-
-  const ranked = [...scored].sort((a, b) => (b.vidiq?.score ?? 0) - (a.vidiq?.score ?? 0));
 
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-border bg-surface p-5">
         <h3 className="font-display text-lg font-semibold text-foreground">Title generation</h3>
         <p className="mt-1 text-sm text-muted">
-          Generate 4–6 candidates, regenerate one, or hand-edit. Score them with VidIQ before you lock one.
+          Generate multiple candidates, regenerate one, or hand-edit. Score and rank them before you lock one.
         </p>
         <div className="mt-4">
           <GenerateBar
@@ -81,31 +117,57 @@ export function TitleStep() {
             regenerateLabel="Regenerate all"
             error={error}
             extra={
-              <ActionButton
-                variant="secondary"
-                onClick={scoreAll}
-                disabled={project.titles.length === 0}
-                loading={busy === "vidiq"}
-                loadingLabel="Scoring…"
-              >
-                <VidIqMark />
-                Score with VidIQ
-              </ActionButton>
+              <>
+                <TitleScoreActions
+                  titles={project.titles.map(({ id, text }) => ({ id, text }))}
+                  context={cursorContext}
+                  scoringVidiq={busy === "vidiq"}
+                  onScoreVidiq={async () => setScoreConfirmOpen(true)}
+                  onCursorScores={(scores) =>
+                    dispatch({
+                      type: "SET_TITLE_SCORES",
+                      scores: Object.fromEntries(
+                        scores.map(({ id, score, rank }) => [
+                          id,
+                          { provider: "cursor", score, rank },
+                        ]),
+                      ),
+                    })
+                  }
+                />
+                <CursorTitleActions
+                  context={cursorContext}
+                  onTitles={(titles) =>
+                    dispatch({
+                      type: "SET_TITLES",
+                      titles: titles.map((text) => ({
+                        id: crypto.randomUUID(),
+                        text,
+                        provider: "cursor",
+                      })),
+                    })
+                  }
+                />
+                <VidiqTitleActions
+                  context={cursorContext}
+                  format={project.summary.format}
+                  sessionId={project.id}
+                  onTitles={(titles) =>
+                    dispatch({
+                      type: "SET_TITLES",
+                      titles: titles.map((text) => ({
+                        id: crypto.randomUUID(),
+                        text,
+                        provider: "vidiq",
+                      })),
+                    })
+                  }
+                />
+              </>
             }
           />
         </div>
       </div>
-
-      {ranked.length > 0 ? (
-        <VidIqLeaderboard
-          items={ranked.map((title) => ({
-            id: title.id,
-            label: title.text,
-            value: title.vidiq?.score ?? 0,
-            grade: title.vidiq?.grade,
-          }))}
-        />
-      ) : null}
 
       {busy === "all" ? (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -132,33 +194,64 @@ export function TitleStep() {
               badge={
                 <div className="flex flex-wrap items-center gap-1.5">
                   <Badge tone={title.provider === "gemini" ? "blue" : "accent"}>
-                    {PROVIDER_LABELS[title.provider as AiProvider] ?? title.provider}
+                    {title.provider === "cursor"
+                      ? "Cursor"
+                      : title.provider === "vidiq"
+                        ? "vidIQ"
+                        : PROVIDER_LABELS[title.provider]}
                   </Badge>
-                  {title.vidiq ? (
-                    <Badge tone="blue">
-                      VidIQ {title.vidiq.score} · {title.vidiq.grade}
+                  {title.score ? (
+                    <Badge tone={title.score.provider === "cursor" ? "accent" : "blue"}>
+                      Scored by {title.score.provider === "cursor" ? "Cursor" : "VidIQ"}
                     </Badge>
                   ) : null}
                 </div>
               }
-              extraActions={
-                <ActionButton
-                  size="sm"
-                  variant="secondary"
-                  loading={busy === `vidiq-${title.id}`}
-                  loadingLabel="…"
-                  onClick={() => scoreOne(title.id)}
-                >
-                  VidIQ
-                </ActionButton>
+              footer={
+                title.score ? (
+                  <div className="mt-4 grid grid-cols-3 gap-2 border-t border-border pt-4">
+                    <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3 text-center">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                        Rank
+                      </p>
+                      <p className="mt-1 font-display text-xl font-bold text-foreground">
+                        #{title.score.rank}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3 text-center">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                        Score
+                      </p>
+                      <p className="mt-1 font-display text-xl font-bold text-foreground">
+                        {title.score.score}
+                        <span className="ml-0.5 text-xs font-medium text-muted">/100</span>
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-3 text-center">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">
+                        Grade
+                      </p>
+                      <p className="mt-1 font-display text-xl font-bold text-foreground">
+                        {scoreGrade(title.score.score)}
+                      </p>
+                    </div>
+                  </div>
+                ) : null
               }
-              footer={title.vidiq ? <VidIqTitleStats insight={title.vidiq} /> : null}
             >
               <p className="text-sm font-semibold leading-snug text-foreground">{title.text}</p>
             </OptionCard>
           ))}
         </div>
       )}
+      <ConfirmModal
+        open={scoreConfirmOpen}
+        title="Score titles with vidIQ?"
+        description={`vidIQ will score ${project.titles.length} title${project.titles.length === 1 ? "" : "s"} for click-through potential. This action uses ${project.titles.length * 5} vidIQ credits.`}
+        confirmLabel="Score titles"
+        onClose={() => setScoreConfirmOpen(false)}
+        onConfirm={() => void scoreAll()}
+      />
     </div>
   );
 }

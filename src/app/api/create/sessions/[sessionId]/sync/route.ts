@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/session";
 import { parseSessionSnapshot } from "@/lib/session/contract";
+import {
+  isDeletedVideoSession,
+  isDeletedVideoSessionError,
+} from "@/lib/session/deletion";
 import { jsonValue, safeDate, toCreateStep, toStepState } from "@/lib/session/server";
 import { requireChannelAccess } from "@/lib/youtube/access";
 
@@ -10,6 +14,9 @@ export async function POST(request: Request, { params }: RouteContext) {
   try {
     const user = await requireUser();
     const { sessionId } = await params;
+    if (await isDeletedVideoSession(sessionId)) {
+      return Response.json({ error: "Video was permanently deleted." }, { status: 410 });
+    }
     const snapshot = parseSessionSnapshot(await request.json());
     if (!snapshot || snapshot.id !== sessionId) {
       return Response.json({ error: "Invalid session snapshot." }, { status: 400 });
@@ -233,10 +240,11 @@ export async function POST(request: Request, { params }: RouteContext) {
       for (const check of snapshot.checks) {
         await tx.videoSessionCheck.upsert({
           where: {
-            sessionId_scope_sourceHash: {
+            sessionId_scope_sourceHash_provider: {
               sessionId,
               scope: check.scope,
               sourceHash: check.sourceHash,
+              provider: check.provider,
             },
           },
           create: {
@@ -248,6 +256,7 @@ export async function POST(request: Request, { params }: RouteContext) {
           update: {
             verdict: check.verdict,
             score: check.score,
+            summary: check.summary,
             findings: jsonValue(check.findings),
             checkedAt: safeDate(check.checkedAt),
           },
@@ -262,6 +271,9 @@ export async function POST(request: Request, { params }: RouteContext) {
     }
     if (error instanceof Error && error.message === "CHANNEL_NOT_FOUND") {
       return Response.json({ error: "Target channel not found." }, { status: 400 });
+    }
+    if (isDeletedVideoSessionError(error)) {
+      return Response.json({ error: "Video was permanently deleted." }, { status: 410 });
     }
     console.error("[video-session] snapshot sync failed", error);
     return Response.json({ error: "Could not sync video session." }, { status: 500 });

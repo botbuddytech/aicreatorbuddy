@@ -7,15 +7,22 @@ import {
   normalizeEditorSettings,
   normalizeLowEffortByStep,
   normalizeScenes,
+  normalizeScriptScore,
   normalizeStepStatus,
   normalizeSummary,
+  normalizeTitles,
   newId,
   type VideoProject,
 } from "@/lib/videoProject";
-import { trackSessionEvent } from "@/lib/session/telemetry";
+import { pruneClips } from "@/lib/clipStore";
+import {
+  cancelSessionTelemetry,
+  resumeSessionTelemetry,
+  trackSessionEvent,
+} from "@/lib/session/telemetry";
 
 export const VIDEO_PROJECTS_KEY = "yb_video_projects";
-const STORE_VERSION = 1;
+const STORE_VERSION = 2;
 const SAVE_DEBOUNCE_MS = 600;
 const STORE_EVENT = "yb-video-projects";
 
@@ -38,6 +45,9 @@ function parseStore(raw: string): ProjectStore {
       projects: parsed.projects.map((project) => ({
         ...project,
         summary: normalizeSummary(project.summary),
+        titles: normalizeTitles(project.titles),
+        scriptScore: normalizeScriptScore(project.scriptScore ?? project.scriptVidiq),
+        scriptVidiq: undefined,
         apiCosts: normalizeApiCosts(project.apiCosts),
         scenes: normalizeScenes(project.scenes),
         editor: normalizeEditorSettings(project.editor),
@@ -60,15 +70,16 @@ function emitStoreChange() {
   window.dispatchEvent(new Event(STORE_EVENT));
 }
 
-export function writeProjectStore(store: ProjectStore) {
+export function writeProjectStore(store: ProjectStore): boolean {
   try {
     window.localStorage.setItem(VIDEO_PROJECTS_KEY, JSON.stringify(store));
   } catch (error) {
     // Autosave runs from a timer, so an unreported throw here loses every later save.
     console.error("[drafts] could not save to localStorage", error);
-    return;
+    return false;
   }
   emitStoreChange();
+  return true;
 }
 
 export function upsertProjectInStore(project: VideoProject) {
@@ -143,12 +154,39 @@ export function useProjectStore() {
     return copy;
   }, []);
 
-  const deleteProject = useCallback((id: string) => {
-    trackSessionEvent(id, { type: "session.deleted", payload: {} });
-    writeProjectStore({
-      version: STORE_VERSION,
-      projects: readProjectStore().projects.filter((item) => item.id !== id),
-    });
+  const deleteProject = useCallback(async (id: string) => {
+    cancelSessionTelemetry(id);
+    let serverDeleted = false;
+    try {
+      const response = await fetch(
+        `/api/create/sessions/${encodeURIComponent(id)}`,
+        { method: "DELETE" },
+      );
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || "Could not permanently delete the video.");
+      }
+      serverDeleted = true;
+
+      const projects = readProjectStore().projects.filter((item) => item.id !== id);
+      if (!writeProjectStore({ version: STORE_VERSION, projects })) {
+        throw new Error(
+          "The video was deleted from the server, but its local draft could not be removed.",
+        );
+      }
+
+      const keepClipIds = new Set(
+        projects.flatMap((project) =>
+          project.scenes.flatMap((scene) =>
+            scene.visuals.uploadedClipId ? [scene.visuals.uploadedClipId] : [],
+          ),
+        ),
+      );
+      await pruneClips(keepClipIds);
+    } catch (error) {
+      if (!serverDeleted) resumeSessionTelemetry(id);
+      throw error;
+    }
   }, []);
 
   return { hydrated, projects, createProject, duplicateProject, deleteProject };

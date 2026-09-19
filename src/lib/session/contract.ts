@@ -69,9 +69,11 @@ export type SessionApiCallSnapshot = {
 
 export type SessionCheckSnapshot = {
   scope: string;
+  provider: "static" | "cursor";
   verdict: string;
   score: number;
   sourceHash: string;
+  summary: string | null;
   findings: unknown[];
   checkedAt: string;
 };
@@ -177,12 +179,33 @@ export function parseSessionSnapshot(raw: unknown): SessionSnapshot | null {
     !Array.isArray(raw.references) ||
     raw.scenes.length > MAX_SCENES_PER_SNAPSHOT ||
     raw.assets.length > MAX_ASSETS_PER_SNAPSHOT ||
+    raw.checks.length > 20 ||
     raw.references.length > MAX_REFERENCES_PER_SNAPSHOT
   ) {
     return null;
   }
   for (const step of raw.steps) {
     if (!isObject(step) || !isStep(step.step) || !isStepStatus(step.state) || !isObject(step.data)) {
+      return null;
+    }
+  }
+  for (const check of raw.checks) {
+    if (
+      !isObject(check) ||
+      typeof check.scope !== "string" ||
+      (check.provider !== "static" && check.provider !== "cursor") ||
+      typeof check.verdict !== "string" ||
+      typeof check.score !== "number" ||
+      !Number.isInteger(check.score) ||
+      check.score < 0 ||
+      check.score > 100 ||
+      typeof check.sourceHash !== "string" ||
+      (check.summary !== null &&
+        (typeof check.summary !== "string" || check.summary.length > 500)) ||
+      !Array.isArray(check.findings) ||
+      check.findings.length > 20 ||
+      !isIsoDate(check.checkedAt)
+    ) {
       return null;
     }
   }

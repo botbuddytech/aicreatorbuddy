@@ -6,10 +6,12 @@ import { Textarea } from "@/components/ui/Textarea";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { GenerateBar } from "@/components/create/GenerateBar";
 import { LowEffortCheck } from "@/components/create/LowEffortCheck";
-import { VidIqMark, VidIqScriptStats } from "@/components/create/VidIqPanel";
+import { ScriptScoreStats } from "@/components/create/VidIqPanel";
+import { ScriptScoreActions } from "@/features/cursor-script-analysis/ScriptScoreActions";
+import { scriptAnalysisSourceHash } from "@/features/cursor-script-analysis/sourceHash";
 import { usePipelineGeneration } from "@/components/create/useGeneration";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
-import { scriptScoreHash, summaryPrompt } from "@/lib/mockAi";
+import { summaryPrompt } from "@/lib/mockAi";
 import { providersForStep, selectedTitle, summaryLengthMinutes } from "@/lib/videoProject";
 
 const SCRIPT_FILE_ACCEPT = ".txt,.md,text/plain";
@@ -35,8 +37,19 @@ export function ScriptStep() {
     .filter(Boolean)
     .join("\n");
   const stale = Boolean(
-    project.scriptVidiq && project.scriptVidiq.sourceHash !== scriptScoreHash(project.fullScript),
+    project.scriptScore &&
+      project.scriptScore.sourceHash !== scriptAnalysisSourceHash(project),
   );
+  const scriptScoreInput = {
+    script: project.fullScript,
+    context: {
+      topic: project.summary.topic,
+      title: title ?? null,
+      format: project.summary.format,
+      intent: project.summary.intent,
+      durationSeconds: project.summary.durationSeconds,
+    },
+  };
 
   async function generate() {
     const script = await runGenerate(
@@ -67,7 +80,16 @@ export function ScriptStep() {
       provider,
       "script",
     );
-    if (insight) dispatch({ type: "SET_SCRIPT_INSIGHT", insight });
+    if (insight) {
+      dispatch({
+        type: "SET_SCRIPT_SCORE",
+        score: {
+          ...insight,
+          provider: "vidiq",
+          sourceHash: scriptAnalysisSourceHash(project),
+        },
+      });
+    }
   }
 
   function onUpload(file: File) {
@@ -104,7 +126,7 @@ export function ScriptStep() {
       <div className="rounded-2xl border border-border bg-surface p-5">
         <h3 className="font-display text-lg font-semibold text-foreground">Video script</h3>
         <p className="mt-1 text-sm text-muted">
-          Generate a draft, paste your own, or upload a .txt / .md file. Score it with VidIQ before
+          Generate a draft, paste your own, or upload a .txt / .md file. Score it before
           you break it into scenes.
         </p>
         <div className="mt-4">
@@ -137,24 +159,34 @@ export function ScriptStep() {
                   Upload script
                 </ActionButton>
                 <LowEffortCheck scope="script" variant="button" />
-                <ActionButton
-                  variant="secondary"
-                  onClick={scoreScript}
-                  disabled={!project.fullScript.trim()}
-                  loading={busy === "vidiq"}
-                  loadingLabel="Scoring…"
-                >
-                  <VidIqMark />
-                  Score with VidIQ
-                </ActionButton>
+                <ScriptScoreActions
+                  input={scriptScoreInput}
+                  scoringVidiq={busy === "vidiq"}
+                  onScoreVidiq={scoreScript}
+                  onCursorScore={(result) => {
+                    const wordCount = project.fullScript.trim()
+                      ? project.fullScript.trim().split(/\s+/).length
+                      : 0;
+                    dispatch({
+                      type: "SET_SCRIPT_SCORE",
+                      score: {
+                        ...result,
+                        provider: "cursor",
+                        wordCount,
+                        spokenMinutes: Number((wordCount / 140).toFixed(1)),
+                        sourceHash: scriptAnalysisSourceHash(project),
+                      },
+                    });
+                  }}
+                />
               </>
             }
           />
         </div>
       </div>
 
-      {project.scriptVidiq ? (
-        <VidIqScriptStats insight={project.scriptVidiq} stale={stale} />
+      {project.scriptScore ? (
+        <ScriptScoreStats insight={project.scriptScore} stale={stale} />
       ) : null}
       <LowEffortCheck scope="script" variant="report" />
 

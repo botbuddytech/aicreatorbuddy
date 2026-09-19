@@ -68,21 +68,128 @@ enum ReferenceTranscriptStatus {
   FAILED
 }
 
+enum IntegrationProvider {
+  YOUTUBE
+  VIDIQ
+  CHATGPT
+  GEMINI
+  ELEVENLABS
+  SEEDANCE
+  REMOTION
+}
+
+enum IntegrationAuthKind {
+  OAUTH
+  API_KEY
+  NONE
+}
+
+enum IntegrationConnectionStatus {
+  NOT_CONNECTED
+  CONNECTED
+  NEEDS_REAUTH
+  INVALID_KEY
+  REVOKED
+}
+
 model User {
-  id              String           @id @default(cuid())
-  name            String?
-  email           String           @unique
-  emailVerified   DateTime?
-  image           String?
-  passwordHash    String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  accounts        Account[]
-  sessions        Session[]
-  youtubeChannels YoutubeChannel[]
-  channelShares   ChannelShare[]   @relation("ChannelShareMember")
-  channelSharesSent ChannelShare[] @relation("ChannelShareInviter")
-  videoSessions   VideoSession[]
+  id                   String                @id @default(cuid())
+  name                 String?
+  email                String                @unique
+  emailVerified        DateTime?
+  image                String?
+  passwordHash         String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  accounts             Account[]
+  sessions             Session[]
+  youtubeChannels      YoutubeChannel[]
+  channelShares        ChannelShare[]        @relation("ChannelShareMember")
+  channelSharesSent    ChannelShare[]        @relation("ChannelShareInviter")
+  videoSessions        VideoSession[]
+  deletedVideoSessions DeletedVideoSession[]
+  cursorPromptSettings CursorPromptSettings?
+  integrations         UserIntegration[]
+}
+
+model CursorPromptSettings {
+  userId                String   @id
+  titleGenerationPrompt String?  @db.Text
+  titleScoringPrompt    String?  @db.Text
+  scriptScoringPrompt   String?  @db.Text
+  scriptLowEffortPrompt String?  @db.Text
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserIntegration {
+  id               String                      @id @default(cuid())
+  userId           String
+  user             User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider         IntegrationProvider
+  authKind         IntegrationAuthKind
+  status           IntegrationConnectionStatus @default(NOT_CONNECTED)
+  enabled          Boolean                     @default(false)
+  apiKeyEnc        String?
+  apiKeyLast4      String?
+  apiKeyAddedAt    DateTime?
+  accessTokenEnc   String?
+  refreshTokenEnc  String?
+  tokenExpiresAt   DateTime?
+  scope            String?
+  oauthClientId    String?
+  accountLabel     String?
+  plan             String?
+  environment      String                      @default("Production")
+  quotaUsed        Int?
+  quotaLimit       Int?
+  quotaUnit        String?
+  quotaResetsAt    DateTime?
+  quotaSyncedAt    DateTime?
+  lastUsedAt       DateTime?
+  lastErrorCode    String?
+  lastErrorMessage String?
+  lastErrorAt      DateTime?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+  usage            IntegrationUsage[]
+
+  @@unique([userId, provider])
+  @@index([provider, status])
+}
+
+model IntegrationUsage {
+  id                String              @id @default(cuid())
+  userIntegrationId String
+  userIntegration   UserIntegration     @relation(fields: [userIntegrationId], references: [id], onDelete: Cascade)
+  userId            String
+  provider          IntegrationProvider
+  operation         String
+  method            String?
+  httpStatus        Int?
+  ok                Boolean             @default(true)
+  latencyMs         Int?
+  units             Int                 @default(0)
+  estimatedUsd      Decimal             @default(0) @db.Decimal(12, 6)
+  sessionId         String?
+  step              CreateStep?
+  channelId         String?
+  at                DateTime            @default(now())
+
+  @@index([userId, provider, at(sort: Desc)])
+  @@index([userIntegrationId, at(sort: Desc)])
+}
+
+model McpClientRegistration {
+  id           String   @id @default(cuid())
+  server       String
+  redirectUri  String
+  clientId     String
+  clientSecret String?
+  createdAt    DateTime @default(now())
+
+  @@unique([server, redirectUri])
 }
 
 model Account {
@@ -194,40 +301,40 @@ model YoutubeVideo {
 }
 
 model VideoSession {
-  id                 String                @id
+  id                 String                  @id
   userId             String
-  workspaceId        String                @default("default")
-  name               String                @default("Untitled video")
-  status             VideoSessionStatus    @default(DRAFT)
-  currentStep        CreateStep            @default(SUMMARY)
+  workspaceId        String                  @default("default")
+  name               String                  @default("Untitled video")
+  status             VideoSessionStatus      @default(DRAFT)
+  currentStep        CreateStep              @default(SUMMARY)
   channelId          String?
   channelTitle       String?
-  topic              String                @default("")
-  format             String                @default("long-form")
-  aspectRatio        String                @default("16:9")
-  intent             String                @default("educational")
-  targetDurationSec  Int                   @default(480)
-  referenceCount     Int                   @default(0)
-  apiCallCount       Int                   @default(0)
-  generationCount    Int                   @default(0)
-  regenerateCount    Int                   @default(0)
-  manualClipCount    Int                   @default(0)
-  aiVisualCount      Int                   @default(0)
-  voiceoverCount     Int                   @default(0)
-  sceneCount         Int                   @default(0)
-  approvedStepCount  Int                   @default(0)
-  exportAttemptCount Int                   @default(0)
-  exportSuccessCount Int                   @default(0)
-  timelineSeconds    Int                   @default(0)
-  estimatedCostUsd   Decimal               @default(0) @db.Decimal(12, 6)
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-  lastActiveAt       DateTime              @default(now())
+  topic              String                  @default("")
+  format             String                  @default("long-form")
+  aspectRatio        String                  @default("16:9")
+  intent             String                  @default("educational")
+  targetDurationSec  Int                     @default(480)
+  referenceCount     Int                     @default(0)
+  apiCallCount       Int                     @default(0)
+  generationCount    Int                     @default(0)
+  regenerateCount    Int                     @default(0)
+  manualClipCount    Int                     @default(0)
+  aiVisualCount      Int                     @default(0)
+  voiceoverCount     Int                     @default(0)
+  sceneCount         Int                     @default(0)
+  approvedStepCount  Int                     @default(0)
+  exportAttemptCount Int                     @default(0)
+  exportSuccessCount Int                     @default(0)
+  timelineSeconds    Int                     @default(0)
+  estimatedCostUsd   Decimal                 @default(0) @db.Decimal(12, 6)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  lastActiveAt       DateTime                @default(now())
   renderedAt         DateTime?
   firstExportedAt    DateTime?
   deletedAt          DateTime?
-  user               User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  channel            YoutubeChannel?       @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  user               User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel            YoutubeChannel?         @relation(fields: [channelId], references: [id], onDelete: SetNull)
   steps              VideoSessionStep[]
   events             VideoSessionEvent[]
   apiCalls           VideoSessionApiCall[]
@@ -240,6 +347,15 @@ model VideoSession {
   @@index([userId, lastActiveAt(sort: Desc)])
   @@index([channelId])
   @@index([status])
+}
+
+model DeletedVideoSession {
+  id        String   @id
+  userId    String
+  deletedAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, deletedAt(sort: Desc)])
 }
 
 model VideoSessionStep {
@@ -361,14 +477,16 @@ model VideoSessionCheck {
   id         String       @id @default(cuid())
   sessionId  String
   scope      String
+  provider   String       @default("static")
   verdict    String
   score      Int
   sourceHash String
+  summary    String?      @db.Text
   findings   Json         @default("[]")
   checkedAt  DateTime
   session    VideoSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
-  @@unique([sessionId, scope, sourceHash])
+  @@unique([sessionId, scope, sourceHash, provider])
   @@index([sessionId, checkedAt])
 }
 

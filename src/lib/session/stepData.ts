@@ -18,7 +18,12 @@ export type TitleStepData = {
   selectedTitleId: string | null;
   selectedTitle: string | null;
   editedCount: number;
-  vidiq: Record<string, unknown> | null;
+  scores: Array<{
+    titleId: string;
+    provider: "vidiq" | "cursor";
+    score: number;
+    rank: number;
+  }>;
 };
 
 export type ThumbnailStepData = {
@@ -33,7 +38,7 @@ export type ScriptStepData = {
   wordCount: number;
   charCount: number;
   manualEditCount: number;
-  vidiq: Record<string, unknown> | null;
+  score: Record<string, unknown> | null;
 };
 
 export type TimelineStepData = {

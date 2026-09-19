@@ -71,7 +71,16 @@ function buildSteps(
       selectedTitleId: project.selectedTitleId,
       selectedTitle: title?.text ?? null,
       editedCount: 0,
-      vidiq: title?.vidiq ? { ...title.vidiq } : null,
+      scores: project.titles.flatMap((item) =>
+        item.score
+          ? [{
+              titleId: item.id,
+              provider: item.score.provider,
+              score: item.score.score,
+              rank: item.score.rank,
+            }]
+          : [],
+      ),
     }),
     common("thumbnail", {
       conceptCount: project.thumbnails.length,
@@ -84,7 +93,7 @@ function buildSteps(
       wordCount: words(project.fullScript),
       charCount: project.fullScript.length,
       manualEditCount: 0,
-      vidiq: project.scriptVidiq ? { ...project.scriptVidiq } : null,
+      score: project.scriptScore ? { ...project.scriptScore } : null,
     }),
     common("timeline", {
       sceneCount: project.scenes.length,
@@ -162,9 +171,11 @@ function buildChecks(project: VideoProject): SessionCheckSnapshot[] {
     report
       ? [{
           scope: report.scope,
+          provider: report.provider,
           verdict: report.verdict,
           score: report.score,
           sourceHash: report.sourceHash,
+          summary: report.summary ?? null,
           findings: report.findings,
           checkedAt: report.checkedAt,
         }]

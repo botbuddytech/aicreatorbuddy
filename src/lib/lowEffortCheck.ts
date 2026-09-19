@@ -491,7 +491,14 @@ export function lowEffortSourceHash(project: VideoProject, scope: LowEffortStep)
       .join("||");
 
   if (scope === "script") {
-    return hashString(`script:${project.summary.durationSeconds}:${project.fullScript}`);
+    return hashString(
+      [
+        "script",
+        project.summary.durationSeconds,
+        project.fullScript,
+        ...project.summary.references.map((reference) => reference.transcript),
+      ].join(":"),
+    );
   }
   if (scope === "timeline") {
     return hashString(
@@ -522,6 +529,7 @@ export function runLowEffortCheck(project: VideoProject, scope: LowEffortStep): 
   return {
     checkedAt: new Date().toISOString(),
     scope,
+    provider: "static",
     sourceHash: lowEffortSourceHash(project, scope),
     score,
     verdict: verdictFrom(findings, score),

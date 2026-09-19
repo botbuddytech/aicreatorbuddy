@@ -32,14 +32,14 @@ import {
   type EditorSettings,
   type LowEffortReport,
   type Scene,
+  type ScriptScore,
   type StepId,
   type StepStatus,
   type ThumbnailOption,
   type TitleOption,
+  type TitleScore,
   type VideoProject,
-  type VidIqScriptInsight,
   type VidIqThumbInsight,
-  type VidIqTitleInsight,
 } from "@/lib/videoProject";
 
 type ScenePatch = Partial<Omit<Scene, "voiceover" | "visuals" | "editing">> & {
@@ -61,9 +61,9 @@ export type ProjectAction =
   | { type: "SELECT_THUMBNAIL"; id: string }
   | { type: "ADD_THUMBNAIL"; thumbnail: ThumbnailOption }
   | { type: "REPLACE_THUMBNAIL"; id: string; thumbnail: ThumbnailOption }
-  | { type: "SET_TITLE_INSIGHTS"; insights: Record<string, VidIqTitleInsight> }
+  | { type: "SET_TITLE_SCORES"; scores: Record<string, TitleScore> }
   | { type: "SET_THUMBNAIL_INSIGHTS"; insights: Record<string, VidIqThumbInsight> }
-  | { type: "SET_SCRIPT_INSIGHT"; insight: VidIqScriptInsight }
+  | { type: "SET_SCRIPT_SCORE"; score: ScriptScore }
   | { type: "SET_SCRIPT"; script: string }
   | { type: "SET_SCENES"; scenes: Scene[] }
   | { type: "ADD_SCENE" }
@@ -110,13 +110,19 @@ function reduceProject(
       return {
         ...state,
         titles: state.titles.map((title) =>
-          title.id === action.id ? { ...title, text: action.text, vidiq: undefined } : title,
+          title.id === action.id
+            ? { ...title, text: action.text, score: undefined, vidiq: undefined }
+            : { ...title, score: undefined, vidiq: undefined },
         ),
       };
     case "REPLACE_TITLE":
       return {
         ...state,
-        titles: state.titles.map((title) => (title.id === action.id ? action.title : title)),
+        titles: state.titles.map((title) =>
+          title.id === action.id
+            ? { ...action.title, score: undefined, vidiq: undefined }
+            : { ...title, score: undefined, vidiq: undefined },
+        ),
       };
     case "SET_THUMBNAILS":
       return { ...state, thumbnails: action.thumbnails, selectedThumbnailId: null };
@@ -135,13 +141,26 @@ function reduceProject(
           thumb.id === action.id ? action.thumbnail : thumb,
         ),
       };
-    case "SET_TITLE_INSIGHTS":
+    case "SET_TITLE_SCORES":
       return {
         ...state,
-        titles: state.titles.map((title) => {
-          const insight = action.insights[title.id];
-          return insight ? { ...title, vidiq: insight } : title;
-        }),
+        titles: state.titles
+          .map((title, index) => ({
+            title: {
+              ...title,
+              score: action.scores[title.id],
+              vidiq: undefined,
+            },
+            originalIndex: index,
+          }))
+          .sort(
+            (a, b) =>
+              (a.title.score?.rank ?? Number.MAX_SAFE_INTEGER) -
+                (b.title.score?.rank ?? Number.MAX_SAFE_INTEGER) ||
+              (b.title.score?.score ?? -1) - (a.title.score?.score ?? -1) ||
+              a.originalIndex - b.originalIndex,
+          )
+          .map((item) => item.title),
       };
     case "SET_THUMBNAIL_INSIGHTS":
       return {
@@ -151,8 +170,8 @@ function reduceProject(
           return insight ? { ...thumb, vidiq: insight } : thumb;
         }),
       };
-    case "SET_SCRIPT_INSIGHT":
-      return { ...state, scriptVidiq: action.insight };
+    case "SET_SCRIPT_SCORE":
+      return { ...state, scriptScore: action.score, scriptVidiq: undefined };
     case "SET_SCRIPT":
       return { ...state, fullScript: action.script };
     case "SET_SCENES":

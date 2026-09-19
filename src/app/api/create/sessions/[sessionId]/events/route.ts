@@ -2,6 +2,10 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { requireUser } from "@/lib/auth/session";
 import { parseEventBatch, type SessionEventInput } from "@/lib/session/contract";
+import {
+  isDeletedVideoSession,
+  isDeletedVideoSessionError,
+} from "@/lib/session/deletion";
 import { jsonValue, safeDate, toCreateStep } from "@/lib/session/server";
 
 type RouteContext = { params: Promise<{ sessionId: string }> };
@@ -58,6 +62,9 @@ export async function POST(request: Request, { params }: RouteContext) {
   try {
     const user = await requireUser();
     const { sessionId } = await params;
+    if (await isDeletedVideoSession(sessionId)) {
+      return Response.json({ error: "Video was permanently deleted." }, { status: 410 });
+    }
     const body = await request.json();
     const events = parseEventBatch(body);
     if (!events) {
@@ -218,6 +225,9 @@ export async function POST(request: Request, { params }: RouteContext) {
   } catch (error) {
     if (error instanceof Error && error.message === "UNAUTHORIZED") {
       return Response.json({ error: "Unauthorized." }, { status: 401 });
+    }
+    if (isDeletedVideoSessionError(error)) {
+      return Response.json({ error: "Video was permanently deleted." }, { status: 410 });
     }
     console.error("[video-session] event ingest failed", error);
     return Response.json({ error: "Could not record session events." }, { status: 500 });

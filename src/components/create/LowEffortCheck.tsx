@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Badge } from "@/components/ui/Badge";
+import { CursorPromptEditor } from "@/features/cursor-title-generator/CursorPromptEditor";
+import type { CursorScriptLowEffortResult } from "@/features/cursor-script-analysis/contract";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import {
   canRunLowEffortCheck,
   lowEffortSourceHash,
-  runLowEffortCheck,
 } from "@/lib/lowEffortCheck";
 import { lowEffortVerdictTone, type LowEffortStep, type LowEffortVerdict } from "@/lib/videoProject";
 
@@ -26,35 +27,76 @@ const PANEL_TONE: Record<LowEffortVerdict, string> = {
 export function LowEffortCheckButton({ scope }: { scope: LowEffortStep }) {
   const { project, dispatch } = useVideoProject();
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const enabled = canRunLowEffortCheck(project, scope);
+  const cursorEnabled = process.env.NODE_ENV === "development";
 
-  async function onCheck() {
-    if (!enabled || busy) return;
+  async function onCursorCheck() {
+    if (!enabled || !cursorEnabled || busy || scope !== "script") return;
     setBusy(true);
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, 700);
-    });
-    dispatch({ type: "SET_LOW_EFFORT_REPORT", report: runLowEffortCheck(project, scope) });
-    setBusy(false);
+    setError(null);
+    try {
+      const response = await fetch("/api/local/cursor-script-low-effort", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          script: project.fullScript,
+          durationSeconds: project.summary.durationSeconds,
+          references: project.summary.references.map((reference) => reference.transcript),
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | (CursorScriptLowEffortResult & { error?: string })
+        | null;
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error || "Cursor could not check the script.");
+      }
+      dispatch({
+        type: "SET_LOW_EFFORT_REPORT",
+        report: {
+          checkedAt: new Date().toISOString(),
+          scope: "script",
+          provider: "cursor",
+          sourceHash: lowEffortSourceHash(project, "script"),
+          score: payload.score,
+          verdict: payload.verdict,
+          summary: payload.summary,
+          findings: payload.findings,
+        },
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Cursor could not check the script.");
+    } finally {
+      setBusy(false);
+    }
   }
 
+  if (scope !== "script") return null;
+
   return (
-    <ActionButton
-      variant="secondary"
-      onClick={onCheck}
-      disabled={!enabled}
-      loading={busy}
-      loadingLabel="Checking…"
-    >
-      Check low-effort
-    </ActionButton>
+    <>
+      <CursorPromptEditor kind="scriptLowEffort" enabled={cursorEnabled}>
+        <ActionButton
+          variant="secondary"
+          onClick={onCursorCheck}
+          disabled={!enabled || !cursorEnabled}
+          loading={busy}
+          loadingLabel="Checking…"
+          className={cursorEnabled ? "rounded-r-none" : ""}
+        >
+          Check low-effort with Cursor
+        </ActionButton>
+      </CursorPromptEditor>
+      {!cursorEnabled ? <span className="self-center text-xs text-muted">Local only</span> : null}
+      {error ? <p className="basis-full text-xs text-accent">{error}</p> : null}
+    </>
   );
 }
 
 export function LowEffortReport({ scope }: { scope: LowEffortStep }) {
   const { project } = useVideoProject();
   const report = project.lowEffortByStep?.[scope];
-  if (!report) return null;
+  if (!report || report.provider !== "cursor") return null;
 
   const stale = report.sourceHash !== lowEffortSourceHash(project, scope);
   const failCount = report.findings.filter((item) => item.severity === "fail").length;
@@ -66,7 +108,8 @@ export function LowEffortReport({ scope }: { scope: LowEffortStep }) {
         <div>
           <h4 className="font-display text-base font-semibold text-foreground">Low-effort check</h4>
           <p className="mt-1 text-xs text-muted">
-            Demo heuristic for repetitious / reused / thin-content risk — not YouTube’s classifier.
+            Cursor AI review for repetitious, reused, or thin-content risk — not YouTube’s
+            classifier.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -87,6 +130,7 @@ export function LowEffortReport({ scope }: { scope: LowEffortStep }) {
           {failCount} fail · {warnCount} warn
         </p>
       )}
+      {report.summary ? <p className="mt-3 text-sm text-foreground">{report.summary}</p> : null}
       {report.findings.length > 0 ? (
         <ul className="mt-4 space-y-2">
           {report.findings.map((item, index) => (

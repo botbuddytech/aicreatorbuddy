@@ -8,6 +8,8 @@ const SNAPSHOT_SYNC_MS = 4_000;
 const queues = new Map<string, SessionEventInput[]>();
 const eventTimers = new Map<string, number>();
 const snapshotTimers = new Map<string, number>();
+const inFlight = new Map<string, Set<AbortController>>();
+const deletedSessions = new Set<string>();
 let sequence = 0;
 let lifecycleBound = false;
 
@@ -17,6 +19,37 @@ function id(): string {
 
 function endpoint(sessionId: string, suffix: "events" | "sync"): string {
   return `/api/create/sessions/${encodeURIComponent(sessionId)}/${suffix}`;
+}
+
+function controllerFor(sessionId: string): AbortController {
+  const controller = new AbortController();
+  const controllers = inFlight.get(sessionId) ?? new Set<AbortController>();
+  controllers.add(controller);
+  inFlight.set(sessionId, controllers);
+  return controller;
+}
+
+function releaseController(sessionId: string, controller: AbortController) {
+  const controllers = inFlight.get(sessionId);
+  controllers?.delete(controller);
+  if (!controllers?.size) inFlight.delete(sessionId);
+}
+
+export function cancelSessionTelemetry(sessionId: string): void {
+  deletedSessions.add(sessionId);
+  queues.delete(sessionId);
+  const eventTimer = eventTimers.get(sessionId);
+  if (eventTimer) window.clearTimeout(eventTimer);
+  eventTimers.delete(sessionId);
+  const snapshotTimer = snapshotTimers.get(sessionId);
+  if (snapshotTimer) window.clearTimeout(snapshotTimer);
+  snapshotTimers.delete(sessionId);
+  for (const controller of inFlight.get(sessionId) ?? []) controller.abort();
+  inFlight.delete(sessionId);
+}
+
+export function resumeSessionTelemetry(sessionId: string): void {
+  deletedSessions.delete(sessionId);
 }
 
 function bindLifecycle() {
@@ -32,7 +65,7 @@ function bindLifecycle() {
 }
 
 export function trackSessionEvent(sessionId: string, input: PendingSessionEvent): void {
-  if (typeof window === "undefined" || !sessionId) return;
+  if (typeof window === "undefined" || !sessionId || deletedSessions.has(sessionId)) return;
   bindLifecycle();
   const item: SessionEventInput = {
     clientEventId: id(),
@@ -52,6 +85,10 @@ export function trackSessionEvent(sessionId: string, input: PendingSessionEvent)
 }
 
 export function flushSessionEvents(sessionId: string, beacon = false): void {
+  if (deletedSessions.has(sessionId)) {
+    queues.delete(sessionId);
+    return;
+  }
   const events = queues.get(sessionId);
   if (!events?.length) return;
   queues.delete(sessionId);
@@ -64,36 +101,49 @@ export function flushSessionEvents(sessionId: string, beacon = false): void {
   }))) {
     return;
   }
+  const controller = controllerFor(sessionId);
   void fetch(endpoint(sessionId, "events"), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body,
     keepalive: true,
+    signal: controller.signal,
   }).then((response) => {
+    if (response.status === 410) deletedSessions.add(sessionId);
     if (!response.ok) throw new Error(`event sync returned ${response.status}`);
   }).catch((error) => {
+    if (controller.signal.aborted || deletedSessions.has(sessionId)) return;
     console.error("[video-session] event sync failed", error);
     queues.set(sessionId, [...events, ...(queues.get(sessionId) ?? [])]);
+  }).finally(() => {
+    releaseController(sessionId, controller);
   });
 }
 
 export function scheduleSnapshotSync(snapshot: SessionSnapshot): void {
-  if (typeof window === "undefined") return;
+  if (typeof window === "undefined" || deletedSessions.has(snapshot.id)) return;
   const previous = snapshotTimers.get(snapshot.id);
   if (previous) window.clearTimeout(previous);
   snapshotTimers.set(
     snapshot.id,
     window.setTimeout(() => {
       snapshotTimers.delete(snapshot.id);
+      if (deletedSessions.has(snapshot.id)) return;
+      const controller = controllerFor(snapshot.id);
       void fetch(endpoint(snapshot.id, "sync"), {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(snapshot),
         keepalive: true,
+        signal: controller.signal,
       }).then((response) => {
+        if (response.status === 410) deletedSessions.add(snapshot.id);
         if (!response.ok) throw new Error(`snapshot sync returned ${response.status}`);
       }).catch((error) => {
+        if (controller.signal.aborted || deletedSessions.has(snapshot.id)) return;
         console.error("[video-session] snapshot sync failed", error);
+      }).finally(() => {
+        releaseController(snapshot.id, controller);
       });
     }, SNAPSHOT_SYNC_MS),
   );

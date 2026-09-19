@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "nextjs-toploader/app";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Modal } from "@/components/ui/Modal";
 import { VideoGridSkeleton } from "@/components/ui/skeletons/VideoGridSkeleton";
 import { useProjectStore } from "@/lib/useVideoProjectDraft";
 import {
@@ -96,6 +98,9 @@ function ProjectCard({
 export function CreateIndexClient({ channels }: { channels: ConnectedChannel[] }) {
   const router = useRouter();
   const { hydrated, projects, createProject, duplicateProject, deleteProject } = useProjectStore();
+  const [pendingDelete, setPendingDelete] = useState<VideoProject | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const latest = [...projects].sort((a, b) => b.lastUpdated.localeCompare(a.lastUpdated))[0];
   const channelById = new Map(channels.map((channel) => [channel.id, channel.title]));
 
@@ -103,6 +108,22 @@ export function CreateIndexClient({ channels }: { channels: ConnectedChannel[] }
     const channelId = channels[0]?.id ?? "";
     const project = createProject(channelId);
     router.push(`/dashboard/create/${project.id}`);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete || deleting) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteProject(pendingDelete.id);
+      setPendingDelete(null);
+    } catch (error) {
+      setDeleteError(
+        error instanceof Error ? error.message : "Could not permanently delete the video.",
+      );
+    } finally {
+      setDeleting(false);
+    }
   }
 
   return (
@@ -151,7 +172,10 @@ export function CreateIndexClient({ channels }: { channels: ConnectedChannel[] }
                   const copy = duplicateProject(project.id);
                   if (copy) router.push(`/dashboard/create/${copy.id}`);
                 }}
-                onDelete={() => deleteProject(project.id)}
+                onDelete={() => {
+                  setDeleteError(null);
+                  setPendingDelete(project);
+                }}
               />
             ))}
             <button
@@ -172,6 +196,44 @@ export function CreateIndexClient({ channels }: { channels: ConnectedChannel[] }
           </div>
         )}
       </div>
+      <Modal
+        open={Boolean(pendingDelete)}
+        title="Permanently delete video?"
+        subtitle={pendingDelete ? projectDisplayName(pendingDelete) : undefined}
+        onClose={() => {
+          if (!deleting) setPendingDelete(null);
+        }}
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-muted">
+            This permanently deletes the draft and all related backend data, including snapshots,
+            events, titles, scripts, transcripts, scenes, assets, checks, and export metadata. This
+            action cannot be undone.
+          </p>
+          {deleteError ? (
+            <p className="rounded-xl bg-accent/10 px-3 py-2 text-sm text-accent">
+              {deleteError}
+            </p>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <ActionButton
+              variant="secondary"
+              onClick={() => setPendingDelete(null)}
+              disabled={deleting}
+            >
+              Cancel
+            </ActionButton>
+            <ActionButton
+              variant="danger"
+              onClick={confirmDelete}
+              loading={deleting}
+              loadingLabel="Deleting…"
+            >
+              Delete permanently
+            </ActionButton>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }

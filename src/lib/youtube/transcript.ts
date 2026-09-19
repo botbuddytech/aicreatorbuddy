@@ -25,6 +25,13 @@ export type ReferenceTranscriptSegment = {
   durationMs: number;
 };
 
+export type TimestampedTranscriptBlock = {
+  startMs: number;
+  endMs: number;
+  range: string;
+  text: string;
+};
+
 export type ReferenceTranscriptResult =
   | {
       ok: true;
@@ -68,6 +75,85 @@ export function parseYoutubeVideoId(input: string): string | null {
 
 function cleanText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function timestamp(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1_000));
+  const hours = Math.floor(totalSeconds / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`
+    : `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+export function parseReferenceTranscriptSegments(
+  value: unknown,
+): ReferenceTranscriptSegment[] {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, MAX_TRANSCRIPT_SEGMENTS).flatMap((candidate) => {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return [];
+    const item = candidate as Record<string, unknown>;
+    const text = typeof item.text === "string" ? cleanText(item.text) : "";
+    const offsetMs = item.offsetMs;
+    const durationMs = item.durationMs;
+    if (
+      !text ||
+      typeof offsetMs !== "number" ||
+      !Number.isFinite(offsetMs) ||
+      offsetMs < 0 ||
+      typeof durationMs !== "number" ||
+      !Number.isFinite(durationMs) ||
+      durationMs < 0
+    ) {
+      return [];
+    }
+    return [{ text, offsetMs, durationMs }];
+  });
+}
+
+export function groupTranscriptByMinute(
+  value: unknown,
+  durationSec?: number | null,
+): TimestampedTranscriptBlock[] {
+  const segments = parseReferenceTranscriptSegments(value).sort(
+    (a, b) => a.offsetMs - b.offsetMs,
+  );
+  if (!segments.length) return [];
+
+  const windowMs = 60_000;
+  const groups = new Map<number, string[]>();
+  for (const segment of segments) {
+    const startMs = Math.floor(segment.offsetMs / windowMs) * windowMs;
+    groups.set(startMs, [...(groups.get(startMs) ?? []), segment.text]);
+  }
+
+  const last = segments.at(-1);
+  const inferredEndMs = last ? last.offsetMs + last.durationMs : 0;
+  const suppliedEndMs =
+    typeof durationSec === "number" && Number.isFinite(durationSec) && durationSec > 0
+      ? durationSec * 1_000
+      : 0;
+  const transcriptEndMs = Math.max(inferredEndMs, suppliedEndMs);
+
+  return [...groups.entries()].map(([startMs, textParts]) => {
+    const endMs = Math.min(startMs + windowMs, Math.max(startMs + 1_000, transcriptEndMs));
+    return {
+      startMs,
+      endMs,
+      range: `${timestamp(startMs)}–${timestamp(endMs)}`,
+      text: cleanText(textParts.join(" ")),
+    };
+  });
+}
+
+export function formatTimestampedTranscript(
+  blocks: TimestampedTranscriptBlock[],
+): string {
+  return blocks
+    .map((block) => `${block.range}\n${block.text}`)
+    .join("\n\n")
+    .slice(0, MAX_TRANSCRIPT_CHARS);
 }
 
 function failure(error: unknown): ReferenceTranscriptResult {
@@ -134,19 +220,22 @@ export async function fetchReferenceTranscript(
         durationMs: item.duration,
       }))
       .filter((item) => item.text);
-    const transcript = cleanText(segments.map((item) => item.text).join(" "))
+    const plainTranscript = cleanText(segments.map((item) => item.text).join(" "))
       .slice(0, MAX_TRANSCRIPT_CHARS);
     const last = segments.at(-1);
     const durationSec = last ? (last.offsetMs + last.durationMs) / 1_000 : null;
     const detectedLang = response.find((item) => item.lang)?.lang ?? lang ?? null;
 
-    if (!transcript) {
+    if (!plainTranscript) {
       return {
         ok: false,
         code: "NO_CAPTIONS",
         message: "No caption text was returned for this video.",
       };
     }
+    const transcript =
+      formatTimestampedTranscript(groupTranscriptByMinute(segments, durationSec)) ||
+      plainTranscript;
 
     return {
       ok: true,
@@ -154,7 +243,7 @@ export async function fetchReferenceTranscript(
       segments,
       lang: detectedLang,
       charCount: transcript.length,
-      wordCount: transcript.split(/\s+/).length,
+      wordCount: plainTranscript.split(/\s+/).length,
       durationSec,
     };
   } catch (error) {

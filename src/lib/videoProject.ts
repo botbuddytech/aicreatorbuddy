@@ -138,9 +138,19 @@ export interface Scene {
 export interface TitleOption {
   id: string;
   text: string;
-  provider: AiProvider;
+  provider: AiProvider | "cursor" | "vidiq";
+  score?: TitleScore;
+  /** Legacy local-draft field, normalized into score during hydration. */
   vidiq?: VidIqTitleInsight;
 }
+
+export type TitleScoreProvider = "vidiq" | "cursor";
+
+export type TitleScore = {
+  provider: TitleScoreProvider;
+  score: number;
+  rank: number;
+};
 
 export interface ThumbnailOption {
   id: string;
@@ -184,6 +194,12 @@ export type VidIqScriptInsight = {
   sourceHash: string;
 };
 
+export type ScriptScoreProvider = "vidiq" | "cursor";
+
+export type ScriptScore = VidIqScriptInsight & {
+  provider: ScriptScoreProvider;
+};
+
 export type ApiCostEntry = {
   id: string;
   at: string;
@@ -206,9 +222,11 @@ export type LowEffortFinding = {
 export type LowEffortReport = {
   checkedAt: string;
   scope: LowEffortStep;
+  provider: "static" | "cursor";
   sourceHash: string;
   score: number;
   verdict: LowEffortVerdict;
+  summary?: string;
   findings: LowEffortFinding[];
 };
 
@@ -222,6 +240,8 @@ export interface VideoProject {
   thumbnails: ThumbnailOption[];
   selectedThumbnailId: string | null;
   fullScript: string;
+  scriptScore?: ScriptScore;
+  /** Legacy local-draft field, normalized into scriptScore during hydration. */
   scriptVidiq?: VidIqScriptInsight;
   scenes: Scene[];
   description: string;
@@ -486,6 +506,59 @@ export function normalizeSummary(raw: unknown): VideoSummary {
   };
 }
 
+export function normalizeTitles(raw: unknown): TitleOption[] {
+  if (!Array.isArray(raw)) return [];
+
+  const titles = raw.flatMap((value): TitleOption[] => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    const item = value as Partial<TitleOption>;
+    if (typeof item.id !== "string" || typeof item.text !== "string") return [];
+    const provider =
+      item.provider === "chatgpt" ||
+      item.provider === "gemini" ||
+      item.provider === "elevenlabs" ||
+      item.provider === "cursor" ||
+      item.provider === "vidiq"
+        ? item.provider
+        : "chatgpt";
+    const score =
+      item.score &&
+      (item.score.provider === "vidiq" || item.score.provider === "cursor") &&
+      Number.isInteger(item.score.score) &&
+      item.score.score >= 0 &&
+      item.score.score <= 100 &&
+      Number.isInteger(item.score.rank) &&
+      item.score.rank > 0
+        ? { ...item.score }
+        : undefined;
+    return [{ id: item.id, text: item.text, provider, score }];
+  });
+
+  const legacy = raw
+    .map((value, index) => {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+      const item = value as Partial<TitleOption>;
+      const score = item.vidiq?.score;
+      return typeof score === "number" && Number.isFinite(score)
+        ? { id: item.id, score: Math.max(0, Math.min(100, Math.round(score))), index }
+        : null;
+    })
+    .filter((value): value is { id: string; score: number; index: number } => Boolean(value?.id))
+    .sort((a, b) => b.score - a.score || a.index - b.index);
+  const legacyById = new Map(
+    legacy.map((item, index) => [
+      item.id,
+      { provider: "vidiq" as const, score: item.score, rank: index + 1 },
+    ]),
+  );
+
+  return titles.map((title) =>
+    title.score || !legacyById.has(title.id)
+      ? title
+      : { ...title, score: legacyById.get(title.id) },
+  );
+}
+
 export function emptyEditing(): SceneEditing {
   return {
     notes: "",
@@ -592,6 +665,64 @@ export function normalizeEditorSettings(raw: unknown): EditorSettings {
 const LOW_EFFORT_STEPS: LowEffortStep[] = ["script", "timeline", "render"];
 const LOW_EFFORT_VERDICTS: LowEffortVerdict[] = ["pass", "warn", "fail"];
 
+export function normalizeScriptScore(
+  raw: unknown,
+  fallbackProvider: ScriptScoreProvider = "vidiq",
+): ScriptScore | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const source = raw as Partial<ScriptScore>;
+  const metrics = [
+    source.score,
+    source.hook,
+    source.retention,
+    source.keywordFit,
+    source.cta,
+  ];
+  if (
+    metrics.some(
+      (value) =>
+        typeof value !== "number" ||
+        !Number.isFinite(value) ||
+        value < 0 ||
+        value > 100,
+    ) ||
+    (source.grade !== "A" &&
+      source.grade !== "B" &&
+      source.grade !== "C" &&
+      source.grade !== "D") ||
+    typeof source.sourceHash !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    provider:
+      source.provider === "cursor" || source.provider === "vidiq"
+        ? source.provider
+        : fallbackProvider,
+    score: Math.round(source.score as number),
+    grade: source.grade,
+    hook: Math.round(source.hook as number),
+    retention: Math.round(source.retention as number),
+    keywordFit: Math.round(source.keywordFit as number),
+    cta: Math.round(source.cta as number),
+    wordCount:
+      typeof source.wordCount === "number" && Number.isFinite(source.wordCount)
+        ? Math.max(0, Math.round(source.wordCount))
+        : 0,
+    spokenMinutes:
+      typeof source.spokenMinutes === "number" && Number.isFinite(source.spokenMinutes)
+        ? Math.max(0, source.spokenMinutes)
+        : 0,
+    keywords: Array.isArray(source.keywords)
+      ? source.keywords.filter((item): item is string => typeof item === "string").slice(0, 10)
+      : [],
+    notes: Array.isArray(source.notes)
+      ? source.notes.filter((item): item is string => typeof item === "string").slice(0, 8)
+      : [],
+    sourceHash: source.sourceHash,
+  };
+}
+
 function isLowEffortStep(value: unknown): value is LowEffortStep {
   return typeof value === "string" && LOW_EFFORT_STEPS.includes(value as LowEffortStep);
 }
@@ -633,9 +764,11 @@ function normalizeLowEffortReport(raw: unknown, fallbackScope: LowEffortStep): L
   return {
     checkedAt: source.checkedAt,
     scope,
+    provider: source.provider === "cursor" ? "cursor" : "static",
     sourceHash: source.sourceHash,
     score: Math.min(100, Math.max(0, Math.round(source.score))),
     verdict: source.verdict,
+    summary: typeof source.summary === "string" ? source.summary : undefined,
     findings,
   };
 }
