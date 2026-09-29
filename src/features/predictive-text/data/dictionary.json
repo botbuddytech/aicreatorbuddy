@@ -1,0 +1,8321 @@
+[
+  {
+    "word": "ability",
+    "frequency": 17934,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "able",
+    "frequency": 17932,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "about",
+    "frequency": 20000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "above",
+    "frequency": 19998,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "absence",
+    "frequency": 17930,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "absent",
+    "frequency": 19996,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "absolute",
+    "frequency": 19994,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "absolutely",
+    "frequency": 19992,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "absorb",
+    "frequency": 17926,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "abstract",
+    "frequency": 17924,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "academic",
+    "frequency": 19990,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "accept",
+    "frequency": 19988,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "acceptance",
+    "frequency": 17920,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "accepted",
+    "frequency": 19986,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "access",
+    "frequency": 19984,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "accessible",
+    "frequency": 19982,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "accident",
+    "frequency": 17916,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "accomplish",
+    "frequency": 17914,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "according",
+    "frequency": 19980,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "account",
+    "frequency": 19978,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "accurate",
+    "frequency": 19976,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "achieve",
+    "frequency": 19974,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "achieved",
+    "frequency": 19972,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "achievement",
+    "frequency": 17912,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "acquire",
+    "frequency": 17910,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "across",
+    "frequency": 19970,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "action",
+    "frequency": 19968,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "active",
+    "frequency": 19966,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "activity",
+    "frequency": 19964,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "actual",
+    "frequency": 19962,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "actually",
+    "frequency": 19960,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "adapt",
+    "frequency": 17906,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "adaptation",
+    "frequency": 17904,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "add",
+    "frequency": 19958,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "added",
+    "frequency": 19956,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "addition",
+    "frequency": 19954,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "additional",
+    "frequency": 19952,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "address",
+    "frequency": 14950,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "adjustment",
+    "frequency": 17900,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "administration",
+    "frequency": 19948,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "administrative",
+    "frequency": 19946,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "advanced",
+    "frequency": 2300,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "advantage",
+    "frequency": 19944,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "adventure",
+    "frequency": 17894,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "advertise",
+    "frequency": 17892,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "advertising",
+    "frequency": 13306,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "advice",
+    "frequency": 19942,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "affect",
+    "frequency": 19940,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "affected",
+    "frequency": 19938,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "affiliate",
+    "frequency": 7300,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "afford",
+    "frequency": 17888,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "after",
+    "frequency": 19936,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "afternoon",
+    "frequency": 17886,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "again",
+    "frequency": 19934,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "against",
+    "frequency": 19932,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "agency",
+    "frequency": 19930,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "agenda",
+    "frequency": 13272,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "agent",
+    "frequency": 19928,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "ago",
+    "frequency": 19926,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "agree",
+    "frequency": 19924,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "agreed",
+    "frequency": 19922,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "agreement",
+    "frequency": 14920,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "agriculture",
+    "frequency": 17880,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "ahead",
+    "frequency": 19918,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "air",
+    "frequency": 19916,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "alarm",
+    "frequency": 17876,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "album",
+    "frequency": 17874,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "alcohol",
+    "frequency": 17872,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "algorithm",
+    "frequency": 25000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "alive",
+    "frequency": 17870,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "allow",
+    "frequency": 19914,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "allowed",
+    "frequency": 19912,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "almost",
+    "frequency": 19910,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "alone",
+    "frequency": 19908,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "along",
+    "frequency": 19906,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "already",
+    "frequency": 19904,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "also",
+    "frequency": 19902,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "alternative",
+    "frequency": 17868,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "although",
+    "frequency": 19900,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "always",
+    "frequency": 19898,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "amazing",
+    "frequency": 19896,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "ambition",
+    "frequency": 17866,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "amount",
+    "frequency": 19894,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "amusement",
+    "frequency": 17862,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "analysis",
+    "frequency": 14892,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "analytics",
+    "frequency": 29000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "analyze",
+    "frequency": 19890,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "ancient",
+    "frequency": 19888,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "android",
+    "frequency": 16472,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "anger",
+    "frequency": 17858,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "animal",
+    "frequency": 19886,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "animated",
+    "frequency": 3600,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "animation",
+    "frequency": 3700,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "annual",
+    "frequency": 17856,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "another",
+    "frequency": 19884,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "answer",
+    "frequency": 19882,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "anxiety",
+    "frequency": 17854,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "any",
+    "frequency": 19880,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "anyone",
+    "frequency": 19878,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "anything",
+    "frequency": 19876,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "apartment",
+    "frequency": 17852,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "api",
+    "frequency": 16630,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "app",
+    "frequency": 16628,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "appear",
+    "frequency": 19874,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "appearance",
+    "frequency": 17850,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "application",
+    "frequency": 17872,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "apply",
+    "frequency": 19870,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "appointment",
+    "frequency": 13232,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "appreciation",
+    "frequency": 17846,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "approach",
+    "frequency": 19868,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "appropriate",
+    "frequency": 19866,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "approval",
+    "frequency": 17842,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "architecture",
+    "frequency": 16364,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "area",
+    "frequency": 19864,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "argue",
+    "frequency": 19862,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "argument",
+    "frequency": 19860,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "around",
+    "frequency": 19858,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "arrangement",
+    "frequency": 17838,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "array",
+    "frequency": 16572,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "arrival",
+    "frequency": 17836,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "arrive",
+    "frequency": 19856,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "article",
+    "frequency": 12854,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "articles",
+    "frequency": 11040,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "ask",
+    "frequency": 19852,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "asked",
+    "frequency": 19850,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "aspect",
+    "frequency": 19848,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "assistant",
+    "frequency": 17834,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "assume",
+    "frequency": 19846,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "assumption",
+    "frequency": 17832,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "async",
+    "frequency": 16562,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "atmosphere",
+    "frequency": 17830,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "attention",
+    "frequency": 17828,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "attitude",
+    "frequency": 17826,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "attorney",
+    "frequency": 13278,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "audience",
+    "frequency": 31000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "audio",
+    "frequency": 11078,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "authentication",
+    "frequency": 16540,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "author",
+    "frequency": 17824,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "authorization",
+    "frequency": 16538,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "automation",
+    "frequency": 23000,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "available",
+    "frequency": 19844,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "average",
+    "frequency": 19842,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "avoid",
+    "frequency": 19840,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "await",
+    "frequency": 16560,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "awareness",
+    "frequency": 17820,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "away",
+    "frequency": 19838,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "baby",
+    "frequency": 19836,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "back",
+    "frequency": 19834,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "backend",
+    "frequency": 16624,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "background",
+    "frequency": 1000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "balance",
+    "frequency": 19830,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "based",
+    "frequency": 19828,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "basic",
+    "frequency": 19826,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "basically",
+    "frequency": 19824,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "batching",
+    "frequency": 1400,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "beautiful",
+    "frequency": 17816,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "because",
+    "frequency": 17814,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "become",
+    "frequency": 19822,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "becoming",
+    "frequency": 19820,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "before",
+    "frequency": 19818,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "begin",
+    "frequency": 19816,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "beginner",
+    "frequency": 2400,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "beginning",
+    "frequency": 19814,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "behavior",
+    "frequency": 19812,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "believe",
+    "frequency": 19810,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "benefit",
+    "frequency": 17812,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "best",
+    "frequency": 19808,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "better",
+    "frequency": 19806,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "between",
+    "frequency": 19804,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "beyond",
+    "frequency": 19802,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "bicycle",
+    "frequency": 17810,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "big",
+    "frequency": 19800,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "bill",
+    "frequency": 19798,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "billion",
+    "frequency": 19796,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "biology",
+    "frequency": 17808,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "birth",
+    "frequency": 17806,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "blank",
+    "frequency": 17804,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "blog",
+    "frequency": 11044,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "blood",
+    "frequency": 17802,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "board",
+    "frequency": 17800,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "body",
+    "frequency": 19794,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "book",
+    "frequency": 19792,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "boolean",
+    "frequency": 16566,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "bootstrap",
+    "frequency": 16408,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "both",
+    "frequency": 19790,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "boundary",
+    "frequency": 17798,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "brand",
+    "frequency": 27000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "branding",
+    "frequency": 6100,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "brands",
+    "frequency": 9000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "break",
+    "frequency": 19788,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "breakdown",
+    "frequency": 180,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "breakfast",
+    "frequency": 17796,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "bridge",
+    "frequency": 17794,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "brilliant",
+    "frequency": 17792,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "bring",
+    "frequency": 19786,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "brother",
+    "frequency": 17790,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "brought",
+    "frequency": 19784,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "browser",
+    "frequency": 16598,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "budget",
+    "frequency": 13298,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "build",
+    "frequency": 17782,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "builder",
+    "frequency": 16924,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "building",
+    "frequency": 19780,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "built",
+    "frequency": 16928,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "burden",
+    "frequency": 17784,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "burnout",
+    "frequency": 1500,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "business",
+    "frequency": 35000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "buy",
+    "frequency": 19776,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "cache",
+    "frequency": 16526,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "cadence",
+    "frequency": 90,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "calculate",
+    "frequency": 17272,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "calculated",
+    "frequency": 17270,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "calculating",
+    "frequency": 17268,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "calculation",
+    "frequency": 17782,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "calculator",
+    "frequency": 17264,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "calendar",
+    "frequency": 13228,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "call",
+    "frequency": 19774,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "callback",
+    "frequency": 16558,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "called",
+    "frequency": 19772,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "calling",
+    "frequency": 19770,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "calm",
+    "frequency": 17780,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "camera",
+    "frequency": 12768,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "campaign",
+    "frequency": 19766,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "can",
+    "frequency": 19764,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "candidate",
+    "frequency": 13244,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "cannot",
+    "frequency": 19762,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "capable",
+    "frequency": 19760,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "capacity",
+    "frequency": 19758,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "capital",
+    "frequency": 19756,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "caption",
+    "frequency": 6700,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "captions",
+    "frequency": 6600,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "career",
+    "frequency": 14754,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "careful",
+    "frequency": 17772,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "carefully",
+    "frequency": 17770,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "carry",
+    "frequency": 19752,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "case",
+    "frequency": 19750,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "category",
+    "frequency": 17768,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "cause",
+    "frequency": 19748,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "celebration",
+    "frequency": 17766,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "center",
+    "frequency": 19746,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "central",
+    "frequency": 19744,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "century",
+    "frequency": 17764,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "certain",
+    "frequency": 19742,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "certainly",
+    "frequency": 19740,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "certificate",
+    "frequency": 17760,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "challenge",
+    "frequency": 19738,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "change",
+    "frequency": 19736,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "changed",
+    "frequency": 19734,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "changes",
+    "frequency": 19732,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "channel",
+    "frequency": 43000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "chapter",
+    "frequency": 19730,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "chapters",
+    "frequency": 600,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "character",
+    "frequency": 19728,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "charge",
+    "frequency": 19726,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "charity",
+    "frequency": 17756,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "check",
+    "frequency": 19724,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "checklist",
+    "frequency": 2800,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "childhood",
+    "frequency": 17752,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "choice",
+    "frequency": 19722,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "choose",
+    "frequency": 19720,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "chosen",
+    "frequency": 19718,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "citizen",
+    "frequency": 17750,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "city",
+    "frequency": 19716,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "civilization",
+    "frequency": 17748,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "claim",
+    "frequency": 19714,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "class",
+    "frequency": 19712,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "clear",
+    "frequency": 19710,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "clearly",
+    "frequency": 19708,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "clickthrough",
+    "frequency": 800,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "client",
+    "frequency": 16600,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "cliffhanger",
+    "frequency": 40,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "climate",
+    "frequency": 17746,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "close",
+    "frequency": 19706,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "clothing",
+    "frequency": 17744,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "cloud",
+    "frequency": 16522,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "code",
+    "frequency": 17704,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "coding",
+    "frequency": 16610,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "coffee",
+    "frequency": 17742,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "cofounder",
+    "frequency": 13330,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "collaboration",
+    "frequency": 350,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "collection",
+    "frequency": 19702,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "college",
+    "frequency": 19700,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "color",
+    "frequency": 19698,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "come",
+    "frequency": 19696,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "comfortable",
+    "frequency": 17738,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "command",
+    "frequency": 16496,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "comment",
+    "frequency": 5400,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "commentary",
+    "frequency": 220,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "comments",
+    "frequency": 5300,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "commitment",
+    "frequency": 17734,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "committee",
+    "frequency": 17732,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "common",
+    "frequency": 19694,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "communicate",
+    "frequency": 19692,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "communicated",
+    "frequency": 17292,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "communicating",
+    "frequency": 17290,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "communication",
+    "frequency": 19690,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "communicative",
+    "frequency": 17286,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "community",
+    "frequency": 5500,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "company",
+    "frequency": 14686,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "compare",
+    "frequency": 19684,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "comparison",
+    "frequency": 17728,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "competition",
+    "frequency": 17726,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "compile",
+    "frequency": 16512,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "complaint",
+    "frequency": 13208,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "complete",
+    "frequency": 2000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "completed",
+    "frequency": 17230,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "completely",
+    "frequency": 19680,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "completing",
+    "frequency": 17228,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "completion",
+    "frequency": 17226,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "component",
+    "frequency": 16582,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "computer",
+    "frequency": 19678,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "concern",
+    "frequency": 19676,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "condition",
+    "frequency": 19674,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "conference",
+    "frequency": 19672,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "confidence",
+    "frequency": 17724,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "configurable",
+    "frequency": 17254,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "configuration",
+    "frequency": 17256,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "configure",
+    "frequency": 17262,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "configured",
+    "frequency": 17260,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "configuring",
+    "frequency": 17258,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "conflict",
+    "frequency": 17722,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "connect",
+    "frequency": 17252,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "connected",
+    "frequency": 17250,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "connecting",
+    "frequency": 17248,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "connection",
+    "frequency": 17720,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "connectivity",
+    "frequency": 17244,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "consequence",
+    "frequency": 17718,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "consider",
+    "frequency": 19670,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "considered",
+    "frequency": 19668,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "consistency",
+    "frequency": 80,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "consistent",
+    "frequency": 19666,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "console",
+    "frequency": 16494,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "constant",
+    "frequency": 16576,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "construct",
+    "frequency": 17242,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "constructed",
+    "frequency": 17240,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "constructing",
+    "frequency": 17238,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "construction",
+    "frequency": 17716,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "constructive",
+    "frequency": 17234,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "contact",
+    "frequency": 13222,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "contain",
+    "frequency": 19664,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "container",
+    "frequency": 16484,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "content",
+    "frequency": 40000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "continue",
+    "frequency": 19662,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "contract",
+    "frequency": 14660,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "contribution",
+    "frequency": 17712,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "control",
+    "frequency": 17658,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "conversation",
+    "frequency": 19656,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "convert",
+    "frequency": 19654,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "cookie",
+    "frequency": 16528,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "cooperation",
+    "frequency": 17708,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "copy",
+    "frequency": 19652,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "corporation",
+    "frequency": 13344,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "correct",
+    "frequency": 19650,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "cost",
+    "frequency": 19648,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "could",
+    "frequency": 19646,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "courage",
+    "frequency": 17706,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "course",
+    "frequency": 19644,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "create",
+    "frequency": 19642,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "created",
+    "frequency": 19640,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "creating",
+    "frequency": 17314,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "creation",
+    "frequency": 17312,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "creative",
+    "frequency": 12638,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "creativity",
+    "frequency": 17704,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "creator",
+    "frequency": 38000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "criticism",
+    "frequency": 17702,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "cron",
+    "frequency": 16352,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "css",
+    "frequency": 16412,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "culture",
+    "frequency": 19636,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "curiosity",
+    "frequency": 50,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "curious",
+    "frequency": 17700,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "current",
+    "frequency": 19634,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "customer",
+    "frequency": 14632,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "danger",
+    "frequency": 17696,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "data",
+    "frequency": 19630,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "database",
+    "frequency": 17628,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "date",
+    "frequency": 19626,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "day",
+    "frequency": 19624,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "deadline",
+    "frequency": 13234,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "deal",
+    "frequency": 19622,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "debug",
+    "frequency": 16386,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "debugging",
+    "frequency": 16384,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "decision",
+    "frequency": 19620,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "deep",
+    "frequency": 19616,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "define",
+    "frequency": 19614,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "definition",
+    "frequency": 17692,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "degree",
+    "frequency": 19612,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "deliver",
+    "frequency": 19610,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "delivery",
+    "frequency": 17690,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "demand",
+    "frequency": 19608,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "democracy",
+    "frequency": 17688,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "department",
+    "frequency": 14606,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "depend",
+    "frequency": 19604,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "dependency",
+    "frequency": 16586,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "deploy",
+    "frequency": 16516,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "deployed",
+    "frequency": 16936,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "deploying",
+    "frequency": 16934,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "deployment",
+    "frequency": 16518,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "describe",
+    "frequency": 19602,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "described",
+    "frequency": 17220,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "describing",
+    "frequency": 17218,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "description",
+    "frequency": 13000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "descriptive",
+    "frequency": 17214,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "design",
+    "frequency": 14598,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "designed",
+    "frequency": 16952,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "designer",
+    "frequency": 16948,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "designing",
+    "frequency": 16950,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "destination",
+    "frequency": 17684,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "detail",
+    "frequency": 17682,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "develop",
+    "frequency": 41000,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "developed",
+    "frequency": 17336,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "developer",
+    "frequency": 82310,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "developing",
+    "frequency": 24000,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "development",
+    "frequency": 79000,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "device",
+    "frequency": 28000,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "difference",
+    "frequency": 19592,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "different",
+    "frequency": 19590,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "difficult",
+    "frequency": 19588,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "difficulty",
+    "frequency": 17676,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "digital",
+    "frequency": 24000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "dinner",
+    "frequency": 17674,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "direction",
+    "frequency": 19586,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "director",
+    "frequency": 13260,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "discipline",
+    "frequency": 1600,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "discover",
+    "frequency": 19584,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "discovered",
+    "frequency": 17210,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "discovering",
+    "frequency": 17208,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "discovery",
+    "frequency": 17668,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "discussion",
+    "frequency": 19582,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "disease",
+    "frequency": 19580,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "display",
+    "frequency": 19578,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "distance",
+    "frequency": 19576,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "docker",
+    "frequency": 16486,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "doctor",
+    "frequency": 17664,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "document",
+    "frequency": 14574,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "documentary",
+    "frequency": 240,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "done",
+    "frequency": 19572,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "down",
+    "frequency": 19570,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "download",
+    "frequency": 11030,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "draw",
+    "frequency": 19568,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "drive",
+    "frequency": 19566,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "during",
+    "frequency": 19564,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "each",
+    "frequency": 19562,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "early",
+    "frequency": 19560,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "easy",
+    "frequency": 19558,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "economy",
+    "frequency": 17662,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "editing",
+    "frequency": 17000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "editor",
+    "frequency": 12000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "educate",
+    "frequency": 12000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "educated",
+    "frequency": 17348,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "educating",
+    "frequency": 9000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "education",
+    "frequency": 92342,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "educational",
+    "frequency": 48210,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "educator",
+    "frequency": 17320,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "effect",
+    "frequency": 19554,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "effective",
+    "frequency": 19552,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "efficiency",
+    "frequency": 17656,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "effort",
+    "frequency": 19550,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "either",
+    "frequency": 19548,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "electricity",
+    "frequency": 17652,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "else",
+    "frequency": 19546,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "email",
+    "frequency": 13226,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "emergency",
+    "frequency": 17650,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "emotion",
+    "frequency": 17648,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "employee",
+    "frequency": 14544,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "employer",
+    "frequency": 13326,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "employment",
+    "frequency": 17646,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "enable",
+    "frequency": 19542,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "encouragement",
+    "frequency": 17644,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "end",
+    "frequency": 19540,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "endpoint",
+    "frequency": 16552,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "endscreen",
+    "frequency": 700,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "energy",
+    "frequency": 19538,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "engagement",
+    "frequency": 19000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "engineering",
+    "frequency": 17642,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "enough",
+    "frequency": 19536,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "ensure",
+    "frequency": 19534,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "enter",
+    "frequency": 19532,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "enterprise",
+    "frequency": 13340,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "entertainment",
+    "frequency": 17640,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "entire",
+    "frequency": 19530,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "environment",
+    "frequency": 19528,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "episode",
+    "frequency": 4000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "episodes",
+    "frequency": 11058,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "equipment",
+    "frequency": 17636,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "error",
+    "frequency": 16382,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "eslint",
+    "frequency": 16398,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "especially",
+    "frequency": 19526,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "even",
+    "frequency": 19524,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "event",
+    "frequency": 17522,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "ever",
+    "frequency": 19520,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "every",
+    "frequency": 19518,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "everyone",
+    "frequency": 19516,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "everything",
+    "frequency": 19514,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "evidence",
+    "frequency": 17630,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "examination",
+    "frequency": 17628,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "example",
+    "frequency": 19512,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "exception",
+    "frequency": 16380,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "excitement",
+    "frequency": 17624,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "executive",
+    "frequency": 13258,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "exercise",
+    "frequency": 17622,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "existence",
+    "frequency": 17620,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "expansion",
+    "frequency": 17618,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "expectation",
+    "frequency": 17616,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "expense",
+    "frequency": 13300,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "experience",
+    "frequency": 19510,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "experiment",
+    "frequency": 160,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "explain",
+    "frequency": 19508,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "explainer",
+    "frequency": 260,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "explanation",
+    "frequency": 19506,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "export",
+    "frequency": 4400,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "express",
+    "frequency": 16458,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "expression",
+    "frequency": 17608,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "faceless",
+    "frequency": 15000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "fact",
+    "frequency": 19504,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "factor",
+    "frequency": 19502,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "failure",
+    "frequency": 17606,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "fairness",
+    "frequency": 17604,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "familiar",
+    "frequency": 17602,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "family",
+    "frequency": 19500,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "famous",
+    "frequency": 17600,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "far",
+    "frequency": 19498,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "fashion",
+    "frequency": 17598,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "fast",
+    "frequency": 19496,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "father",
+    "frequency": 17596,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "favorite",
+    "frequency": 17594,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "feature",
+    "frequency": 14494,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "feedback",
+    "frequency": 14492,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "feel",
+    "frequency": 19490,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "few",
+    "frequency": 19488,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "field",
+    "frequency": 19486,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "figure",
+    "frequency": 19484,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "file",
+    "frequency": 13196,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "fill",
+    "frequency": 19482,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "final",
+    "frequency": 19480,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "finance",
+    "frequency": 19478,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "financial",
+    "frequency": 19476,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "find",
+    "frequency": 19474,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "firebase",
+    "frequency": 16432,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "first",
+    "frequency": 19472,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "five",
+    "frequency": 19470,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "focus",
+    "frequency": 19468,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "folder",
+    "frequency": 13194,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "follow",
+    "frequency": 19466,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "following",
+    "frequency": 19464,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "food",
+    "frequency": 19462,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "footage",
+    "frequency": 3200,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "forecast",
+    "frequency": 13184,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "form",
+    "frequency": 19460,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "format",
+    "frequency": 3900,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "former",
+    "frequency": 19458,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "forward",
+    "frequency": 19456,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "founder",
+    "frequency": 13332,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "four",
+    "frequency": 19454,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "framework",
+    "frequency": 2700,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "free",
+    "frequency": 19452,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "freedom",
+    "frequency": 17590,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "frequently",
+    "frequency": 19450,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "friendship",
+    "frequency": 17588,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "from",
+    "frequency": 19448,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "front",
+    "frequency": 19446,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "frontend",
+    "frequency": 16622,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "full",
+    "frequency": 19444,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "fullstack",
+    "frequency": 16620,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "function",
+    "frequency": 17442,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "future",
+    "frequency": 19440,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "game",
+    "frequency": 19438,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "general",
+    "frequency": 19436,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "generate",
+    "frequency": 19434,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "generation",
+    "frequency": 19432,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "geography",
+    "frequency": 17582,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "get",
+    "frequency": 19430,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "git",
+    "frequency": 16502,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "github",
+    "frequency": 16500,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "give",
+    "frequency": 19428,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "given",
+    "frequency": 19426,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "global",
+    "frequency": 19424,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "go",
+    "frequency": 16444,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "goal",
+    "frequency": 14422,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "good",
+    "frequency": 19420,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "government",
+    "frequency": 19418,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "graphql",
+    "frequency": 16420,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "great",
+    "frequency": 19416,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "greeting",
+    "frequency": 17578,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "group",
+    "frequency": 19414,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "grow",
+    "frequency": 15000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "growing",
+    "frequency": 9000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "growth",
+    "frequency": 20000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "guess",
+    "frequency": 19408,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "guide",
+    "frequency": 2500,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "habit",
+    "frequency": 17576,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "habits",
+    "frequency": 1800,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "handler",
+    "frequency": 16554,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "happen",
+    "frequency": 19404,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "happened",
+    "frequency": 19402,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "happiness",
+    "frequency": 17574,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "happy",
+    "frequency": 19400,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "hard",
+    "frequency": 19398,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "hardware",
+    "frequency": 16606,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "hashtag",
+    "frequency": 11010,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "hashtags",
+    "frequency": 11008,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "have",
+    "frequency": 19396,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "head",
+    "frequency": 19394,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "headline",
+    "frequency": 11014,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "headlines",
+    "frequency": 11012,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "health",
+    "frequency": 19392,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "hearing",
+    "frequency": 17572,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "help",
+    "frequency": 19390,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "helpful",
+    "frequency": 19388,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "here",
+    "frequency": 19386,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "high",
+    "frequency": 19384,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "higher",
+    "frequency": 19382,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "hiring",
+    "frequency": 13248,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "history",
+    "frequency": 19380,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "holiday",
+    "frequency": 17568,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "home",
+    "frequency": 19378,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "hook",
+    "frequency": 7000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "hooks",
+    "frequency": 11016,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "hope",
+    "frequency": 19376,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "horizontal",
+    "frequency": 10940,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "hospital",
+    "frequency": 17566,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "hosting",
+    "frequency": 16520,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "household",
+    "frequency": 17564,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "however",
+    "frequency": 19374,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "html",
+    "frequency": 16414,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "human",
+    "frequency": 14372,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "idea",
+    "frequency": 18000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "ideas",
+    "frequency": 12000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "identify",
+    "frequency": 19368,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "identity",
+    "frequency": 17562,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "if",
+    "frequency": 19366,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "imagination",
+    "frequency": 17560,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "importance",
+    "frequency": 17558,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "important",
+    "frequency": 19364,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "impression",
+    "frequency": 5200,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "impressions",
+    "frequency": 5100,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "improve",
+    "frequency": 19362,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "improved",
+    "frequency": 17202,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "improvement",
+    "frequency": 17556,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "improving",
+    "frequency": 17200,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "include",
+    "frequency": 19360,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "including",
+    "frequency": 19358,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "increase",
+    "frequency": 19356,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "indeed",
+    "frequency": 19354,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "independence",
+    "frequency": 17554,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "index",
+    "frequency": 16356,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "individual",
+    "frequency": 19352,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "industry",
+    "frequency": 19350,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "influence",
+    "frequency": 17550,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "inform",
+    "frequency": 17196,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "information",
+    "frequency": 14348,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "informative",
+    "frequency": 17188,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "informed",
+    "frequency": 17194,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "informing",
+    "frequency": 17192,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "ingredient",
+    "frequency": 17548,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "inside",
+    "frequency": 19346,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "instead",
+    "frequency": 19344,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "instruction",
+    "frequency": 17546,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "integer",
+    "frequency": 16568,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "integration",
+    "frequency": 16388,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "intelligence",
+    "frequency": 17544,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "interest",
+    "frequency": 19342,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "international",
+    "frequency": 19340,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "interview",
+    "frequency": 13246,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "into",
+    "frequency": 19338,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "intro",
+    "frequency": 6900,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "introduce",
+    "frequency": 19336,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "introduced",
+    "frequency": 17184,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "introducing",
+    "frequency": 17182,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "introduction",
+    "frequency": 17542,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "invention",
+    "frequency": 17540,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "invest",
+    "frequency": 17178,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "invested",
+    "frequency": 17174,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "investing",
+    "frequency": 17172,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "investment",
+    "frequency": 19334,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "investor",
+    "frequency": 17168,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "invitation",
+    "frequency": 17538,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "invoice",
+    "frequency": 13296,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "ios",
+    "frequency": 16470,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "issue",
+    "frequency": 19332,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "item",
+    "frequency": 19330,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "itself",
+    "frequency": 19328,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "java",
+    "frequency": 16450,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "javascript",
+    "frequency": 16454,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "job",
+    "frequency": 19326,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "join",
+    "frequency": 19324,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "journey",
+    "frequency": 17536,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "json",
+    "frequency": 16416,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "just",
+    "frequency": 19322,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "keep",
+    "frequency": 19320,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "key",
+    "frequency": 19318,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "keyword",
+    "frequency": 4900,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "keywords",
+    "frequency": 4800,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "kind",
+    "frequency": 19316,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "know",
+    "frequency": 19314,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "knowledge",
+    "frequency": 19312,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "kotlin",
+    "frequency": 16438,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "kubernetes",
+    "frequency": 16482,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "language",
+    "frequency": 19310,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "large",
+    "frequency": 19308,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "last",
+    "frequency": 19306,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "late",
+    "frequency": 19304,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "later",
+    "frequency": 19302,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "latest",
+    "frequency": 19300,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "launch",
+    "frequency": 13170,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "law",
+    "frequency": 19298,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "lawyer",
+    "frequency": 13280,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "lead",
+    "frequency": 19296,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "leadership",
+    "frequency": 13262,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "learn",
+    "frequency": 19294,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "learned",
+    "frequency": 17164,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "learner",
+    "frequency": 17160,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "learning",
+    "frequency": 32000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "least",
+    "frequency": 19290,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "leave",
+    "frequency": 19288,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "legal",
+    "frequency": 14286,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "less",
+    "frequency": 19284,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "level",
+    "frequency": 19282,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "library",
+    "frequency": 16590,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "life",
+    "frequency": 19280,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "lifestyle",
+    "frequency": 17528,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "lighting",
+    "frequency": 1100,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "like",
+    "frequency": 19278,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "likely",
+    "frequency": 19276,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "limit",
+    "frequency": 19274,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "line",
+    "frequency": 19272,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "linux",
+    "frequency": 16480,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "list",
+    "frequency": 19270,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "literature",
+    "frequency": 17526,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "little",
+    "frequency": 19268,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "livestream",
+    "frequency": 5600,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "local",
+    "frequency": 19266,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "localization",
+    "frequency": 450,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "location",
+    "frequency": 19264,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "log",
+    "frequency": 16378,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "logging",
+    "frequency": 16376,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "long",
+    "frequency": 19262,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "look",
+    "frequency": 19260,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "lose",
+    "frequency": 19258,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "loss",
+    "frequency": 19256,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "lot",
+    "frequency": 19254,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "low",
+    "frequency": 19252,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "machine",
+    "frequency": 18000,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "macos",
+    "frequency": 16476,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "magazine",
+    "frequency": 17522,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "main",
+    "frequency": 19248,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "maintain",
+    "frequency": 19246,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "major",
+    "frequency": 19244,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "make",
+    "frequency": 19242,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "manage",
+    "frequency": 13000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "managed",
+    "frequency": 17326,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "management",
+    "frequency": 16000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "manager",
+    "frequency": 14238,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "managing",
+    "frequency": 17324,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "many",
+    "frequency": 19236,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "market",
+    "frequency": 19234,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "marketed",
+    "frequency": 17156,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "marketer",
+    "frequency": 17152,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "marketing",
+    "frequency": 28000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "marriage",
+    "frequency": 17520,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "material",
+    "frequency": 19232,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "matter",
+    "frequency": 19230,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "may",
+    "frequency": 19228,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "maybe",
+    "frequency": 19226,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "mean",
+    "frequency": 19224,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "measure",
+    "frequency": 19222,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "media",
+    "frequency": 19220,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "medical",
+    "frequency": 19218,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "medicine",
+    "frequency": 17518,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "meet",
+    "frequency": 19216,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "meeting",
+    "frequency": 13274,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "member",
+    "frequency": 19214,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "membership",
+    "frequency": 280,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "memory",
+    "frequency": 19212,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "mention",
+    "frequency": 19210,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "merchandise",
+    "frequency": 300,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "message",
+    "frequency": 19208,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "method",
+    "frequency": 19206,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "microphone",
+    "frequency": 1200,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "middleware",
+    "frequency": 16542,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "midnight",
+    "frequency": 17508,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "might",
+    "frequency": 19204,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "migration",
+    "frequency": 16360,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "million",
+    "frequency": 19202,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "mind",
+    "frequency": 19200,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "minute",
+    "frequency": 19198,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "minutes",
+    "frequency": 13270,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "mobile",
+    "frequency": 16474,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "model",
+    "frequency": 19196,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "modern",
+    "frequency": 19194,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "module",
+    "frequency": 16584,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "moment",
+    "frequency": 19192,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "monetization",
+    "frequency": 21000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "money",
+    "frequency": 19190,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "mongodb",
+    "frequency": 16430,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "monitoring",
+    "frequency": 16374,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "month",
+    "frequency": 19188,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "more",
+    "frequency": 19186,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "most",
+    "frequency": 19184,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "motivate",
+    "frequency": 17150,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "motivated",
+    "frequency": 17148,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "motivating",
+    "frequency": 17146,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "motivation",
+    "frequency": 1700,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "motivational",
+    "frequency": 17142,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "move",
+    "frequency": 19182,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "much",
+    "frequency": 19180,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "multiple",
+    "frequency": 19178,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "music",
+    "frequency": 3300,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "must",
+    "frequency": 19176,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "mysql",
+    "frequency": 16424,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "name",
+    "frequency": 19174,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "narration",
+    "frequency": 3400,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "narrative",
+    "frequency": 7100,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "national",
+    "frequency": 19172,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "natural",
+    "frequency": 19170,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "near",
+    "frequency": 19168,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "necessary",
+    "frequency": 19166,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "need",
+    "frequency": 19164,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "neighborhood",
+    "frequency": 17506,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "never",
+    "frequency": 19162,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "new",
+    "frequency": 19160,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "news",
+    "frequency": 19158,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "newsletter",
+    "frequency": 7500,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "newspaper",
+    "frequency": 17504,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "next",
+    "frequency": 19156,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "nextjs",
+    "frequency": 16466,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "nice",
+    "frequency": 19154,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "niche",
+    "frequency": 6200,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "night",
+    "frequency": 19152,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "no",
+    "frequency": 19150,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "node",
+    "frequency": 16460,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "not",
+    "frequency": 19148,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "note",
+    "frequency": 19146,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "nothing",
+    "frequency": 19144,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "notice",
+    "frequency": 19142,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "npm",
+    "frequency": 16406,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "number",
+    "frequency": 19140,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "object",
+    "frequency": 17138,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "obvious",
+    "frequency": 19136,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "offer",
+    "frequency": 19134,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "office",
+    "frequency": 14132,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "often",
+    "frequency": 19130,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "once",
+    "frequency": 19128,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "one",
+    "frequency": 19126,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "online",
+    "frequency": 26000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "only",
+    "frequency": 19124,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "open",
+    "frequency": 19122,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "operate",
+    "frequency": 19120,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "operated",
+    "frequency": 17282,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "operating",
+    "frequency": 17280,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "operation",
+    "frequency": 19118,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "operational",
+    "frequency": 17276,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "operator",
+    "frequency": 17274,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "opportunity",
+    "frequency": 19116,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "optimization",
+    "frequency": 16368,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "order",
+    "frequency": 14114,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "organization",
+    "frequency": 14112,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "organizational",
+    "frequency": 17298,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "organize",
+    "frequency": 17306,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "organized",
+    "frequency": 17304,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "organizer",
+    "frequency": 17296,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "organizing",
+    "frequency": 17302,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "other",
+    "frequency": 19110,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "others",
+    "frequency": 19108,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "our",
+    "frequency": 19106,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "out",
+    "frequency": 19104,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "outline",
+    "frequency": 4700,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "outro",
+    "frequency": 6800,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "outside",
+    "frequency": 19102,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "over",
+    "frequency": 19100,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "overlay",
+    "frequency": 3100,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "own",
+    "frequency": 19098,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "owner",
+    "frequency": 13334,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "pacing",
+    "frequency": 4600,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "package",
+    "frequency": 16588,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "page",
+    "frequency": 19096,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "part",
+    "frequency": 19094,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "particular",
+    "frequency": 19092,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "partner",
+    "frequency": 13320,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "party",
+    "frequency": 19090,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "pass",
+    "frequency": 19088,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "passenger",
+    "frequency": 17498,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "password",
+    "frequency": 16534,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "past",
+    "frequency": 19086,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "patience",
+    "frequency": 17496,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "patient",
+    "frequency": 19084,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "pattern",
+    "frequency": 19082,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "pay",
+    "frequency": 19080,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "payment",
+    "frequency": 13294,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "payoff",
+    "frequency": 30,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "people",
+    "frequency": 19078,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "per",
+    "frequency": 19076,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "percentage",
+    "frequency": 17494,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "perform",
+    "frequency": 17140,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "performance",
+    "frequency": 17074,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "performed",
+    "frequency": 17138,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "performing",
+    "frequency": 17136,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "perhaps",
+    "frequency": 19072,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "period",
+    "frequency": 19070,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "permission",
+    "frequency": 17490,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "person",
+    "frequency": 19068,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "persona",
+    "frequency": 4200,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "personal",
+    "frequency": 19066,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "personality",
+    "frequency": 17488,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "phone",
+    "frequency": 14064,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "photograph",
+    "frequency": 17486,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "php",
+    "frequency": 16446,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "physics",
+    "frequency": 17484,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "pipeline",
+    "frequency": 100,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "place",
+    "frequency": 19062,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "plan",
+    "frequency": 19060,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "planet",
+    "frequency": 17482,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "platform",
+    "frequency": 19058,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "play",
+    "frequency": 19056,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "playlist",
+    "frequency": 9000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "playlists",
+    "frequency": 10984,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "please",
+    "frequency": 19054,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "pleasure",
+    "frequency": 17480,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "pnpm",
+    "frequency": 16402,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "podcast",
+    "frequency": 8000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "point",
+    "frequency": 19052,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "policy",
+    "frequency": 19050,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "popular",
+    "frequency": 19048,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "population",
+    "frequency": 17478,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "position",
+    "frequency": 19046,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "positioning",
+    "frequency": 70,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "possibility",
+    "frequency": 17476,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "possible",
+    "frequency": 19044,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "post",
+    "frequency": 11048,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "postgres",
+    "frequency": 16428,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "postgresql",
+    "frequency": 16426,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "posts",
+    "frequency": 11046,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "power",
+    "frequency": 19042,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "practice",
+    "frequency": 19040,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "premiere",
+    "frequency": 5700,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "preparation",
+    "frequency": 17474,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "prepare",
+    "frequency": 19038,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "prepared",
+    "frequency": 17130,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "preparing",
+    "frequency": 17128,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "present",
+    "frequency": 19036,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "presentation",
+    "frequency": 13190,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "president",
+    "frequency": 17472,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "pressure",
+    "frequency": 19034,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "prettier",
+    "frequency": 16396,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "pretty",
+    "frequency": 19032,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "prevention",
+    "frequency": 17470,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "previous",
+    "frequency": 19030,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "price",
+    "frequency": 19028,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "primary",
+    "frequency": 19026,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "priority",
+    "frequency": 13178,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "prisma",
+    "frequency": 16436,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "privacy",
+    "frequency": 17466,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "problem",
+    "frequency": 19024,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "process",
+    "frequency": 120,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "produce",
+    "frequency": 19020,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "produced",
+    "frequency": 17122,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "producer",
+    "frequency": 17116,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "producing",
+    "frequency": 17120,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "product",
+    "frequency": 14018,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "production",
+    "frequency": 14016,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "productive",
+    "frequency": 17114,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "productivity",
+    "frequency": 1900,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "profession",
+    "frequency": 17462,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "professional",
+    "frequency": 19014,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "profit",
+    "frequency": 13302,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "program",
+    "frequency": 17012,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "programming",
+    "frequency": 16616,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "progress",
+    "frequency": 13176,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "project",
+    "frequency": 14010,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "promise",
+    "frequency": 16564,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "promotion",
+    "frequency": 17458,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "proposal",
+    "frequency": 13288,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "protect",
+    "frequency": 17112,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "protected",
+    "frequency": 17110,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "protecting",
+    "frequency": 17108,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "protection",
+    "frequency": 17456,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "proven",
+    "frequency": 2100,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "provide",
+    "frequency": 19008,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "provided",
+    "frequency": 17102,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "provider",
+    "frequency": 17098,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "providing",
+    "frequency": 17100,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "psychology",
+    "frequency": 17454,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "public",
+    "frequency": 19006,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "publication",
+    "frequency": 11036,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "publish",
+    "frequency": 5900,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "published",
+    "frequency": 17094,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "publisher",
+    "frequency": 17090,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "publishing",
+    "frequency": 17092,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "purchase",
+    "frequency": 13292,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "purpose",
+    "frequency": 19004,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "put",
+    "frequency": 19002,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "python",
+    "frequency": 16452,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "qualification",
+    "frequency": 17448,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "quality",
+    "frequency": 19000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "query",
+    "frequency": 16358,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "question",
+    "frequency": 13998,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "queue",
+    "frequency": 16350,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "quick",
+    "frequency": 18996,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "quickly",
+    "frequency": 18994,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "quite",
+    "frequency": 18992,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "range",
+    "frequency": 18990,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "rather",
+    "frequency": 18988,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "rating",
+    "frequency": 13214,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "reach",
+    "frequency": 18986,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "react",
+    "frequency": 16468,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "read",
+    "frequency": 18984,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "reader",
+    "frequency": 16964,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "reading",
+    "frequency": 16966,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "real",
+    "frequency": 18982,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "really",
+    "frequency": 18980,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "reason",
+    "frequency": 18978,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "receive",
+    "frequency": 18976,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "recent",
+    "frequency": 18974,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "recommend",
+    "frequency": 17088,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "recommendation",
+    "frequency": 17082,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "recommended",
+    "frequency": 17086,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "recommending",
+    "frequency": 17084,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "record",
+    "frequency": 18972,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "recording",
+    "frequency": 1300,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "redis",
+    "frequency": 16422,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "reduce",
+    "frequency": 18970,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "reduced",
+    "frequency": 17078,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "reducing",
+    "frequency": 17076,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "reduction",
+    "frequency": 17074,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "reel",
+    "frequency": 11052,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "reels",
+    "frequency": 11050,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "relationship",
+    "frequency": 18968,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "release",
+    "frequency": 13168,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "religion",
+    "frequency": 17442,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "remain",
+    "frequency": 18966,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "remember",
+    "frequency": 18964,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "remix",
+    "frequency": 16464,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "render",
+    "frequency": 4500,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "report",
+    "frequency": 13962,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "repository",
+    "frequency": 16508,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "request",
+    "frequency": 16550,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "require",
+    "frequency": 18960,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "required",
+    "frequency": 17070,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "requirement",
+    "frequency": 13162,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "requiring",
+    "frequency": 17068,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "research",
+    "frequency": 18958,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "resource",
+    "frequency": 18956,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "resources",
+    "frequency": 13250,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "respond",
+    "frequency": 18954,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "responded",
+    "frequency": 17062,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "responding",
+    "frequency": 17060,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "response",
+    "frequency": 16952,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "responsibility",
+    "frequency": 17436,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "responsive",
+    "frequency": 17056,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "restaurant",
+    "frequency": 17438,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "result",
+    "frequency": 18950,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "results",
+    "frequency": 140,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "resume",
+    "frequency": 13238,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "retention",
+    "frequency": 17000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "retirement",
+    "frequency": 17434,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "return",
+    "frequency": 18948,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "revenue",
+    "frequency": 13304,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "review",
+    "frequency": 13946,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "reviewed",
+    "frequency": 16920,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "reviewer",
+    "frequency": 16916,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "reviewing",
+    "frequency": 16918,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "right",
+    "frequency": 18944,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "risk",
+    "frequency": 18942,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "roadmap",
+    "frequency": 2600,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "role",
+    "frequency": 18940,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "room",
+    "frequency": 18938,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "route",
+    "frequency": 16546,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "router",
+    "frequency": 16544,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "ruby",
+    "frequency": 16448,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "run",
+    "frequency": 18936,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "runtime",
+    "frequency": 16510,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "rust",
+    "frequency": 16442,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "safety",
+    "frequency": 17432,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "salary",
+    "frequency": 13242,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "sales",
+    "frequency": 13310,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "same",
+    "frequency": 18934,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "save",
+    "frequency": 18932,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "say",
+    "frequency": 18930,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "scalable",
+    "frequency": 16366,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "scene",
+    "frequency": 4300,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "scenes",
+    "frequency": 11062,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "schedule",
+    "frequency": 10000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "scheduled",
+    "frequency": 5800,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "schema",
+    "frequency": 16362,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "school",
+    "frequency": 18928,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "science",
+    "frequency": 18926,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "script",
+    "frequency": 34000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "scripts",
+    "frequency": 11100,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "search",
+    "frequency": 16962,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "searched",
+    "frequency": 16960,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "searcher",
+    "frequency": 16956,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "searching",
+    "frequency": 16958,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "second",
+    "frequency": 18924,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "section",
+    "frequency": 18922,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "secure",
+    "frequency": 17054,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "secured",
+    "frequency": 17052,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "securing",
+    "frequency": 17050,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "security",
+    "frequency": 16536,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "see",
+    "frequency": 18920,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "seem",
+    "frequency": 18918,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "seen",
+    "frequency": 18916,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "select",
+    "frequency": 17046,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "selected",
+    "frequency": 17044,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "selecting",
+    "frequency": 17042,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "selection",
+    "frequency": 17426,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "send",
+    "frequency": 18914,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "sentence",
+    "frequency": 17424,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "series",
+    "frequency": 4100,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "server",
+    "frequency": 16602,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "service",
+    "frequency": 13912,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "session",
+    "frequency": 16532,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "set",
+    "frequency": 18910,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "several",
+    "frequency": 18908,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "share",
+    "frequency": 18906,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "shopping",
+    "frequency": 17422,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "shorts",
+    "frequency": 16000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "should",
+    "frequency": 18904,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "shoulder",
+    "frequency": 17420,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "show",
+    "frequency": 18902,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "side",
+    "frequency": 18900,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "signature",
+    "frequency": 17418,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "simple",
+    "frequency": 2200,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "since",
+    "frequency": 18896,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "single",
+    "frequency": 18894,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "situation",
+    "frequency": 18892,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "size",
+    "frequency": 18890,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "small",
+    "frequency": 18888,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "so",
+    "frequency": 18886,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "social",
+    "frequency": 18884,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "society",
+    "frequency": 18882,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "software",
+    "frequency": 36000,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "solution",
+    "frequency": 13206,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "solve",
+    "frequency": 17038,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "solved",
+    "frequency": 17036,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "solving",
+    "frequency": 17034,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "some",
+    "frequency": 18878,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "someone",
+    "frequency": 18876,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "something",
+    "frequency": 18874,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "sometimes",
+    "frequency": 18872,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "soon",
+    "frequency": 18870,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "source",
+    "frequency": 18868,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "space",
+    "frequency": 18866,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "speak",
+    "frequency": 18864,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "special",
+    "frequency": 18862,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "specific",
+    "frequency": 18860,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "specification",
+    "frequency": 13160,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "speech",
+    "frequency": 17414,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "spend",
+    "frequency": 18858,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "sponsor",
+    "frequency": 10974,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "sponsorship",
+    "frequency": 7400,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "spreadsheet",
+    "frequency": 13188,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "staff",
+    "frequency": 18856,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "standard",
+    "frequency": 18854,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "start",
+    "frequency": 18852,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "startup",
+    "frequency": 13342,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "state",
+    "frequency": 18850,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "statement",
+    "frequency": 18848,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "station",
+    "frequency": 17412,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "status",
+    "frequency": 13174,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "stay",
+    "frequency": 18846,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "step",
+    "frequency": 18844,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "still",
+    "frequency": 18842,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "storage",
+    "frequency": 16524,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "story",
+    "frequency": 11840,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "storyboard",
+    "frequency": 6300,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "storytelling",
+    "frequency": 7200,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "strategy",
+    "frequency": 22000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "stream",
+    "frequency": 11026,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "streaming",
+    "frequency": 11134,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "street",
+    "frequency": 18836,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "strength",
+    "frequency": 17410,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "string",
+    "frequency": 16570,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "strong",
+    "frequency": 18834,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "structure",
+    "frequency": 18832,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "student",
+    "frequency": 18830,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "study",
+    "frequency": 14000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "studying",
+    "frequency": 8000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "subject",
+    "frequency": 18826,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "subscriber",
+    "frequency": 14000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "subscribers",
+    "frequency": 18000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "subscription",
+    "frequency": 11000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "subtitle",
+    "frequency": 6500,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "subtitles",
+    "frequency": 6400,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "success",
+    "frequency": 18824,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "successful",
+    "frequency": 18822,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "such",
+    "frequency": 18820,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "suggestion",
+    "frequency": 17404,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "Supabase",
+    "frequency": 26000,
+    "language": "en",
+    "category": "technology",
+    "metadata": {
+      "properNoun": true
+    }
+  },
+  {
+    "word": "super",
+    "frequency": 45000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "supermarket",
+    "frequency": 17402,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "supplier",
+    "frequency": 13316,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "support",
+    "frequency": 88000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "supported",
+    "frequency": 17028,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "supporting",
+    "frequency": 17026,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "supportive",
+    "frequency": 8000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "suppose",
+    "frequency": 21000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "sure",
+    "frequency": 18816,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "surprise",
+    "frequency": 17400,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "swift",
+    "frequency": 16440,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "system",
+    "frequency": 33000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "systems",
+    "frequency": 11000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "tags",
+    "frequency": 12000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "tailwind",
+    "frequency": 16410,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "take",
+    "frequency": 18812,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "taken",
+    "frequency": 18810,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "talk",
+    "frequency": 18808,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "target",
+    "frequency": 13182,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "task",
+    "frequency": 18806,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "teach",
+    "frequency": 18804,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "teacher",
+    "frequency": 17398,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "team",
+    "frequency": 13802,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "technology",
+    "frequency": 18800,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "tell",
+    "frequency": 18798,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "temperature",
+    "frequency": 17396,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "template",
+    "frequency": 3000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "templates",
+    "frequency": 2900,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "term",
+    "frequency": 18796,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "terminal",
+    "frequency": 16498,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "test",
+    "frequency": 16794,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "tested",
+    "frequency": 16944,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "tester",
+    "frequency": 16940,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "testing",
+    "frequency": 16394,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "than",
+    "frequency": 18792,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "thank",
+    "frequency": 18790,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "that",
+    "frequency": 18788,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "the",
+    "frequency": 50000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "their",
+    "frequency": 18784,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "them",
+    "frequency": 18782,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "themselves",
+    "frequency": 18780,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "then",
+    "frequency": 18778,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "there",
+    "frequency": 18776,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "therefore",
+    "frequency": 18774,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "these",
+    "frequency": 18772,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "they",
+    "frequency": 18770,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "thing",
+    "frequency": 18768,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "think",
+    "frequency": 18766,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "third",
+    "frequency": 18764,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "this",
+    "frequency": 18762,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "those",
+    "frequency": 18760,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "though",
+    "frequency": 18758,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "three",
+    "frequency": 18756,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "through",
+    "frequency": 18754,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "thumbnail",
+    "frequency": 37000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "thumbnailing",
+    "frequency": 900,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "thumbnails",
+    "frequency": 11118,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "time",
+    "frequency": 18752,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "timeline",
+    "frequency": 15000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "timestamp",
+    "frequency": 500,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "title",
+    "frequency": 36000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "titles",
+    "frequency": 11114,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "to",
+    "frequency": 48000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "today",
+    "frequency": 18750,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "together",
+    "frequency": 18748,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "token",
+    "frequency": 16530,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "too",
+    "frequency": 18746,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "tool",
+    "frequency": 18744,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "topic",
+    "frequency": 39000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "toward",
+    "frequency": 18742,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "trade",
+    "frequency": 18740,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "tradition",
+    "frequency": 17394,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "training",
+    "frequency": 18738,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "transcript",
+    "frequency": 16000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "transcripts",
+    "frequency": 10936,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "transformation",
+    "frequency": 60,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "translate",
+    "frequency": 17022,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "translated",
+    "frequency": 17020,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "translating",
+    "frequency": 17018,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "translation",
+    "frequency": 400,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "translator",
+    "frequency": 17014,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "transportation",
+    "frequency": 17392,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "travel",
+    "frequency": 18736,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "treat",
+    "frequency": 18734,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "trend",
+    "frequency": 11002,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "trending",
+    "frequency": 14000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "true",
+    "frequency": 18732,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "try",
+    "frequency": 18730,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "turn",
+    "frequency": 18728,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "tutorial",
+    "frequency": 42000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "tutorials",
+    "frequency": 10956,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "two",
+    "frequency": 18726,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "type",
+    "frequency": 18724,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "typescript",
+    "frequency": 16456,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "understand",
+    "frequency": 18722,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "unit",
+    "frequency": 16720,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "university",
+    "frequency": 17390,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "until",
+    "frequency": 18718,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "up",
+    "frequency": 18716,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "update",
+    "frequency": 13714,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "updated",
+    "frequency": 17010,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "updating",
+    "frequency": 17008,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "upload",
+    "frequency": 6000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "upon",
+    "frequency": 18712,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "use",
+    "frequency": 18710,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "used",
+    "frequency": 18708,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "user",
+    "frequency": 18706,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "using",
+    "frequency": 18704,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "usually",
+    "frequency": 18702,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "vacation",
+    "frequency": 17388,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "valid",
+    "frequency": 16996,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "validate",
+    "frequency": 17004,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "validated",
+    "frequency": 17002,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "validating",
+    "frequency": 17000,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "validation",
+    "frequency": 16998,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "value",
+    "frequency": 18700,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "variable",
+    "frequency": 16578,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "variety",
+    "frequency": 17386,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "various",
+    "frequency": 18698,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "vegetable",
+    "frequency": 17384,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "vehicle",
+    "frequency": 17382,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "vendor",
+    "frequency": 13318,
+    "language": "en",
+    "category": "business"
+  },
+  {
+    "word": "verification",
+    "frequency": 16988,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "verified",
+    "frequency": 16992,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "verify",
+    "frequency": 16994,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "verifying",
+    "frequency": 16990,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "version",
+    "frequency": 16506,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "vertical",
+    "frequency": 3800,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "very",
+    "frequency": 18696,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "video",
+    "frequency": 44000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "videos",
+    "frequency": 22000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "view",
+    "frequency": 18694,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "viewer",
+    "frequency": 11128,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "viewers",
+    "frequency": 11126,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "views",
+    "frequency": 10990,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "village",
+    "frequency": 17380,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "violence",
+    "frequency": 17378,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "visualization",
+    "frequency": 16980,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "visualize",
+    "frequency": 16986,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "visualized",
+    "frequency": 16984,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "visualizing",
+    "frequency": 16982,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "vite",
+    "frequency": 16462,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "voice",
+    "frequency": 3500,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "voiceover",
+    "frequency": 8000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "walkthrough",
+    "frequency": 200,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "want",
+    "frequency": 18692,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "watchtime",
+    "frequency": 5000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "way",
+    "frequency": 18690,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "we",
+    "frequency": 18688,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "weather",
+    "frequency": 17376,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "web",
+    "frequency": 30000,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "webhook",
+    "frequency": 16354,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "webpack",
+    "frequency": 16400,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "webpage",
+    "frequency": 16594,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "website",
+    "frequency": 16596,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "websocket",
+    "frequency": 16418,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "wedding",
+    "frequency": 17374,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "weekend",
+    "frequency": 17372,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "welcome",
+    "frequency": 17370,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "well",
+    "frequency": 18686,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "what",
+    "frequency": 18684,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "whatever",
+    "frequency": 17368,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "when",
+    "frequency": 18682,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "whenever",
+    "frequency": 17366,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "where",
+    "frequency": 18680,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "wherever",
+    "frequency": 17364,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "whether",
+    "frequency": 18678,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "which",
+    "frequency": 18676,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "while",
+    "frequency": 18674,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "who",
+    "frequency": 18672,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "whole",
+    "frequency": 18670,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "whose",
+    "frequency": 17362,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "why",
+    "frequency": 18668,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "will",
+    "frequency": 18666,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "win",
+    "frequency": 18664,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "windows",
+    "frequency": 16478,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "with",
+    "frequency": 18662,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "within",
+    "frequency": 18660,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "without",
+    "frequency": 18658,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "woman",
+    "frequency": 17360,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "wonderful",
+    "frequency": 17358,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "work",
+    "frequency": 18656,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "worker",
+    "frequency": 16654,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "workflow",
+    "frequency": 20000,
+    "language": "en",
+    "category": "creator"
+  },
+  {
+    "word": "working",
+    "frequency": 18652,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "world",
+    "frequency": 18650,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "would",
+    "frequency": 18648,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "write",
+    "frequency": 18646,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "writer",
+    "frequency": 17354,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "writing",
+    "frequency": 17352,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "written",
+    "frequency": 18644,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "wrote",
+    "frequency": 16976,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "yarn",
+    "frequency": 16404,
+    "language": "en",
+    "category": "technology"
+  },
+  {
+    "word": "year",
+    "frequency": 18642,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "yes",
+    "frequency": 18640,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "yet",
+    "frequency": 18638,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "you",
+    "frequency": 18636,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "young",
+    "frequency": 18634,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "your",
+    "frequency": 18632,
+    "language": "en",
+    "category": "general"
+  },
+  {
+    "word": "youtube",
+    "frequency": 47000,
+    "language": "en",
+    "category": "creator"
+  }
+]

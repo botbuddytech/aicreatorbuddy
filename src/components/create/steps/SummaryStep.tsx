@@ -1,25 +1,26 @@
 "use client";
 
-import Link from "next/link";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Field } from "@/components/ui/Field";
+import { FieldFlash } from "@/components/agent/FieldFlash";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
+import { PredictiveText } from "@/features/predictive-text/ui/PredictiveText";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { useReferenceTranscript } from "@/lib/useReferenceTranscript";
 import {
   createEmptyReference,
+  durationBoundsForFormat,
   FORMAT_LABELS,
+  formatDurationLabel,
   INTENT_LABELS,
-  lengthOptionsForFormat,
   MAX_REFERENCES,
+  stepDuration,
   type ReferenceVideo,
   type VideoFormat,
   type VideoIntent,
 } from "@/lib/videoProject";
-import type { ConnectedChannel } from "@/lib/youtube/repo";
 
 function looksLikeYouTube(url: string): boolean {
   const value = url.trim();
@@ -43,15 +44,13 @@ function looksLikeYouTube(url: string): boolean {
   }
 }
 
-export function SummaryStep({ channels }: { channels: ConnectedChannel[] }) {
+export function SummaryStep() {
   const { project, dispatch } = useVideoProject();
   const { fetchTranscript, removeReference, pending, errors } =
     useReferenceTranscript(project.id);
   const { summary } = project;
-  const lengthOptions = lengthOptionsForFormat(summary.format);
+  const lengthBounds = durationBoundsForFormat(summary.format);
   const canAddReference = summary.references.length < MAX_REFERENCES;
-  const selectedStillConnected = channels.some((channel) => channel.id === project.channelId);
-  const channelValue = selectedStillConnected ? project.channelId : "";
 
   return (
     <div className="rounded-2xl border border-border bg-surface p-5">
@@ -61,39 +60,6 @@ export function SummaryStep({ channels }: { channels: ConnectedChannel[] }) {
       </p>
 
       <div className="mt-5 space-y-4">
-        <Field
-          label="Target channel"
-          htmlFor="summary-channel"
-          hint={
-            channels.length === 0 ? (
-              <>
-                No channels connected yet.{" "}
-                <Link href="/dashboard/channels" className="font-semibold text-accent hover:text-accent-dark">
-                  Connect one
-                </Link>
-              </>
-            ) : undefined
-          }
-        >
-          <Select
-            id="summary-channel"
-            value={channelValue}
-            disabled={channels.length === 0}
-            onChange={(event) =>
-              dispatch({ type: "SET_CHANNEL", channelId: event.target.value })
-            }
-          >
-            <option value="">
-              {channels.length === 0 ? "Connect a channel first" : "Select a channel"}
-            </option>
-            {channels.map((channel) => (
-              <option key={channel.id} value={channel.id}>
-                {channel.title}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
         <Field label="Format">
           <div className="grid gap-3 sm:grid-cols-2">
             <FormatCard
@@ -125,34 +91,61 @@ export function SummaryStep({ channels }: { channels: ConnectedChannel[] }) {
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Length" htmlFor="summary-length">
-            <Select
-              id="summary-length"
-              value={summary.durationSeconds}
-              onChange={(event) =>
-                dispatch({
-                  type: "UPDATE_SUMMARY",
-                  patch: { durationSeconds: Number(event.target.value) },
-                })
-              }
-            >
-              {lengthOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
+          <Field label="Approx length">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label="Decrease length"
+                disabled={summary.durationSeconds <= lengthBounds.min}
+                onClick={() =>
+                  dispatch({
+                    type: "UPDATE_SUMMARY",
+                    patch: {
+                      durationSeconds: stepDuration(summary.format, summary.durationSeconds, -1),
+                    },
+                  })
+                }
+                className="glass-field flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/12 text-lg text-foreground outline-none transition hover:border-white/20 focus:border-accent/50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                −
+              </button>
+              <p className="min-w-0 flex-1 text-center text-sm font-medium text-foreground">
+                {formatDurationLabel(summary.durationSeconds, summary.format)}
+              </p>
+              <button
+                type="button"
+                aria-label="Increase length"
+                disabled={summary.durationSeconds >= lengthBounds.max}
+                onClick={() =>
+                  dispatch({
+                    type: "UPDATE_SUMMARY",
+                    patch: {
+                      durationSeconds: stepDuration(summary.format, summary.durationSeconds, 1),
+                    },
+                  })
+                }
+                className="glass-field flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/12 text-lg text-foreground outline-none transition hover:border-white/20 focus:border-accent/50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                +
+              </button>
+            </div>
           </Field>
-          <Field label="Topic / idea" htmlFor="summary-topic">
-            <Input
-              id="summary-topic"
-              value={summary.topic}
-              placeholder="e.g. Faceless system for managing 5 YouTube brands"
-              onChange={(event) =>
-                dispatch({ type: "UPDATE_SUMMARY", patch: { topic: event.target.value } })
-              }
-            />
-          </Field>
+          <FieldFlash field="brief" className="rounded-xl">
+            <Field label="Topic / idea" htmlFor="summary-topic">
+              <PredictiveText
+                value={summary.topic}
+                onChange={(topic) => dispatch({ type: "UPDATE_SUMMARY", patch: { topic } })}
+              >
+                {(inputProps) => (
+                  <Input
+                    id="summary-topic"
+                    placeholder="e.g. Faceless system for managing 5 YouTube brands"
+                    {...inputProps}
+                  />
+                )}
+              </PredictiveText>
+            </Field>
+          </FieldFlash>
         </div>
 
         <div>

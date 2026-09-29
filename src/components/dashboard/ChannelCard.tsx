@@ -100,81 +100,68 @@ export function ChannelCard({
 
   return (
     <article
-      className={`rounded-2xl border bg-surface p-5 ${
+      className={`rounded-xl border bg-surface p-3 ${
         channel.isOwner ? "border-border" : "border-dashed border-border"
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <ChannelAvatar channel={channel} />
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <ChannelAvatar channel={channel} size="sm" />
           <div className="min-w-0">
-            <h3 className="truncate font-display text-lg font-semibold text-foreground">
-              {channel.title}
-            </h3>
-            <p className="truncate text-xs text-muted">
+            <h3 className="truncate text-sm font-semibold text-foreground">{channel.title}</h3>
+            <p className="truncate text-[11px] text-muted">
               {channel.googleEmail ?? channel.customUrl ?? channel.channelId}
             </p>
             {!channel.isOwner && channel.ownerEmail ? (
-              <p className="mt-1 truncate text-xs font-medium text-muted">
+              <p className="truncate text-[11px] font-medium text-muted">
                 Shared by {channel.ownerEmail}
               </p>
             ) : null}
           </div>
         </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          <span
-            className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
-              needsReauth ? "bg-accent/15 text-accent" : "bg-success/15 text-success"
-            }`}
-          >
-            {needsReauth ? "Reconnect needed" : "Connected"}
-          </span>
-          {!channel.isOwner ? (
-            <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-muted">
-              Shared with you
-            </span>
-          ) : channel.shareCount > 0 ? (
-            <span className="rounded-full bg-white/5 px-2.5 py-1 text-[10px] font-semibold text-muted">
-              Shared with {channel.shareCount}
-            </span>
-          ) : null}
-        </div>
+        <span
+          className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+            needsReauth ? "bg-accent/15 text-accent" : "bg-success/15 text-success"
+          }`}
+        >
+          {needsReauth ? "Reconnect" : "Connected"}
+        </span>
       </div>
 
-      <div className="mt-5 grid grid-cols-3 gap-3 text-center">
-        <div className="rounded-xl bg-surface-soft px-2 py-3">
-          <p className="text-xs text-muted">Subs</p>
-          <p className="mt-1 text-sm font-semibold text-foreground">
+      <div className="mt-2.5 grid grid-cols-3 gap-1.5 text-center">
+        <div className="rounded-lg bg-surface-soft px-1.5 py-1.5">
+          <p className="text-[10px] text-muted">Subs</p>
+          <p className="text-xs font-semibold text-foreground">
             {channel.hiddenSubscriberCount ? "Hidden" : formatCount(channel.subscriberCount)}
           </p>
         </div>
-        <div className="rounded-xl bg-surface-soft px-2 py-3">
-          <p className="text-xs text-muted">Views</p>
-          <p className="mt-1 text-sm font-semibold text-foreground">{formatCount(channel.viewCount)}</p>
+        <div className="rounded-lg bg-surface-soft px-1.5 py-1.5">
+          <p className="text-[10px] text-muted">Views</p>
+          <p className="text-xs font-semibold text-foreground">{formatCount(channel.viewCount)}</p>
         </div>
-        <div className="rounded-xl bg-surface-soft px-2 py-3">
-          <p className="text-xs text-muted">Uploads</p>
-          <p className="mt-1 text-sm font-semibold text-foreground">{formatCount(channel.syncedVideoCount)}</p>
+        <div className="rounded-lg bg-surface-soft px-1.5 py-1.5">
+          <p className="text-[10px] text-muted">Uploads</p>
+          <p className="text-xs font-semibold text-foreground">{formatCount(channel.syncedVideoCount)}</p>
         </div>
       </div>
 
-      <p className="mt-3 text-xs text-muted">Synced {timeAgo(channel.lastSyncedAt)}</p>
+      <p className="mt-2 text-[11px] text-muted">Synced {timeAgo(channel.lastSyncedAt)}</p>
 
-      <div className="mt-4 space-y-2">
+      <div className="mt-2.5 space-y-1.5">
         {onOpenVideos ? (
           <button
             type="button"
             onClick={onOpenVideos}
-            className="w-full rounded-xl bg-accent px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-dark"
+            className="w-full rounded-lg bg-accent px-2.5 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-accent-dark"
           >
             View videos
           </button>
         ) : null}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-1.5">
           {needsReauth && channel.isOwner ? (
             <a
               href="/api/youtube/connect"
-              className="inline-flex items-center justify-center rounded-xl border border-accent/40 bg-accent/10 px-3 py-2.5 text-sm font-semibold text-accent transition-colors hover:bg-accent/20"
+              className="inline-flex items-center justify-center rounded-lg border border-accent/40 bg-accent/10 px-2.5 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/20"
             >
               Reconnect
             </a>
@@ -183,7 +170,7 @@ export function ChannelCard({
               type="button"
               disabled
               title="The channel owner must reconnect this channel."
-              className="rounded-xl border border-border px-3 py-2.5 text-sm font-semibold text-muted opacity-60"
+              className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-muted opacity-60"
             >
               Owner reconnect
             </button>
@@ -192,7 +179,7 @@ export function ChannelCard({
               type="button"
               onClick={sync}
               disabled={pending}
-              className="rounded-xl border border-border px-3 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-white/5 disabled:opacity-60"
+              className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-white/5 disabled:opacity-60"
             >
               {busy === "sync" ? "Syncing…" : "Sync"}
             </button>
@@ -201,20 +188,20 @@ export function ChannelCard({
             type="button"
             onClick={channel.isOwner ? disconnect : leave}
             disabled={pending}
-            className="rounded-xl border border-border px-3 py-2.5 text-sm font-semibold text-muted transition-colors hover:bg-white/5 hover:text-foreground disabled:opacity-60"
+            className="rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-muted transition-colors hover:bg-white/5 hover:text-foreground disabled:opacity-60"
           >
             {busy === "disconnect" || busy === "leave"
               ? "Removing…"
               : channel.isOwner
                 ? "Disconnect"
-                : "Leave channel"}
+                : "Leave"}
           </button>
         </div>
         {channel.isOwner && onManageAccess ? (
           <button
             type="button"
             onClick={onManageAccess}
-            className="w-full rounded-xl border border-border px-3 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-white/5"
+            className="w-full rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-white/5"
           >
             Manage access{channel.shareCount > 0 ? ` · ${channel.shareCount}` : ""}
           </button>

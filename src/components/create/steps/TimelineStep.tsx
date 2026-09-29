@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { FieldFlash } from "@/components/agent/FieldFlash";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { GenerateBar } from "@/components/create/GenerateBar";
@@ -309,7 +310,7 @@ export function TimelineStep() {
   const total = totalTimelineSeconds(project.scenes);
 
   return (
-    <div className="space-y-4">
+    <FieldFlash field="timeline" className="space-y-4">
       <div className="rounded-2xl border border-border bg-surface p-5">
         <h3 className="font-display text-lg font-semibold text-foreground">Timeline / scenes</h3>
         <p className="mt-1 text-sm text-muted">
@@ -552,6 +553,6 @@ export function TimelineStep() {
         }
         onClose={() => setPreview(null)}
       />
-    </div>
+    </FieldFlash>
   );
 }

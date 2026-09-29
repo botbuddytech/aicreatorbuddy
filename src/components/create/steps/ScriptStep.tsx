@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { FieldFlash } from "@/components/agent/FieldFlash";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
 import { ActionButton } from "@/components/ui/ActionButton";
@@ -193,7 +194,7 @@ export function ScriptStep() {
       {busy === "script" ? (
         <Skeleton className="h-80" />
       ) : (
-        <div className="rounded-2xl border border-border bg-surface p-5">
+        <FieldFlash field="script" className="rounded-2xl border border-border bg-surface p-5">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">Draft</p>
           <Textarea
             className="mt-3 min-h-[28rem] font-mono text-xs"
@@ -201,7 +202,7 @@ export function ScriptStep() {
             placeholder="Paste or type your full video script here…"
             onChange={(event) => dispatch({ type: "SET_SCRIPT", script: event.target.value })}
           />
-        </div>
+        </FieldFlash>
       )}
     </div>
   );

@@ -79,7 +79,10 @@ export function StepDock({
 
   return (
     <>
-      <div className="pointer-events-none fixed right-0 bottom-0 left-[var(--sidebar-width,0px)] z-20">
+      <div
+        className="pointer-events-none fixed bottom-0 left-[var(--sidebar-width,0px)] right-[var(--agent-panel-width,0px)] z-20 ease-out"
+        style={{ transition: "right var(--agent-panel-ms, 220ms) ease-out" }}
+      >
         <div className="pointer-events-auto border-t border-border bg-background/90 px-4 py-3 backdrop-blur-md sm:px-6">
           <div className="flex flex-col gap-2 sm:hidden">
             <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">

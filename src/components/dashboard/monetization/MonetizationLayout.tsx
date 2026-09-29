@@ -1,67 +1,36 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { Topbar } from "@/components/dashboard/Topbar";
-import { ChannelSelectDropdown } from "@/components/dashboard/channel-analytics/ChannelSelectDropdown";
 import { MonetizationHeaderStats } from "./MonetizationHeaderStats";
 import { MonetizationProvider, useMonetization } from "./MonetizationProvider";
-
-const COPY: Record<string, { title: string; subtitle: string }> = {
-  "/dashboard/analytics": {
-    title: "Revenue Overview",
-    subtitle: "Track your YouTube earnings and monetization performance",
-  },
-  "/dashboard/analytics/rpm-cpm": {
-    title: "RPM / CPM Insights",
-    subtitle: "Analyze your revenue metrics and optimize earnings",
-  },
-  "/dashboard/analytics/top-videos": {
-    title: "Top Earning Videos",
-    subtitle: "Videos generating the most revenue this period",
-  },
-  "/dashboard/analytics/ad-formats": {
-    title: "Ad Formats Breakdown",
-    subtitle: "Analyze revenue by ad type and optimize monetization",
-  },
-};
+import type { ConnectedChannel } from "@/lib/youtube/repo";
 
 function MonetizationShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  const { selectedId, setSelectedId, data } = useMonetization();
-  const copy = COPY[pathname] ?? {
-    title: "Monetization Analytics",
-    subtitle: "Track your YouTube earnings and monetization performance",
-  };
+  const { data } = useMonetization();
 
   return (
-    <>
-      <Topbar title={copy.title} subtitle={copy.subtitle} />
-      <div className="space-y-6 px-6 py-6">
-        {data ? (
-          <>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted">
-                {selectedId
-                  ? "Switch channel to compare monetization across the workspace"
-                  : "Combined revenue across every channel in the workspace"}
-              </p>
-              <ChannelSelectDropdown selectedId={selectedId} onChange={setSelectedId} />
-            </div>
-            <MonetizationHeaderStats />
-            {children}
-          </>
-        ) : (
-          <p className="text-sm text-muted">No channel data available.</p>
-        )}
-      </div>
-    </>
+    <div className="space-y-6 px-6 py-6">
+      {data ? (
+        <>
+          <MonetizationHeaderStats />
+          {children}
+        </>
+      ) : (
+        <p className="text-sm text-muted">Select a channel to view analytics.</p>
+      )}
+    </div>
   );
 }
 
-export function MonetizationLayout({ children }: { children: ReactNode }) {
+export function MonetizationLayout({
+  channel,
+  children,
+}: {
+  channel: ConnectedChannel | null;
+  children: ReactNode;
+}) {
   return (
-    <MonetizationProvider>
+    <MonetizationProvider channel={channel}>
       <MonetizationShell>{children}</MonetizationShell>
     </MonetizationProvider>
   );

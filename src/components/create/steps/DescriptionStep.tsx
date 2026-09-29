@@ -1,5 +1,6 @@
 "use client";
 
+import { FieldFlash } from "@/components/agent/FieldFlash";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Input } from "@/components/ui/Input";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -62,6 +63,7 @@ export function DescriptionStep() {
         </div>
       </div>
 
+      <FieldFlash field="description" className="rounded-2xl">
       {busy === "desc" ? (
         <Skeleton className="h-64" />
       ) : project.description ? (
@@ -97,6 +99,7 @@ export function DescriptionStep() {
           description="Generate copy from the introduction and selected title."
         />
       )}
+      </FieldFlash>
     </div>
   );
 }

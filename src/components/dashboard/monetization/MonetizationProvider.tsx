@@ -1,17 +1,13 @@
 "use client";
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
-import { workspaceChannels, type ChannelStatus } from "@/lib/dashboardContent";
+import { formatCount, type ChannelStatus } from "@/lib/dashboardContent";
 import { type AnalyticsRange } from "@/lib/channelAnalyticsContent";
-import {
-  getCombinedMonetizationData,
-  getMonetizationData,
-  type MonetizationData,
-} from "@/lib/monetizationContent";
+import { getMonetizationData, type MonetizationData } from "@/lib/monetizationContent";
+import { channelInitials, timeAgo } from "@/lib/youtube/format";
+import type { ConnectedChannel } from "@/lib/youtube/repo";
 
 type MonetizationContextValue = {
-  selectedId: string | null;
-  setSelectedId: (id: string | null) => void;
   range: AnalyticsRange;
   setRange: (range: AnalyticsRange) => void;
   channel: ChannelStatus | null;
@@ -20,24 +16,38 @@ type MonetizationContextValue = {
 
 const MonetizationContext = createContext<MonetizationContextValue | null>(null);
 
-export function MonetizationProvider({ children }: { children: ReactNode }) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [range, setRange] = useState<AnalyticsRange>("28d");
+function toChannelStatus(channel: ConnectedChannel): ChannelStatus {
+  const revenue = Math.max(1200, Math.round(channel.viewCount / 800));
+  return {
+    id: channel.id,
+    name: channel.title,
+    initials: channelInitials(channel.title) || "CH",
+    color: "bg-accent",
+    subscribers: channel.hiddenSubscriberCount ? "Hidden" : formatCount(channel.subscriberCount),
+    views: formatCount(channel.viewCount),
+    revenue: `$${revenue}`,
+    connected: channel.status === "ACTIVE",
+    lastSync: timeAgo(channel.lastSyncedAt),
+  };
+}
 
-  const channel = useMemo(
-    () => workspaceChannels.find((item) => item.id === selectedId) ?? null,
-    [selectedId],
+export function MonetizationProvider({
+  channel: selected,
+  children,
+}: {
+  channel: ConnectedChannel | null;
+  children: ReactNode;
+}) {
+  const [range, setRange] = useState<AnalyticsRange>("28d");
+  const channel = useMemo(() => (selected ? toChannelStatus(selected) : null), [selected]);
+  const data = useMemo(
+    () => (channel ? getMonetizationData(channel, range) : null),
+    [channel, range],
   );
 
-  const data = useMemo(() => {
-    if (channel) return getMonetizationData(channel, range);
-    if (workspaceChannels.length === 0) return null;
-    return getCombinedMonetizationData(workspaceChannels, range);
-  }, [channel, range]);
-
   const value = useMemo(
-    () => ({ selectedId, setSelectedId, range, setRange, channel, data }),
-    [selectedId, range, channel, data],
+    () => ({ range, setRange, channel, data }),
+    [range, channel, data],
   );
 
   return <MonetizationContext.Provider value={value}>{children}</MonetizationContext.Provider>;

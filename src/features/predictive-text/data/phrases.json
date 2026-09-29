@@ -1,0 +1,22 @@
+[
+  { "phrase": "machine learning", "frequency": 12000 },
+  { "phrase": "web development", "frequency": 8000 },
+  { "phrase": "software development", "frequency": 9000 },
+  { "phrase": "I would like to know", "frequency": 7000 },
+  { "phrase": "I would like to request", "frequency": 5000 },
+  { "phrase": "I would like to confirm", "frequency": 4500 },
+  { "phrase": "learning education", "frequency": 6000 },
+  { "phrase": "studying education", "frequency": 6500 },
+  { "phrase": "youtube shorts", "frequency": 11000 },
+  { "phrase": "faceless channel", "frequency": 9000 },
+  { "phrase": "content strategy", "frequency": 7500 },
+  { "phrase": "audience retention", "frequency": 8200 },
+  { "phrase": "click through rate", "frequency": 6400 },
+  { "phrase": "watch time", "frequency": 7800 },
+  { "phrase": "call to action", "frequency": 8600 },
+  { "phrase": "video script", "frequency": 7000 },
+  { "phrase": "thumbnail design", "frequency": 6800 },
+  { "phrase": "content creator", "frequency": 8400 },
+  { "phrase": "personal brand", "frequency": 6200 },
+  { "phrase": "digital product", "frequency": 5800 }
+]

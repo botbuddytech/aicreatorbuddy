@@ -83,7 +83,13 @@ function minimalEnvironment(): NodeJS.ProcessEnv {
   return env;
 }
 
-function parseAgentEnvelope(stdout: string): unknown {
+export function cursorAgentModelLabel(): string {
+  const model = process.env.CURSOR_AGENT_MODEL?.trim();
+  if (model && /^[a-zA-Z0-9._:/-]{1,100}$/.test(model)) return `Cursor CLI · ${model}`;
+  return "Cursor CLI";
+}
+
+function readAgentResult(stdout: string): string {
   let envelope: unknown;
   try {
     envelope = JSON.parse(stdout.trim());
@@ -95,10 +101,13 @@ function parseAgentEnvelope(stdout: string): unknown {
     throw new CursorRunnerError("invalid-output");
   }
   const result = (envelope as { result?: unknown }).result;
-  if (typeof result !== "string") throw new CursorRunnerError("invalid-output");
+  if (typeof result !== "string" || !result.trim()) throw new CursorRunnerError("invalid-output");
+  return result.trim();
+}
 
+function parseAgentEnvelope(stdout: string): unknown {
+  const result = readAgentResult(stdout);
   const withoutFence = result
-    .trim()
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "");
   const start = withoutFence.indexOf("{");
@@ -193,22 +202,35 @@ async function invokeAgent(
   });
 }
 
-export async function runCursorPrompt(
-  prompt: string,
-  signal?: AbortSignal,
-): Promise<unknown> {
+async function withCursorWorkspace<T>(run: (workspace: string) => Promise<T>): Promise<T> {
   if (generationInProgress) throw new CursorRunnerError("busy");
   generationInProgress = true;
 
   let workspace: string | null = null;
   try {
     workspace = await mkdtemp(join(tmpdir(), "aicreatorbuddy-cursor-"));
-    const stdout = await invokeAgent(workspace, prompt, signal);
-    return parseAgentEnvelope(stdout);
+    return await run(workspace);
   } finally {
     generationInProgress = false;
     if (workspace) await rm(workspace, { recursive: true, force: true });
   }
+}
+
+export async function runCursorPrompt(
+  prompt: string,
+  signal?: AbortSignal,
+): Promise<unknown> {
+  return withCursorWorkspace(async (workspace) => {
+    const stdout = await invokeAgent(workspace, prompt, signal);
+    return parseAgentEnvelope(stdout);
+  });
+}
+
+export async function runCursorText(prompt: string, signal?: AbortSignal): Promise<string> {
+  return withCursorWorkspace(async (workspace) => {
+    const stdout = await invokeAgent(workspace, prompt, signal);
+    return readAgentResult(stdout);
+  });
 }
 
 export async function generateTitlesWithCursor(

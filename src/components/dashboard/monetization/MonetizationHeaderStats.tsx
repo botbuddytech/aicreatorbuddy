@@ -15,13 +15,9 @@ export function MonetizationHeaderStats() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h2 className="font-display text-xl font-semibold text-foreground">
-            {channel?.name ?? "All channels"}
+            {channel?.name ?? "Selected channel"}
           </h2>
-          <p className="text-sm text-muted">
-            {channel
-              ? "Monetization performance for the selected period"
-              : "Combined earnings across every channel in the workspace"}
-          </p>
+          <p className="text-sm text-muted">Monetization performance for the selected period</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select

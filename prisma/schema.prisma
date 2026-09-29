@@ -103,13 +103,17 @@ model User {
   updatedAt            DateTime              @updatedAt
   accounts             Account[]
   sessions             Session[]
-  youtubeChannels      YoutubeChannel[]
+  youtubeChannels      YoutubeChannel[]      @relation("OwnedChannels")
   channelShares        ChannelShare[]        @relation("ChannelShareMember")
   channelSharesSent    ChannelShare[]        @relation("ChannelShareInviter")
   videoSessions        VideoSession[]
   deletedVideoSessions DeletedVideoSession[]
   cursorPromptSettings CursorPromptSettings?
   integrations         UserIntegration[]
+  activeChannelId      String?
+  activeChannel        YoutubeChannel?       @relation("UserActiveChannel", fields: [activeChannelId], references: [id], onDelete: SetNull)
+
+  @@index([activeChannelId])
 }
 
 model CursorPromptSettings {
@@ -231,7 +235,7 @@ model VerificationToken {
 model YoutubeChannel {
   id                    String                  @id @default(cuid())
   userId                String
-  user                  User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                  User                    @relation("OwnedChannels", fields: [userId], references: [id], onDelete: Cascade)
   channelId             String // "UC..."
   title                 String
   customUrl             String?
@@ -255,6 +259,7 @@ model YoutubeChannel {
   videos                YoutubeVideo[]
   videoSessions         VideoSession[]
   shares                ChannelShare[]
+  activeForUsers        User[]                  @relation("UserActiveChannel")
 
   @@unique([userId, channelId])
   @@index([userId])

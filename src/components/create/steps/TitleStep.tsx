@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FieldFlash } from "@/components/agent/FieldFlash";
 import { Badge } from "@/components/ui/Badge";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -169,6 +170,7 @@ export function TitleStep() {
         </div>
       </div>
 
+      <FieldFlash field="title" className="rounded-2xl">
       {busy === "all" ? (
         <div className="grid gap-4 sm:grid-cols-2">
           {Array.from({ length: 4 }).map((_, index) => (
@@ -244,6 +246,7 @@ export function TitleStep() {
           ))}
         </div>
       )}
+      </FieldFlash>
       <ConfirmModal
         open={scoreConfirmOpen}
         title="Score titles with vidIQ?"

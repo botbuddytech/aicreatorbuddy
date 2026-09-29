@@ -95,7 +95,13 @@ function ProjectCard({
   );
 }
 
-export function CreateIndexClient({ channels }: { channels: ConnectedChannel[] }) {
+export function CreateIndexClient({
+  channels,
+  activeChannelId,
+}: {
+  channels: ConnectedChannel[];
+  activeChannelId: string | null;
+}) {
   const router = useRouter();
   const { hydrated, projects, createProject, duplicateProject, deleteProject } = useProjectStore();
   const [pendingDelete, setPendingDelete] = useState<VideoProject | null>(null);
@@ -105,7 +111,10 @@ export function CreateIndexClient({ channels }: { channels: ConnectedChannel[] }
   const channelById = new Map(channels.map((channel) => [channel.id, channel.title]));
 
   function onNew() {
-    const channelId = channels[0]?.id ?? "";
+    const channelId =
+      activeChannelId && channels.some((channel) => channel.id === activeChannelId)
+        ? activeChannelId
+        : "";
     const project = createProject(channelId);
     router.push(`/dashboard/create/${project.id}`);
   }

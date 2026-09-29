@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { FieldFlash } from "@/components/agent/FieldFlash";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -203,6 +204,7 @@ export function ThumbnailStep() {
         </div>
       ) : null}
 
+      <FieldFlash field="thumbnail" className="rounded-2xl">
       {busy === "all" ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 4 }).map((_, index) => (
@@ -273,6 +275,7 @@ export function ThumbnailStep() {
           ))}
         </div>
       )}
+      </FieldFlash>
     </div>
   );
 }

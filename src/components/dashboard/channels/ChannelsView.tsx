@@ -126,7 +126,7 @@ export function ChannelsView({
               <h2 className="font-display text-base font-semibold text-foreground">Your channels</h2>
               <p className="text-xs text-muted">Channels you connected and own.</p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {ownedChannels.map((channel) => (
                 <ChannelCard
                   key={channel.id}
@@ -150,7 +150,7 @@ export function ChannelsView({
                   Channels another account has granted you access to.
                 </p>
               </div>
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {sharedChannels.map((channel) => (
                   <ChannelCard
                     key={channel.id}
@@ -179,8 +179,8 @@ export function ChannelsView({
 
 function PlusIcon() {
   return (
-    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/15 text-accent">
-      <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
+    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/15 text-accent">
+      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
         <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
       </svg>
     </span>
@@ -191,11 +191,11 @@ function AddTile() {
   return (
     <a
       href="/api/youtube/connect"
-      className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-surface/50 p-5 text-center transition-colors hover:border-accent/50 hover:bg-surface"
+      className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-surface/50 p-4 text-center transition-colors hover:border-accent/50 hover:bg-surface"
     >
       <PlusIcon />
-      <p className="mt-3 font-display text-base font-semibold text-foreground">Connect another channel</p>
-      <p className="mt-1 text-sm text-muted">Secure Google OAuth · pick any Gmail or brand account</p>
+      <p className="mt-2 text-sm font-semibold text-foreground">Connect another channel</p>
+      <p className="mt-0.5 text-xs text-muted">Google OAuth · any Gmail or brand account</p>
     </a>
   );
 }

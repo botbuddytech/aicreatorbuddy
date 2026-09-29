@@ -332,8 +332,10 @@ export const INTENT_LABELS: Record<VideoIntent, string> = {
   entertainment: "Entertainment",
 };
 
-export const SHORTS_LENGTH_SECONDS = [15, 30, 45, 60] as const;
-export const LONG_FORM_LENGTH_MINUTES = [3, 5, 8, 10, 12, 15] as const;
+const DURATION_BOUNDS: Record<VideoFormat, { min: number; max: number; step: number }> = {
+  shorts: { min: 15, max: 5 * 60, step: 15 },
+  "long-form": { min: 5 * 60, max: Number.POSITIVE_INFINITY, step: 60 },
+};
 
 const EMPTY_STEP_STATUS: Record<StepId, StepStatus> = {
   summary: "not-started",
@@ -357,38 +359,45 @@ export function aspectForFormat(format: VideoFormat): AspectRatio {
   return format === "shorts" ? "9:16" : "16:9";
 }
 
-export function defaultDurationForFormat(format: VideoFormat): number {
-  return format === "shorts" ? 60 : 8 * 60;
+export function durationBoundsForFormat(format: VideoFormat): {
+  min: number;
+  max: number;
+  step: number;
+} {
+  return DURATION_BOUNDS[format];
 }
 
-export function lengthOptionsForFormat(format: VideoFormat): { value: number; label: string }[] {
-  if (format === "shorts") {
-    return SHORTS_LENGTH_SECONDS.map((seconds) => ({
-      value: seconds,
-      label: `${seconds} seconds`,
-    }));
-  }
-  return LONG_FORM_LENGTH_MINUTES.map((minutes) => ({
-    value: minutes * 60,
-    label: `${minutes} minutes`,
-  }));
+export function defaultDurationForFormat(format: VideoFormat): number {
+  return format === "shorts" ? 30 : 5 * 60;
 }
 
 export function formatDurationLabel(seconds: number, format: VideoFormat): string {
-  if (format === "shorts") return `${seconds} seconds`;
-  const minutes = Math.round(seconds / 60);
-  return `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  const total = Math.round(seconds);
+  if (format === "shorts" && total < 60) return `${total} sec`;
+  if (total >= 3600) {
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    if (minutes === 0) return `${hours} hr`;
+    return `${hours} hr ${minutes} min`;
+  }
+  const minutes = Math.floor(total / 60);
+  const remainder = total % 60;
+  if (remainder === 0) return `${minutes} min`;
+  return `${minutes} min ${remainder} sec`;
 }
 
 export function snapDurationToPreset(format: VideoFormat, seconds: number): number {
-  const options = lengthOptionsForFormat(format);
-  const first = options[0]?.value ?? defaultDurationForFormat(format);
-  if (!Number.isFinite(seconds) || seconds <= 0) return first;
-  return options.reduce(
-    (best, option) =>
-      Math.abs(option.value - seconds) < Math.abs(best - seconds) ? option.value : best,
-    first,
-  );
+  const { min, max, step } = durationBoundsForFormat(format);
+  if (!Number.isFinite(seconds) || seconds <= 0) return defaultDurationForFormat(format);
+  const clamped = Math.min(max, Math.max(min, seconds));
+  const snapped = min + Math.round((clamped - min) / step) * step;
+  return Math.min(max, Math.max(min, snapped));
+}
+
+export function stepDuration(format: VideoFormat, seconds: number, direction: -1 | 1): number {
+  const { min, max, step } = durationBoundsForFormat(format);
+  const current = snapDurationToPreset(format, seconds);
+  return Math.min(max, Math.max(min, current + direction * step));
 }
 
 export function summaryLengthMinutes(summary: VideoSummary): number {
@@ -1151,6 +1160,7 @@ export type ApiCostByTool = {
 const API_TOOL_LABELS: Record<string, string> = {
   ...PROVIDER_LABELS,
   vidiq: "VidIQ",
+  agent: "Agent",
 };
 
 export function apiCostByTool(project: VideoProject): ApiCostByTool[] {

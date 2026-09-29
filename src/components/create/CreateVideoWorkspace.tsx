@@ -13,20 +13,14 @@ import { TimelineStep } from "@/components/create/steps/TimelineStep";
 import { DescriptionStep } from "@/components/create/steps/DescriptionStep";
 import { RenderPanel } from "@/components/create/steps/RenderPanel";
 import { EditorStep } from "@/components/create/editor/EditorStep";
+import { AgentToggle } from "@/components/agent/AgentToggle";
 import { ProjectNameHeading } from "@/components/create/ProjectNameHeading";
 import { STEPS, type StepId } from "@/lib/videoProject";
-import type { ConnectedChannel } from "@/lib/youtube/repo";
 
-function StepBody({
-  step,
-  channels,
-}: {
-  step: StepId;
-  channels: ConnectedChannel[];
-}) {
+function StepBody({ step }: { step: StepId }) {
   switch (step) {
     case "summary":
-      return <SummaryStep channels={channels} />;
+      return <SummaryStep />;
     case "title":
       return <TitleStep />;
     case "thumbnail":
@@ -44,11 +38,7 @@ function StepBody({
   }
 }
 
-export function CreateVideoWorkspace({
-  channels,
-}: {
-  channels: ConnectedChannel[];
-}) {
+export function CreateVideoWorkspace() {
   const { project, savedAt, activeStep, setActiveStep } = useVideoProject();
   const step = activeStep;
   const index = STEPS.findIndex((item) => item.id === step);
@@ -67,6 +57,7 @@ export function CreateVideoWorkspace({
       <Topbar
         title={<ProjectNameHeading />}
         subtitle={`${current?.label ?? "Workspace"} · ${saveLabel}`}
+        actions={<AgentToggle />}
       />
       <div className="space-y-6 px-4 py-5 pb-40 sm:px-6 sm:py-6 sm:pb-28">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -92,7 +83,7 @@ export function CreateVideoWorkspace({
             aria-labelledby={`create-tab-${step}`}
             className="min-w-0 space-y-6"
           >
-            <StepBody step={step} channels={channels} />
+            <StepBody step={step} />
           </div>
         </div>
       </div>

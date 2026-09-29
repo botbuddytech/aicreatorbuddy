@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
 import { useEffect, useId, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 
@@ -21,6 +22,8 @@ const ChatPanel = dynamic(() => import("@/components/chat/ChatPanel").then((mod)
 
 export function ChatWidget() {
   const panelId = useId();
+  const pathname = usePathname() ?? "";
+  const hideLauncher = /^\/dashboard\/create\/[^/]+/.test(pathname);
   const isClient = useSyncExternalStore(subscribeNever, () => true, () => false);
   const [open, setOpen] = useState(false);
   const [hasOpenedOnce, setHasOpenedOnce] = useState(false);
@@ -28,6 +31,7 @@ export function ChatWidget() {
   const unread = isClient && !open && sessionStorage.getItem(SEEN_KEY) !== "1";
 
   useEffect(() => {
+    if (hideLauncher) return;
     // Warm the chat panel chunk once the browser is idle so opening it
     // later feels instant, without competing with initial page load.
     const hasIdleCallback = typeof window.requestIdleCallback === "function";
@@ -38,7 +42,7 @@ export function ChatWidget() {
       if (hasIdleCallback) window.cancelIdleCallback(idleId);
       else window.clearTimeout(idleId);
     };
-  }, []);
+  }, [hideLauncher]);
 
   function toggle() {
     if (!open) {
@@ -48,7 +52,7 @@ export function ChatWidget() {
     setOpen((was) => !was);
   }
 
-  if (!isClient) return null;
+  if (!isClient || hideLauncher) return null;
 
   return createPortal(
     <div className="buddy-root">
