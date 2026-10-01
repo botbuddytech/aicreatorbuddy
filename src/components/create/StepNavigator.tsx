@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { formatUsdEstimate } from "@/lib/apiCost";
 import {
@@ -88,6 +88,8 @@ export function StepNavigator({
   const stepStatus = project.stepStatus;
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
   const activeIndex = STEPS.findIndex((step) => step.id === active);
   const current = STEPS[activeIndex] ?? STEPS[0];
   const approved = STEPS.filter((step) => stepStatus[step.id] === "approved").length;
@@ -125,12 +127,39 @@ export function StepNavigator({
   }
 
   useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const update = () => {
+      const max = scroller.scrollWidth - scroller.clientWidth;
+      const nextLeft = scroller.scrollLeft > 2;
+      const nextRight = max - scroller.scrollLeft > 2;
+      setCanScrollLeft((current) => (current === nextLeft ? current : nextLeft));
+      setCanScrollRight((current) => (current === nextRight ? current : nextRight));
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(scroller);
+    scroller.addEventListener("scroll", update, { passive: true });
+    return () => {
+      observer.disconnect();
+      scroller.removeEventListener("scroll", update);
+    };
+  }, []);
+
+  useEffect(() => {
     const node = refs.current[activeIndex < 0 ? 0 : activeIndex];
-    node?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    node?.scrollIntoView({ behavior: "smooth", inline: "nearest", block: "nearest" });
   }, [active, activeIndex]);
 
+  function scrollSteps(direction: -1 | 1) {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const distance = Math.max(180, scroller.clientWidth * 0.7);
+    scroller.scrollBy({ left: direction * distance, behavior: "smooth" });
+  }
+
   return (
-    <div className="rounded-2xl border border-border bg-surface p-4 sm:p-5">
+    <div className="min-w-0 rounded-2xl border border-border bg-surface p-4 sm:p-5">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-wide text-accent">
@@ -146,13 +175,14 @@ export function StepNavigator({
         </p>
       </div>
 
-      <div
-        role="tablist"
-        aria-label="Create video steps"
-        className="no-scrollbar mt-3 overflow-x-auto overscroll-x-contain"
-        onKeyDown={onKeyDown}
-        ref={scrollerRef}
-      >
+      <div className="relative mt-3 min-w-0">
+        <div
+          role="tablist"
+          aria-label="Create video steps"
+          className="pipeline-step-scroller min-w-0 overflow-x-auto overscroll-x-contain"
+          onKeyDown={onKeyDown}
+          ref={scrollerRef}
+        >
         <div className="pipeline-chevrons w-max min-w-full">
           {STEPS.map((step, index) => {
             const selected = step.id === active;
@@ -191,6 +221,31 @@ export function StepNavigator({
             );
           })}
         </div>
+        </div>
+        {canScrollLeft ? (
+          <button
+            type="button"
+            aria-label="Show earlier steps"
+            onClick={() => scrollSteps(-1)}
+            className="absolute top-[calc(50%-6px)] left-2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-white text-[#0b0d12] shadow-[0_10px_28px_-8px_rgba(0,0,0,0.75)] ring-2 ring-accent transition-transform hover:scale-105 hover:bg-accent hover:text-white"
+          >
+            <svg viewBox="0 0 16 16" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+              <path d="M10 3 5 8l5 5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        ) : null}
+        {canScrollRight ? (
+          <button
+            type="button"
+            aria-label="Show later steps"
+            onClick={() => scrollSteps(1)}
+            className="absolute top-[calc(50%-6px)] right-2 z-20 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white bg-white text-[#0b0d12] shadow-[0_10px_28px_-8px_rgba(0,0,0,0.75)] ring-2 ring-accent transition-transform hover:scale-105 hover:bg-accent hover:text-white"
+          >
+            <svg viewBox="0 0 16 16" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+              <path d="M6 3l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        ) : null}
       </div>
 
       <div className="mt-3 grid grid-cols-1 items-start gap-2 sm:grid-cols-2">

@@ -7,6 +7,7 @@ import type { ReferenceVideo } from "@/lib/videoProject";
 type TranscriptResponse = {
   ok: true;
   referenceKey: string;
+  title: string;
   transcript: string;
   lang: string | null;
   wordCount: number;
@@ -27,6 +28,7 @@ function isTranscriptResponse(value: unknown): value is TranscriptResponse {
   return (
     response.ok === true &&
     typeof response.referenceKey === "string" &&
+    typeof response.title === "string" &&
     typeof response.transcript === "string" &&
     typeof response.wordCount === "number" &&
     typeof response.charCount === "number" &&

@@ -13,6 +13,10 @@ export function toStepState(state: StepStatus): StepState {
   return state.replace("-", "_").toUpperCase() as StepState;
 }
 
+export function fromStepState(state: StepState): StepStatus {
+  return state.replace("_", "-").toLowerCase() as StepStatus;
+}
+
 export function jsonValue(value: unknown): object {
   return JSON.parse(JSON.stringify(value)) as object;
 }

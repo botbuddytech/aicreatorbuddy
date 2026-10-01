@@ -1,5 +1,6 @@
-import type { StepId, StepStatus } from "@/lib/videoProject";
+import { MAX_REFERENCE_TITLE_CHARS, type StepId, type StepStatus } from "@/lib/videoProject";
 import type { SessionStepSnapshot } from "@/lib/session/stepData";
+import { parseStepPayload } from "@/lib/session/stepPayload";
 
 export const MAX_EVENTS_PER_BATCH = 100;
 export const MAX_SCENES_PER_SNAPSHOT = 500;
@@ -83,6 +84,7 @@ export type SessionReferenceSnapshot = {
   order: number;
   url: string;
   videoId: string | null;
+  title?: string;
   hasTranscript: boolean;
   charCount: number;
   wordCount: number;
@@ -185,7 +187,19 @@ export function parseSessionSnapshot(raw: unknown): SessionSnapshot | null {
     return null;
   }
   for (const step of raw.steps) {
-    if (!isObject(step) || !isStep(step.step) || !isStepStatus(step.state) || !isObject(step.data)) {
+    if (
+      !isObject(step) ||
+      !isStep(step.step) ||
+      !isStepStatus(step.state) ||
+      !isObject(step.data) ||
+      !isObject(step.payload) ||
+      typeof step.schemaVersion !== "number" ||
+      !Number.isInteger(step.schemaVersion) ||
+      step.schemaVersion < 0
+    ) {
+      return null;
+    }
+    if (step.schemaVersion >= 1 && !parseStepPayload(step.step, step.payload)) {
       return null;
     }
   }
@@ -217,6 +231,9 @@ export function parseSessionSnapshot(raw: unknown): SessionSnapshot | null {
       !Number.isInteger(reference.order) ||
       typeof reference.url !== "string" ||
       (reference.videoId !== null && typeof reference.videoId !== "string") ||
+      (reference.title !== undefined &&
+        (typeof reference.title !== "string" ||
+          reference.title.length > MAX_REFERENCE_TITLE_CHARS)) ||
       typeof reference.hasTranscript !== "boolean" ||
       typeof reference.charCount !== "number" ||
       typeof reference.wordCount !== "number"

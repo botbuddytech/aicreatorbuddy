@@ -151,7 +151,7 @@ export function SummaryStep() {
         <div>
           <p className="mb-1.5 text-sm font-medium text-foreground">Reference videos</p>
           <p className="mb-3 text-xs text-muted">
-            Paste links and optional transcripts. Fetch captions is not required to continue.
+            Paste links and optional transcripts. Fetching a transcript also fills in the video title.
           </p>
           <div className="space-y-3">
             {summary.references.map((reference, index) => (
@@ -192,6 +192,7 @@ export function SummaryStep() {
                         item.id === reference.id
                           ? {
                               ...item,
+                              title: result.title,
                               transcript: result.transcript,
                               transcriptSource: "fetched",
                               fetchedUrl: reference.url.trim(),
@@ -281,9 +282,40 @@ function ReferenceCard({
           value={reference.url}
           placeholder="https://youtube.com/watch?v=…"
           disabled={pending}
-          onChange={(event) => onChange({ ...reference, url: event.target.value })}
+          onChange={(event) =>
+            onChange({
+              ...reference,
+              url: event.target.value,
+              title: "",
+            })
+          }
         />
       </Field>
+      <div className="mt-3">
+        <Field
+          label="Video title"
+          htmlFor={`reference-title-${reference.id}`}
+          hint={
+            reference.title?.trim()
+              ? undefined
+              : "Filled in when you fetch the transcript."
+          }
+        >
+          {pending ? (
+            <div aria-live="polite" aria-busy="true">
+              <span className="sr-only">Fetching video title</span>
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <Input
+              id={`reference-title-${reference.id}`}
+              value={reference.title ?? ""}
+              placeholder="Video title"
+              readOnly
+            />
+          )}
+        </Field>
+      </div>
       <div className="mt-3">
         <Field
           label="Transcript"

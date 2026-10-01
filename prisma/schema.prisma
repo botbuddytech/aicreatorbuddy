@@ -369,7 +369,11 @@ model VideoSessionStep {
   step             CreateStep
   state            StepState    @default(NOT_STARTED)
   provider         String?
+  /// Metrics rollup for session overview (counts, selected labels).
   data             Json         @default("{}")
+  /// Working document this step owns. Schema version 0 = metrics-only legacy row.
+  payload          Json         @default("{}")
+  schemaVersion    Int          @default(0)
   visitCount       Int          @default(0)
   generationCount  Int          @default(0)
   editCount        Int          @default(0)
@@ -509,6 +513,8 @@ model VideoSessionReference {
   transcript   String                    @default("")
   /// [{ text, offsetMs, durationMs }] kept server-side for later scene alignment.
   segments     Json                      @default("[]")
+  /// Extensible reference metadata (title, thumbnail, channel) without new columns.
+  metadata     Json                      @default("{}")
   charCount    Int                       @default(0)
   wordCount    Int                       @default(0)
   durationSec  Float?

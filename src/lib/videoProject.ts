@@ -19,15 +19,38 @@ export type VideoFormat = "shorts" | "long-form";
 export type AspectRatio = "9:16" | "16:9";
 export type VideoIntent = "educational" | "entertainment";
 
+export const MAX_REFERENCE_TITLE_CHARS = 200;
+
 export type ReferenceVideo = {
   id: string;
   url: string;
+  title: string;
   transcript: string;
   transcriptSource: "manual" | "fetched" | null;
   fetchedUrl: string | null;
   lang: string | null;
   fetchedAt: string | null;
 };
+
+export function referenceTitleFromMetadata(metadata: unknown): string {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return "";
+  const title = (metadata as Record<string, unknown>).title;
+  return typeof title === "string" ? title.trim().slice(0, MAX_REFERENCE_TITLE_CHARS) : "";
+}
+
+export function metadataWithReferenceTitle(
+  metadata: unknown,
+  title: string,
+): Record<string, unknown> {
+  const base =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? { ...(metadata as Record<string, unknown>) }
+      : {};
+  const trimmed = title.trim().slice(0, MAX_REFERENCE_TITLE_CHARS);
+  if (trimmed) base.title = trimmed;
+  else delete base.title;
+  return base;
+}
 
 export type VideoSummary = {
   topic: string;
@@ -412,6 +435,7 @@ export function createEmptyReference(): ReferenceVideo {
   return {
     id: newId(),
     url: "",
+    title: "",
     transcript: "",
     transcriptSource: null,
     fetchedUrl: null,
@@ -482,6 +506,10 @@ export function normalizeSummary(raw: unknown): VideoSummary {
       .map((item) => ({
         id: typeof item.id === "string" && item.id ? item.id : newId(),
         url: typeof item.url === "string" ? item.url : "",
+        title:
+          typeof item.title === "string"
+            ? item.title.trim().slice(0, MAX_REFERENCE_TITLE_CHARS)
+            : "",
         transcript: typeof item.transcript === "string" ? item.transcript : "",
         transcriptSource:
           item.transcriptSource === "fetched" || item.transcriptSource === "manual"
@@ -497,6 +525,7 @@ export function normalizeSummary(raw: unknown): VideoSummary {
     references = [{
       id: newId(),
       url: "",
+      title: "",
       transcript: source.sourceMaterial,
       transcriptSource: "manual",
       fetchedUrl: null,

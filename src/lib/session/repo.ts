@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/db";
-import { fromCreateStep } from "@/lib/session/server";
+import { fromCreateStep, fromStepState } from "@/lib/session/server";
+import type { SessionDocuments } from "@/lib/session/stepPayload";
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
 
 export async function listSessions(userId: string) {
   const rows = await prisma.videoSession.findMany({
@@ -103,4 +110,78 @@ export async function getSessionTimeline(id: string, userId: string) {
     step: item.step ? fromCreateStep(item.step) : null,
     at: item.at.toISOString(),
   }));
+}
+
+/** One query: every step payload + references for cross-device resume. */
+export async function getSessionDocuments(
+  id: string,
+  userId: string,
+): Promise<SessionDocuments | null> {
+  const row = await prisma.videoSession.findFirst({
+    where: { id, userId, deletedAt: null },
+    select: {
+      id: true,
+      name: true,
+      createdAt: true,
+      lastActiveAt: true,
+      steps: {
+        orderBy: { step: "asc" },
+        select: {
+          step: true,
+          state: true,
+          provider: true,
+          schemaVersion: true,
+          payload: true,
+        },
+      },
+      references: {
+        where: { removedAt: null },
+        orderBy: { order: "asc" },
+        select: {
+          referenceKey: true,
+          order: true,
+          url: true,
+          videoId: true,
+          status: true,
+          source: true,
+          lang: true,
+          transcript: true,
+          charCount: true,
+          wordCount: true,
+          durationSec: true,
+          fetchedAt: true,
+          metadata: true,
+        },
+      },
+    },
+  });
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    createdAt: row.createdAt.toISOString(),
+    lastActiveAt: row.lastActiveAt.toISOString(),
+    steps: row.steps.map((step) => ({
+      step: fromCreateStep(step.step),
+      state: fromStepState(step.state),
+      provider: step.provider,
+      schemaVersion: step.schemaVersion,
+      payload: asRecord(step.payload),
+    })),
+    references: row.references.map((reference) => ({
+      referenceKey: reference.referenceKey,
+      order: reference.order,
+      url: reference.url,
+      videoId: reference.videoId,
+      status: reference.status,
+      source: reference.source,
+      lang: reference.lang,
+      transcript: reference.transcript,
+      charCount: reference.charCount,
+      wordCount: reference.wordCount,
+      durationSec: reference.durationSec,
+      fetchedAt: reference.fetchedAt?.toISOString() ?? null,
+      metadata: asRecord(reference.metadata),
+    })),
+  };
 }

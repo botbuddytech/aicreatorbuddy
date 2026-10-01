@@ -92,7 +92,11 @@ export type SessionStepSnapshot<T extends StepId = StepId> = {
   step: T;
   state: StepStatus;
   provider: string | null;
+  /** Metrics rollup for overview / analytics. */
   data: StepDataById[T];
+  /** Working document this step owns (schema version 1+). */
+  payload: Record<string, unknown>;
+  schemaVersion: number;
   apiCallCount: number;
   generationCount: number;
 };

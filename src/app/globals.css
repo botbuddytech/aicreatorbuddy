@@ -739,6 +739,24 @@ select:-webkit-autofill:focus {
   display: none;
 }
 
+.pipeline-step-scroller {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.pipeline-step-scroller::-webkit-scrollbar {
+  height: 8px;
+}
+
+.pipeline-step-scroller::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.pipeline-step-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .pipeline-chevrons {
   isolation: isolate;
   display: flex;

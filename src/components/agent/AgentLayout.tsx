@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -82,7 +83,7 @@ export function AgentLayout({
     setChannelName(name);
   }, [channels, project.channelId, setChannelName]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--agent-panel-width", desktop && open ? `${width}px` : "0px");
     root.style.setProperty("--agent-panel-ms", dragging || reduced ? "0ms" : "220ms");
@@ -213,7 +214,7 @@ export function AgentLayout({
           aria-label="Agent"
           aria-hidden={!open}
           inert={!open}
-          className={`fixed top-16 right-0 z-30 h-[calc(100dvh-4rem)] overflow-hidden bg-background ${
+          className={`fixed top-0 right-0 z-30 h-[100dvh] overflow-hidden bg-background ${
             open ? "border-l border-border" : "pointer-events-none border-0"
           } ${motionOff ? "" : "transition-[width] duration-[220ms] ease-out"}`}
           style={{ width: panelWidth }}

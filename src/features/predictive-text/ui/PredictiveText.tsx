@@ -208,7 +208,7 @@ export function PredictiveText<E extends TextControl = HTMLInputElement>({
   };
 
   return (
-    <div ref={containerRef} className="relative z-30">
+    <div ref={containerRef} className="relative">
       {children(inputProps)}
       {shown ? (
         <SuggestionList

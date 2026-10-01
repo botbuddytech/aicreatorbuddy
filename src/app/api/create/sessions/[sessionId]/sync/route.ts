@@ -6,6 +6,7 @@ import {
   isDeletedVideoSessionError,
 } from "@/lib/session/deletion";
 import { jsonValue, safeDate, toCreateStep, toStepState } from "@/lib/session/server";
+import { metadataWithReferenceTitle } from "@/lib/videoProject";
 import { requireChannelAccess } from "@/lib/youtube/access";
 
 type RouteContext = { params: Promise<{ sessionId: string }> };
@@ -101,6 +102,8 @@ export async function POST(request: Request, { params }: RouteContext) {
           state: toStepState(step.state),
           provider: step.provider,
           data: jsonValue(step.data),
+          payload: jsonValue(step.payload),
+          schemaVersion: step.schemaVersion,
           apiCallCount: step.apiCallCount,
           generationCount: step.generationCount,
           ...(step.state === "approved" ? { approvedAt: safeDate(snapshot.lastActiveAt) } : {}),
@@ -131,15 +134,20 @@ export async function POST(request: Request, { params }: RouteContext) {
           sessionId,
           referenceKey: { in: snapshot.references.map((item) => item.referenceKey) },
         },
-        select: { referenceKey: true, url: true },
+        select: { referenceKey: true, url: true, metadata: true },
       });
-      const storedUrls = new Map(
-        storedReferences.map((reference) => [reference.referenceKey, reference.url]),
+      const storedReferencesByKey = new Map(
+        storedReferences.map((reference) => [reference.referenceKey, reference]),
       );
       for (const reference of snapshot.references) {
-        const urlChanged =
-          storedUrls.has(reference.referenceKey) &&
-          storedUrls.get(reference.referenceKey) !== reference.url;
+        const stored = storedReferencesByKey.get(reference.referenceKey);
+        const urlChanged = Boolean(stored && stored.url !== reference.url);
+        const title = typeof reference.title === "string" ? reference.title : "";
+        const metadata = urlChanged
+          ? metadataWithReferenceTitle(stored?.metadata, "")
+          : title.trim()
+            ? metadataWithReferenceTitle(stored?.metadata, title)
+            : null;
         await tx.videoSessionReference.upsert({
           where: {
             sessionId_referenceKey: {
@@ -154,6 +162,7 @@ export async function POST(request: Request, { params }: RouteContext) {
             url: reference.url,
             videoId: reference.videoId,
             source: "manual",
+            metadata: jsonValue(metadataWithReferenceTitle({}, title)),
             charCount: reference.charCount,
             wordCount: reference.wordCount,
           },
@@ -162,6 +171,7 @@ export async function POST(request: Request, { params }: RouteContext) {
             url: reference.url,
             videoId: reference.videoId,
             removedAt: null,
+            ...(metadata ? { metadata: jsonValue(metadata) } : {}),
             ...(urlChanged
               ? {
                   status: "EMPTY" as const,

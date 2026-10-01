@@ -669,12 +669,18 @@ export function scriptScoreHash(script: string): string {
 
 export function summaryPrompt(input: VideoSummary): string {
   const references = input.references
-    .filter((item) => item.url.trim() || item.transcript.trim())
+    .filter((item) => item.url.trim() || item.title?.trim() || item.transcript.trim())
     .map((item, index) => {
       const heading = `Reference ${index + 1}: ${item.url.trim() || "(no link)"}`;
-      return item.transcript.trim()
-        ? `${heading}\nTranscript:\n${item.transcript.trim()}`
-        : heading;
+      const title = item.title?.trim() ?? "";
+      const transcript = item.transcript.trim();
+      return [
+        heading,
+        title ? `Title: ${title}` : "",
+        transcript ? `Transcript:\n${transcript}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
     })
     .join("\n\n");
   return [

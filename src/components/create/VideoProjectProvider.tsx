@@ -15,6 +15,11 @@ import { useSearchParams } from "next/navigation";
 import { useVideoProjectDraft } from "@/lib/useVideoProjectDraft";
 import { mapActionToEvents } from "@/lib/session/events";
 import { buildSnapshot } from "@/lib/session/snapshot";
+import {
+  projectFromSessionDocuments,
+  shouldPreferServerDocuments,
+  type SessionDocuments,
+} from "@/lib/session/stepPayload";
 import { scheduleSnapshotSync, trackSessionEvent } from "@/lib/session/telemetry";
 import type { ConnectedChannel } from "@/lib/youtube/repo";
 import {
@@ -333,8 +338,10 @@ export function VideoProjectProvider({
   const { hydrated, initial, persist, savedAt } = useVideoProjectDraft(projectId);
   const [project, rawDispatch] = useReducer(reducer, null);
   const [loadedId, setLoadedId] = useState<string | null>(null);
+  const [sourceResolved, setSourceResolved] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const openedIdRef = useRef<string | null>(null);
+  const localAtLoadRef = useRef<VideoProject | null>(null);
 
   // The URL owns the step, so refresh, back/forward and shared links all land
   // on the same place. An unknown or missing value reads as the first step.
@@ -375,22 +382,69 @@ export function VideoProjectProvider({
   if (hydrated && loadedId !== projectId) {
     setLoadedId(projectId);
     setPreviewOpen(false);
+    setSourceResolved(false);
+    localAtLoadRef.current = initial;
     rawDispatch({ type: "HYDRATE", project: initial });
   }
 
   useEffect(() => {
-    if (!project || loadedId !== projectId) return;
-    persist(project);
-  }, [project, persist, loadedId, projectId]);
+    if (!hydrated || loadedId !== projectId || sourceResolved) return;
+    let cancelled = false;
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const response = await fetch(`/api/create/sessions/${encodeURIComponent(projectId)}`, {
+          method: "GET",
+          headers: { accept: "application/json" },
+          signal: controller.signal,
+        });
+        if (cancelled) return;
+        if (response.status === 404 || response.status === 410) {
+          setSourceResolved(true);
+          return;
+        }
+        if (!response.ok) {
+          setSourceResolved(true);
+          return;
+        }
+        const docs = (await response.json()) as SessionDocuments;
+        if (cancelled) return;
+        const local = localAtLoadRef.current;
+        if (shouldPreferServerDocuments(local, docs)) {
+          const fromServer = projectFromSessionDocuments(docs);
+          if (fromServer) {
+            rawDispatch({ type: "HYDRATE", project: fromServer });
+            persist(fromServer);
+          }
+        }
+      } catch (error) {
+        if (controller.signal.aborted || cancelled) return;
+        console.error("[video-session] documents hydrate failed", error);
+      } finally {
+        if (!cancelled) setSourceResolved(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [hydrated, loadedId, projectId, sourceResolved, persist]);
 
   useEffect(() => {
-    if (!project || loadedId !== projectId) return;
+    if (!project || loadedId !== projectId || !sourceResolved) return;
+    persist(project);
+  }, [project, persist, loadedId, projectId, sourceResolved]);
+
+  useEffect(() => {
+    if (!project || loadedId !== projectId || !sourceResolved) return;
     const channelTitle = channels.find((channel) => channel.id === project.channelId)?.title ?? null;
     scheduleSnapshotSync(buildSnapshot(project, activeStep, channelTitle));
-  }, [project, activeStep, channels, loadedId, projectId]);
+  }, [project, activeStep, channels, loadedId, projectId, sourceResolved]);
 
   useEffect(() => {
-    if (!project || loadedId !== projectId) return;
+    if (!project || loadedId !== projectId || !sourceResolved) return;
     if (openedIdRef.current === project.id) return;
     openedIdRef.current = project.id;
     trackSessionEvent(project.id, {
@@ -398,7 +452,7 @@ export function VideoProjectProvider({
       step: activeStep,
       payload: {},
     });
-  }, [project, activeStep, loadedId, projectId]);
+  }, [project, activeStep, loadedId, projectId, sourceResolved]);
 
   const value = useMemo(
     () =>
@@ -408,7 +462,7 @@ export function VideoProjectProvider({
     [project, savedAt, dispatch, previewOpen, activeStep, setActiveStep],
   );
 
-  if (!hydrated) return <>{fallback}</>;
+  if (!hydrated || !sourceResolved) return <>{fallback}</>;
   if (!value) return <>{missing}</>;
   return <VideoProjectContext.Provider value={value}>{children}</VideoProjectContext.Provider>;
 }

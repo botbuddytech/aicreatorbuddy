@@ -9,7 +9,9 @@ import {
 
 export const MAX_TRANSCRIPT_CHARS = 200_000;
 export const MAX_TRANSCRIPT_SEGMENTS = 5_000;
+const MAX_VIDEO_TITLE_CHARS = 200;
 const FETCH_TIMEOUT_MS = 20_000;
+const TITLE_FETCH_TIMEOUT_MS = 8_000;
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
 
 export type ReferenceTranscriptErrorCode =
@@ -154,6 +156,23 @@ export function formatTimestampedTranscript(
     .map((block) => `${block.range}\n${block.text}`)
     .join("\n\n")
     .slice(0, MAX_TRANSCRIPT_CHARS);
+}
+
+export async function fetchYoutubeVideoTitle(videoId: string): Promise<string | null> {
+  try {
+    const pageUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    const endpoint = `https://www.youtube.com/oembed?url=${encodeURIComponent(pageUrl)}&format=json`;
+    const response = await fetch(endpoint, {
+      signal: AbortSignal.timeout(TITLE_FETCH_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { title?: unknown };
+    if (typeof body.title !== "string") return null;
+    const title = cleanText(body.title).slice(0, MAX_VIDEO_TITLE_CHARS);
+    return title || null;
+  } catch {
+    return null;
+  }
 }
 
 function failure(error: unknown): ReferenceTranscriptResult {

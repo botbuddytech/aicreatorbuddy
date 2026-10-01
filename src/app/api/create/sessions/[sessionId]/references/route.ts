@@ -6,7 +6,12 @@ import {
 } from "@/lib/session/deletion";
 import { jsonValue } from "@/lib/session/server";
 import {
+  metadataWithReferenceTitle,
+  referenceTitleFromMetadata,
+} from "@/lib/videoProject";
+import {
   fetchReferenceTranscript,
+  fetchYoutubeVideoTitle,
   parseYoutubeVideoId,
 } from "@/lib/youtube/transcript";
 
@@ -98,7 +103,10 @@ export async function POST(request: Request, { params }: RouteContext) {
       },
     });
 
-    const result = await fetchReferenceTranscript(videoId, lang);
+    const [result, fetchedTitle] = await Promise.all([
+      fetchReferenceTranscript(videoId, lang),
+      fetchYoutubeVideoTitle(videoId),
+    ]);
     if (!result.ok) {
       await prisma.videoSessionReference.update({
         where: { sessionId_referenceKey: { sessionId, referenceKey } },
@@ -117,6 +125,12 @@ export async function POST(request: Request, { params }: RouteContext) {
     }
 
     const fetchedAt = new Date();
+    const stored = await prisma.videoSessionReference.findUnique({
+      where: { sessionId_referenceKey: { sessionId, referenceKey } },
+      select: { metadata: true },
+    });
+    const metadata = metadataWithReferenceTitle(stored?.metadata, fetchedTitle ?? "");
+    const title = referenceTitleFromMetadata(metadata);
     await prisma.videoSessionReference.update({
       where: { sessionId_referenceKey: { sessionId, referenceKey } },
       data: {
@@ -125,6 +139,7 @@ export async function POST(request: Request, { params }: RouteContext) {
         lang: result.lang,
         transcript: result.transcript,
         segments: jsonValue(result.segments),
+        metadata: jsonValue(metadata),
         charCount: result.charCount,
         wordCount: result.wordCount,
         durationSec: result.durationSec,
@@ -139,6 +154,7 @@ export async function POST(request: Request, { params }: RouteContext) {
     return Response.json({
       ok: true,
       referenceKey,
+      title,
       transcript: result.transcript,
       lang: result.lang,
       wordCount: result.wordCount,

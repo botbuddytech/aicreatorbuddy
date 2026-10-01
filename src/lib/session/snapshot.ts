@@ -7,7 +7,12 @@ import type {
 } from "@/lib/session/contract";
 import type { SessionStepSnapshot } from "@/lib/session/stepData";
 import {
+  buildStepPayloads,
+  STEP_PAYLOAD_SCHEMA_VERSION,
+} from "@/lib/session/stepPayload";
+import {
   deriveReadiness,
+  MAX_REFERENCE_TITLE_CHARS,
   resolveProjectName,
   sceneDuration,
   selectedTitle,
@@ -41,11 +46,14 @@ function buildSteps(
   const filters = [...new Set(project.scenes.map((scene) => scene.editing.filter))]
     .filter((item) => item !== "none");
   const generationCount = (step: StepId) => callsFor(project, step);
+  const payloads = buildStepPayloads(project);
   const common = <T extends StepId>(step: T, data: SessionStepSnapshot<T>["data"]) => ({
     step,
     state: project.stepStatus[step],
     provider: project.providerByStep[step] ?? null,
     data,
+    payload: payloads[step],
+    schemaVersion: STEP_PAYLOAD_SCHEMA_VERSION,
     apiCallCount: callsFor(project, step),
     generationCount: generationCount(step),
   }) as SessionStepSnapshot<T>;
@@ -198,6 +206,7 @@ function buildReferences(project: VideoProject): SessionReferenceSnapshot[] {
       order,
       url: reference.url.trim(),
       videoId: referenceVideoId(reference.url),
+      title: (reference.title ?? "").trim().slice(0, MAX_REFERENCE_TITLE_CHARS),
       hasTranscript: Boolean(transcript),
       charCount: transcript.length,
       wordCount: transcript ? transcript.split(/\s+/).length : 0,

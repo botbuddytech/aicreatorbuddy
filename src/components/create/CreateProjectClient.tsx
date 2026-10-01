@@ -21,11 +21,11 @@ function WorkspaceFallback() {
 function MissingProject() {
   return (
     <>
-      <Topbar title="Draft not found" subtitle="This project isn’t in local storage" />
+      <Topbar title="Draft not found" subtitle="This project isn’t available here" />
       <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
         <div className="rounded-2xl border border-border bg-surface p-5">
           <p className="text-sm text-muted">
-            The draft may have been deleted, or you’re on a different browser profile.
+            The draft may have been deleted, or it has never been synced from another device.
           </p>
           <Link
             href="/dashboard/create"

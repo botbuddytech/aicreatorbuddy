@@ -71,7 +71,10 @@ export function AgentHeader({ onClose }: { onClose: () => void }) {
   const modelLabel = agentModelLabel(modelId);
 
   return (
-    <header className="relative z-20 flex items-center gap-1 border-b border-border px-2 py-2">
+    <header
+      className="relative z-20 box-border flex shrink-0 items-center gap-1 border-b border-border px-2"
+      style={{ height: "var(--dashboard-nav-height, 4.5rem)" }}
+    >
       <h2 className="px-1 text-[13px] font-semibold text-foreground">Agent</h2>
       <span className="truncate px-2 text-[12px] text-muted" title={modelLabel}>
         {modelLabel}

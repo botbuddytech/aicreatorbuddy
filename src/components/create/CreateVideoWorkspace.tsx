@@ -59,7 +59,7 @@ export function CreateVideoWorkspace() {
         subtitle={`${current?.label ?? "Workspace"} · ${saveLabel}`}
         actions={<AgentToggle />}
       />
-      <div className="space-y-6 px-4 py-5 pb-40 sm:px-6 sm:py-6 sm:pb-28">
+      <div className="min-w-0 space-y-6 px-4 py-5 pb-40 sm:px-6 sm:py-6 sm:pb-28">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
             href="/dashboard/create"
@@ -70,7 +70,7 @@ export function CreateVideoWorkspace() {
           <p className="text-xs text-muted">{saveLabel}</p>
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <StepNavigator
             active={step}
             onSelect={setActiveStep}
