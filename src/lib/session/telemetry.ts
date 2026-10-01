@@ -109,7 +109,11 @@ export function flushSessionEvents(sessionId: string, beacon = false): void {
     keepalive: true,
     signal: controller.signal,
   }).then((response) => {
-    if (response.status === 410) deletedSessions.add(sessionId);
+    // 410 = permanently deleted; 404 = missing or owned by another account.
+    if (response.status === 410 || response.status === 404) {
+      deletedSessions.add(sessionId);
+      return;
+    }
     if (!response.ok) throw new Error(`event sync returned ${response.status}`);
   }).catch((error) => {
     if (controller.signal.aborted || deletedSessions.has(sessionId)) return;
@@ -137,7 +141,10 @@ export function scheduleSnapshotSync(snapshot: SessionSnapshot): void {
         keepalive: true,
         signal: controller.signal,
       }).then((response) => {
-        if (response.status === 410) deletedSessions.add(snapshot.id);
+        if (response.status === 410 || response.status === 404) {
+          deletedSessions.add(snapshot.id);
+          return;
+        }
         if (!response.ok) throw new Error(`snapshot sync returned ${response.status}`);
       }).catch((error) => {
         if (controller.signal.aborted || deletedSessions.has(snapshot.id)) return;

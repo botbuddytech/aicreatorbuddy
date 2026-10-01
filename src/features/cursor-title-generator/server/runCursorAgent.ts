@@ -1,9 +1,10 @@
 import "server-only";
 
 import { spawn } from "node:child_process";
+import { existsSync, readdirSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { homedir, tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import {
   normalizeCursorTitleScores,
   normalizeCursorTitles,
@@ -16,6 +17,79 @@ import {
 const TIMEOUT_MS = 90_000;
 const MAX_OUTPUT_BYTES = 1_000_000;
 let generationInProgress = false;
+
+type AgentInvocation = {
+  command: string;
+  prefixArgs: string[];
+};
+
+function nodePlusIndex(nodePath: string): AgentInvocation | null {
+  const indexJs = join(dirname(nodePath), "index.js");
+  if (!existsSync(nodePath) || !existsSync(indexJs)) return null;
+  return { command: nodePath, prefixArgs: [indexJs] };
+}
+
+/** Windows Cursor CLI is `node.exe index.js …`, not a single agent.exe. */
+function resolveWindowsCursorInstall(hint?: string): AgentInvocation | null {
+  const candidates: string[] = [];
+  if (hint) {
+    const dir = dirname(hint);
+    candidates.push(dir);
+    candidates.push(join(dir, ".."));
+    candidates.push(join(dir, "..", ".."));
+  }
+  const localAppData = process.env.LOCALAPPDATA?.trim();
+  if (localAppData) candidates.push(join(localAppData, "cursor-agent"));
+
+  for (const root of candidates) {
+    const direct = nodePlusIndex(join(root, "node.exe"));
+    if (direct) return direct;
+
+    const versionsRoot = join(root, "versions");
+    if (!existsSync(versionsRoot)) continue;
+    let versions: string[] = [];
+    try {
+      versions = readdirSync(versionsRoot, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+        .sort()
+        .reverse();
+    } catch {
+      continue;
+    }
+    for (const version of versions) {
+      const resolved = nodePlusIndex(join(versionsRoot, version, "node.exe"));
+      if (resolved) return resolved;
+    }
+  }
+  return null;
+}
+
+function resolveAgentInvocation(): AgentInvocation {
+  const configured = process.env.CURSOR_AGENT_PATH?.trim();
+  if (!configured) {
+    if (process.platform === "win32") {
+      return resolveWindowsCursorInstall() ?? { command: "agent", prefixArgs: [] };
+    }
+    return { command: "agent", prefixArgs: [] };
+  }
+
+  if (/node\.exe$/i.test(configured)) {
+    return nodePlusIndex(configured) ?? { command: configured, prefixArgs: [] };
+  }
+
+  // `.cmd` / `.ps1` shims cannot be spawned with shell:false on Windows.
+  if (/\.(cmd|bat|ps1)$/i.test(configured) && process.platform === "win32") {
+    return (
+      resolveWindowsCursorInstall(configured) ?? {
+        command: configured,
+        prefixArgs: [],
+      }
+    );
+  }
+
+  return { command: configured, prefixArgs: [] };
+}
 
 type CursorRunnerErrorCode =
   | "busy"
@@ -72,14 +146,29 @@ function minimalEnvironment(): NodeJS.ProcessEnv {
     "HOME",
     "USER",
     "TMPDIR",
+    "TEMP",
+    "TMP",
     "XDG_CONFIG_HOME",
     "XDG_DATA_HOME",
     "CURSOR_API_KEY",
+    // Windows: CreateProcess + Cursor credential/config lookup
+    "USERPROFILE",
+    "APPDATA",
+    "LOCALAPPDATA",
+    "SYSTEMROOT",
+    "WINDIR",
+    "COMSPEC",
+    "USERNAME",
+    "USERDOMAIN",
+    "PATHEXT",
   ] as const;
   const env: NodeJS.ProcessEnv = { CI: "1", NO_COLOR: "1", NODE_ENV: "production" };
   for (const key of allowed) {
     if (process.env[key]) env[key] = process.env[key];
   }
+  // Unix-style HOME is what some CLIs read; map from Windows when missing.
+  if (!env.HOME && process.env.USERPROFILE) env.HOME = process.env.USERPROFILE;
+  if (!env.HOME) env.HOME = homedir();
   return env;
 }
 
@@ -126,20 +215,25 @@ async function invokeAgent(
   prompt: string,
   signal?: AbortSignal,
 ): Promise<string> {
-  const executable = process.env.CURSOR_AGENT_PATH?.trim() || "agent";
+  const { command, prefixArgs } = resolveAgentInvocation();
   const model = process.env.CURSOR_AGENT_MODEL?.trim();
   if (model && !/^[a-zA-Z0-9._:/-]{1,100}$/.test(model)) {
     throw new CursorRunnerError("failed");
   }
 
+  // Cursor sandbox is macOS/Linux-only; Windows requires allowlist mode.
+  const sandboxMode = process.platform === "win32" ? "disabled" : "enabled";
+
   const args = [
+    ...prefixArgs,
     "-p",
     "--mode",
     "ask",
     "--output-format",
     "json",
     "--sandbox",
-    "enabled",
+    sandboxMode,
+    "--trust",
     "--workspace",
     workspace,
     ...(model ? ["--model", model] : []),
@@ -147,11 +241,12 @@ async function invokeAgent(
   ];
 
   return new Promise((resolve, reject) => {
-    const child = spawn(/* turbopackIgnore: true */ executable, args, {
+    const child = spawn(/* turbopackIgnore: true */ command, args, {
       cwd: workspace,
       env: minimalEnvironment(),
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true,
     });
     let stdout = "";
     let stderr = "";
@@ -188,7 +283,12 @@ async function invokeAgent(
     });
     child.once("error", (error) => {
       const code = (error as NodeJS.ErrnoException).code;
-      finish(new CursorRunnerError(code === "ENOENT" ? "missing-cli" : "failed"));
+      // EINVAL is the Windows failure mode for spawning .cmd with shell:false.
+      finish(
+        new CursorRunnerError(
+          code === "ENOENT" || code === "EINVAL" ? "missing-cli" : "failed",
+        ),
+      );
     });
     child.once("close", (code) => {
       if (settled) return;
@@ -202,6 +302,24 @@ async function invokeAgent(
   });
 }
 
+async function cleanupWorkspace(workspace: string): Promise<void> {
+  // Windows often keeps Cursor Agent file handles open briefly after exit;
+  // failing cleanup must never override a successful generation result.
+  const delaysMs = [0, 250, 750, 1500];
+  for (const delay of delaysMs) {
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    try {
+      await rm(workspace, { recursive: true, force: true });
+      return;
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code !== "EBUSY" && code !== "EPERM" && code !== "ENOTEMPTY") {
+        return;
+      }
+    }
+  }
+}
+
 async function withCursorWorkspace<T>(run: (workspace: string) => Promise<T>): Promise<T> {
   if (generationInProgress) throw new CursorRunnerError("busy");
   generationInProgress = true;
@@ -212,7 +330,7 @@ async function withCursorWorkspace<T>(run: (workspace: string) => Promise<T>): P
     return await run(workspace);
   } finally {
     generationInProgress = false;
-    if (workspace) await rm(workspace, { recursive: true, force: true });
+    if (workspace) await cleanupWorkspace(workspace);
   }
 }
 
