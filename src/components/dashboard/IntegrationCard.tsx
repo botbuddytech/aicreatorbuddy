@@ -147,11 +147,11 @@ export function IntegrationCard({
               liveState.quotaNote
             ) : isVidiq && !liveState.quotaLimit ? (
               "—"
-            ) : isElevenLabs && remaining != null ? (
+            ) : (isElevenLabs || isVidiq) && remaining != null ? (
               <>
-                {formatInt(remaining)} remaining
+                {formatInt(remaining)} {isVidiq ? "left" : "remaining"}
                 <span className="mt-0.5 block text-[11px] font-normal text-muted">
-                  {formatInt(integration.quota.used)} / {formatInt(integration.quota.limit)}{" "}
+                  {formatInt(integration.quota.used)} used / {formatInt(integration.quota.limit)}{" "}
                   {integration.quota.unit}
                 </span>
               </>

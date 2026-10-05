@@ -5,7 +5,13 @@ import type {
   ProjectChange,
   ToolName,
 } from "@/lib/agent/types";
-import type { ScriptScore, StepId } from "@/lib/videoProject";
+import type {
+  LowEffortFinding,
+  LowEffortVerdict,
+  ScriptScore,
+  StepId,
+  VidIqThumbInsight,
+} from "@/lib/videoProject";
 import { parseYoutubeVideoId } from "@/lib/youtube/transcript";
 import { formatDurationLabel, snapDurationToPreset } from "@/lib/videoProject";
 
@@ -27,8 +33,11 @@ const TOOL_NAMES = new Set<ToolName>([
   "applyTitle",
   "generateScript",
   "scoreScript",
+  "checkScriptLowEffort",
   "editScript",
   "generateThumbnailPrompt",
+  "generateThumbnailImages",
+  "scoreThumbnails",
   "generateVisualPrompts",
   "updateTimeline",
   "writeDescription",
@@ -47,8 +56,11 @@ const LABELS: Record<ToolName, string> = {
   applyTitle: "Set title",
   generateScript: "Write script",
   scoreScript: "Score script",
+  checkScriptLowEffort: "Low-effort check",
   editScript: "Edit script",
   generateThumbnailPrompt: "Thumbnail concept",
+  generateThumbnailImages: "Thumbnail images",
+  scoreThumbnails: "Score thumbnails",
   generateVisualPrompts: "Visual prompts",
   updateTimeline: "Update timeline",
   writeDescription: "Write description",
@@ -157,11 +169,63 @@ function payloadFor(tool: ToolName, args: unknown): ChangePayload | null {
       if (!record.score || typeof record.score !== "object") return null;
       return { type: "scriptScore", score: record.score as ScriptScore };
     }
+    case "checkScriptLowEffort": {
+      const summary = text(record.summary, 500);
+      const score = typeof record.score === "number" ? Math.round(record.score) : Number.NaN;
+      const verdict = record.verdict;
+      if (!summary || !Number.isFinite(score) || (verdict !== "pass" && verdict !== "warn" && verdict !== "fail")) {
+        return null;
+      }
+      if (!Array.isArray(record.findings)) return null;
+      const findings: LowEffortFinding[] = [];
+      for (const item of record.findings) {
+        if (!item || typeof item !== "object") return null;
+        const row = item as Record<string, unknown>;
+        const id = text(row.id, 80);
+        const title = text(row.title, 120);
+        const detail = text(row.detail, 500);
+        const severity = row.severity;
+        if (!id || !title || !detail || (severity !== "warn" && severity !== "fail")) return null;
+        findings.push({ id, title, detail, severity });
+      }
+      return {
+        type: "scriptLowEffort",
+        summary,
+        score: Math.max(0, Math.min(100, score)),
+        verdict: verdict as LowEffortVerdict,
+        findings,
+      };
+    }
     case "generateThumbnailPrompt": {
       const concepts = stringList(record.concepts, 8);
       if (concepts.length === 0) return null;
       const cursorPrompt = typeof record.cursorPrompt === "string" ? record.cursorPrompt : null;
       return { type: "thumbnailPrompts", concepts, cursorPrompt };
+    }
+    case "generateThumbnailImages": {
+      if (!Array.isArray(record.images)) return null;
+      const images = record.images.flatMap((item) => {
+        if (!item || typeof item !== "object") return [];
+        const row = item as Record<string, unknown>;
+        const id = text(row.id, 80);
+        const url = text(row.url, 2000);
+        if (!id || !url.startsWith("https://")) return [];
+        return [{ id, url }];
+      });
+      return images.length > 0 ? { type: "thumbnailImages" as const, images } : null;
+    }
+    case "scoreThumbnails": {
+      if (!record.insights || typeof record.insights !== "object" || Array.isArray(record.insights)) {
+        return null;
+      }
+      const insights: Record<string, VidIqThumbInsight> = {};
+      for (const [id, value] of Object.entries(record.insights as Record<string, unknown>)) {
+        const insight = value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+        const score = typeof insight?.score === "number" ? insight.score : Number.NaN;
+        if (!text(id, 80) || !Number.isFinite(score)) continue;
+        insights[id] = insight as VidIqThumbInsight;
+      }
+      return Object.keys(insights).length > 0 ? { type: "thumbnailScores" as const, insights } : null;
     }
     case "generateVisualPrompts": {
       if (!Array.isArray(record.prompts)) return null;
@@ -243,9 +307,12 @@ function fieldFor(payload: ChangePayload): FlashField | "step" | "name" {
       return "title";
     case "script":
     case "scriptScore":
+    case "scriptLowEffort":
       return "script";
     case "thumbnail":
     case "thumbnailPrompts":
+    case "thumbnailImages":
+    case "thumbnailScores":
       return "thumbnail";
     case "timeline":
     case "visualPrompts":
@@ -280,10 +347,18 @@ function afterText(payload: ChangePayload): string {
       return payload.script;
     case "scriptScore":
       return `${payload.score.grade} ${payload.score.score}`;
+    case "scriptLowEffort":
+      return `${payload.verdict} ${payload.score}\n${payload.summary}`;
     case "thumbnail":
       return payload.concept;
     case "thumbnailPrompts":
       return payload.concepts.join("\n\n");
+    case "thumbnailImages":
+      return `${payload.images.length} thumbnail image${payload.images.length === 1 ? "" : "s"}`;
+    case "thumbnailScores":
+      return Object.values(payload.insights)
+        .map((insight) => `${insight.grade} ${insight.score ?? insight.ctr}`)
+        .join("\n");
     case "timeline":
       return payload.scenes.map((scene) => `${scene.sectionLabel}: ${scene.finalScript}`).join("\n");
     case "visualPrompts":

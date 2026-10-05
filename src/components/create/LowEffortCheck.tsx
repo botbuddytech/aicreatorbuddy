@@ -42,6 +42,8 @@ export function LowEffortCheckButton({ scope }: { scope: LowEffortStep }) {
         body: JSON.stringify({
           script: project.fullScript,
           durationSeconds: project.summary.durationSeconds,
+          topic: project.summary.topic,
+          title: project.titles.find((item) => item.id === project.selectedTitleId)?.text ?? "",
           references: project.summary.references.map((reference) => reference.transcript),
         }),
       });

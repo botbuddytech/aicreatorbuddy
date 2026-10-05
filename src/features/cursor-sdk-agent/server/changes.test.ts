@@ -19,6 +19,7 @@ const context: AgentContextPayload = {
   projectId: "project-1",
   selectedTitle: "Old title",
   titleOptions: [],
+  thumbnails: [],
   scenes: [],
   references: [],
 };
@@ -76,6 +77,20 @@ describe("cursor sdk chat helpers", () => {
     assert.equal(change?.before, "5 min");
     assert.equal(change?.payload.type === "duration" ? change.payload.durationSeconds : 0, 480);
     assert.equal(change?.after, "8 min");
+  });
+
+  it("proposes vidIQ images for the current thumbnail prompts", () => {
+    const change = projectChangeFromTool(
+      "generateThumbnailImages",
+      { images: [{ id: "thumb-1", url: "https://cdn.example/thumb.png" }, { id: "bad", url: "not-a-url" }] },
+      context,
+      "call-8",
+    );
+    assert.equal(change?.tool, "generateThumbnailImages");
+    assert.equal(change?.field, "thumbnail");
+    assert.deepEqual(change?.payload.type === "thumbnailImages" ? change.payload.images : [], [
+      { id: "thumb-1", url: "https://cdn.example/thumb.png" },
+    ]);
   });
 
   it("rejects a tool call without the required text", () => {

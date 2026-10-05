@@ -9,9 +9,11 @@ function hueFrom(input: string): number {
 export function PlaceholderImage({
   label,
   className = "",
+  hideLabel = false,
 }: {
   label: string;
   className?: string;
+  hideLabel?: boolean;
 }) {
   const hue = hueFrom(label);
   return (
@@ -22,9 +24,11 @@ export function PlaceholderImage({
       }}
     >
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.12),transparent_45%)]" />
-      <p className="absolute inset-x-3 bottom-3 line-clamp-3 text-left text-xs font-semibold leading-snug text-white/90">
-        {label}
-      </p>
+      {hideLabel ? null : (
+        <p className="absolute inset-x-3 bottom-3 line-clamp-3 text-left text-xs font-semibold leading-snug text-white/90">
+          {label}
+        </p>
+      )}
     </div>
   );
 }

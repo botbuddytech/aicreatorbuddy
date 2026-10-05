@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { diffLines } from "@/lib/agent/diffLines";
@@ -15,22 +16,36 @@ export function DiffCard({
   onReject: () => void;
 }) {
   const reduced = useReducedMotion();
+  const [open, setOpen] = useState(false);
   const rows = diffLines(change.before, change.after);
   const pending = change.status === "pending";
+  const added = rows.filter((row) => row.kind === "add").length;
+  const removed = rows.filter((row) => row.kind === "del").length;
+  const status =
+    change.status === "accepted" ? "Accepted" : change.status === "rejected" ? "Rejected" : change.summary;
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <p className="text-[13px] font-medium text-foreground">{change.label}</p>
-        <p className="text-[11px] text-muted">
-          {change.status === "accepted"
-            ? "Accepted"
-            : change.status === "rejected"
-              ? "Rejected"
-              : change.summary}
-        </p>
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <div className="min-w-0">
+          <p className="truncate text-[13px] font-medium text-foreground">{change.label}</p>
+          <p className="text-[11px] text-muted">
+            {status}
+            {added > 0 ? <span className="text-success"> +{added}</span> : null}
+            {removed > 0 ? <span className="text-accent"> −{removed}</span> : null}
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+          className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-[11px] font-semibold text-foreground hover:bg-white/5"
+        >
+          {open ? "Hide changes" : "Show changes"}
+        </button>
       </div>
-      <div className="max-h-56 overflow-auto font-mono text-[12px] leading-5">
+      {open ? (
+      <div className="max-h-56 overflow-auto border-t border-border font-mono text-[12px] leading-5">
         {rows.map((row, index) => (
           <motion.div
             key={`${row.kind}-${index}`}
@@ -56,6 +71,7 @@ export function DiffCard({
           </motion.div>
         ))}
       </div>
+      ) : null}
       {pending ? (
         <div className="flex justify-end gap-2 border-t border-border px-3 py-2">
           <ActionButton size="sm" variant="ghost" onClick={onReject}>

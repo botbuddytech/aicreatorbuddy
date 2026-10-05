@@ -11,6 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { useSearchParams } from "next/navigation";
+import { StepFixModal } from "@/components/create/StepFixModal";
 import { useVideoProjectDraft, upsertProjectInStore } from "@/lib/useVideoProjectDraft";
 import { mapActionToEvents } from "@/lib/session/events";
 import { buildSnapshot } from "@/lib/session/snapshot";
@@ -125,6 +126,12 @@ function applyScenePatch(scene: Scene, patch: ScenePatch): Scene {
   };
 }
 
+function sameThumbnailIds(current: ThumbnailOption[], next: ThumbnailOption[]): boolean {
+  if (current.length !== next.length || current.length === 0) return false;
+  const ids = new Set(current.map((item) => item.id));
+  return next.every((item) => ids.has(item.id));
+}
+
 function reduceProject(
   state: VideoProject,
   action: Exclude<ProjectAction, { type: "HYDRATE" }>,
@@ -176,7 +183,9 @@ function reduceProject(
       return {
         ...state,
         thumbnails: action.thumbnails,
-        selectedThumbnailId: null,
+        selectedThumbnailId: sameThumbnailIds(state.thumbnails, action.thumbnails)
+          ? state.selectedThumbnailId
+          : null,
         cursorThumbnailPrompt:
           action.cursorPrompt === undefined ? state.cursorThumbnailPrompt : action.cursorPrompt,
       };
@@ -686,7 +695,9 @@ export function VideoProjectProvider({
     const generated: VideoProject = {
       ...current,
       thumbnails: action.thumbnails,
-      selectedThumbnailId: null,
+      selectedThumbnailId: sameThumbnailIds(current.thumbnails, action.thumbnails)
+        ? current.selectedThumbnailId
+        : null,
       cursorThumbnailPrompt: typeof cursorThumbnailPrompt === "string" ? cursorThumbnailPrompt : null,
       stepStatus: { ...current.stepStatus, thumbnail: "generated" },
     };
@@ -1121,6 +1132,43 @@ export function VideoProjectProvider({
       persistGeneratedScenes(action);
       return;
     }
+    if (action.type === "SET_LOW_EFFORT_REPORT" && project && action.report.scope === "script") {
+      const next = {
+        ...project,
+        lowEffortByStep: {
+          ...(project.lowEffortByStep ?? {}),
+          script: action.report,
+        },
+        lastUpdated: new Date().toISOString(),
+      };
+      rawDispatch(action);
+      const later = withLaterStep(
+        laterCommitRef.current ?? captureLaterStepsCommit(project),
+        next,
+        "script",
+        project.stepStatus.script,
+      );
+      laterCommitRef.current = later;
+      setLaterCommit(later);
+      return;
+    }
+    if (action.type === "SET_THUMBNAIL_INSIGHTS" && project) {
+      const thumbnails = project.thumbnails.map((thumb) => {
+        const insight = action.insights[thumb.id];
+        return insight ? { ...thumb, vidiq: insight } : thumb;
+      });
+      const next = { ...project, thumbnails, lastUpdated: new Date().toISOString() };
+      rawDispatch(action);
+      const later = withLaterStep(
+        laterCommitRef.current ?? captureLaterStepsCommit(project),
+        next,
+        "thumbnail",
+        project.stepStatus.thumbnail,
+      );
+      laterCommitRef.current = later;
+      setLaterCommit(later);
+      return;
+    }
     if (action.type === "REPLACE_THUMBNAIL" || action.type === "ADD_THUMBNAIL") {
       persistStoredThumbnail(action);
       return;
@@ -1300,6 +1348,15 @@ export function VideoProjectProvider({
       }}
     >
       {children}
+      {approveNotice ? (
+        <StepFixModal
+          open
+          step={approveNotice.step}
+          title={approveNotice.title}
+          message={approveNotice.message}
+          onClose={dismissApproveNotice}
+        />
+      ) : null}
     </VideoProjectContext.Provider>
   );
 }

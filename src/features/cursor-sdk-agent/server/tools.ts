@@ -1,6 +1,8 @@
 import type { SDKCustomTool, SDKJsonValue } from "@cursor/sdk";
 import type { AgentContextPayload, ProjectChange } from "@/lib/agent/types";
+import { blocked } from "@/features/cursor-sdk-agent/server/blockers";
 import { projectChangeFromTool } from "@/features/cursor-sdk-agent/server/changes";
+import { scriptFixNotice } from "@/features/cursor-script-generator/contract";
 import { getEffectiveCursorPrompts } from "@/features/cursor-title-generator/repo";
 import {
   generateScriptWithCursor,
@@ -9,8 +11,17 @@ import {
   generateVisualPromptsWithCursor,
   scoreTitlesWithCursor,
 } from "@/features/cursor-title-generator/server/runCursorAgent";
-import { scoreScriptWithCursor } from "@/features/cursor-script-analysis/server/runCursorScriptAnalysis";
+import {
+  checkScriptLowEffortWithCursor,
+  scoreScriptWithCursor,
+} from "@/features/cursor-script-analysis/server/runCursorScriptAnalysis";
+import { prisma } from "@/lib/db";
+import { isDeletedVideoSession } from "@/lib/session/deletion";
+import { isThumbnailId } from "@/lib/storage/thumbnails";
 import { callVidiqTool } from "@/lib/vidiq/client";
+import { generateVidiqThumbnailImage } from "@/lib/vidiq/generateThumbnailImage";
+import { insightFromThumbnailScore, thumbnailScoreFromResult } from "@/lib/vidiq/scoreThumbnail";
+import { thumbnailImageDataUri } from "@/lib/vidiq/thumbnailImageData";
 import { mockGenerate } from "@/lib/mockAi";
 import {
   FORMAT_LABELS,
@@ -28,6 +39,7 @@ import {
 type ProposalSlot = {
   context: AgentContextPayload;
   proposals: Map<string, ProjectChange>;
+  blockers: Map<string, string>;
   userId: string;
 };
 
@@ -47,7 +59,8 @@ function cursorContext(slot: ProposalSlot) {
   };
 }
 
-function toolError(message: string) {
+function toolError(message: string, slot?: ProposalSlot, toolCallId?: string) {
+  if (slot && toolCallId) slot.blockers.set(toolCallId, message);
   return { isError: true as const, content: [{ type: "text" as const, text: message }] };
 }
 
@@ -60,7 +73,7 @@ async function proposeGenerated(
 ) {
   const id = toolCallId || tool;
   const change = projectChangeFromTool(tool, args, slot.context, id);
-  if (!change || !toolCallId) return toolError("Could not prepare that change.");
+  if (!change || !toolCallId) return toolError("Could not prepare that change.", slot, toolCallId);
   slot.proposals.set(toolCallId, change);
   return success;
 }
@@ -175,6 +188,7 @@ function propose(slot: ProposalSlot, name: string, args: Record<string, unknown>
 }
 
 export function createProjectTools(slot: ProposalSlot): Record<string, SDKCustomTool> {
+  const stop = (toolCallId: string | undefined, message: string) => toolError(message, slot, toolCallId);
   const tool = (
     name: string,
     description: string,
@@ -211,7 +225,10 @@ export function createProjectTools(slot: ProposalSlot): Record<string, SDKCustom
           named === "chatgpt" || named === "gemini" || named === "vidiq" ? named : "cursor";
         const topic = slot.context.brief.trim();
         if (!topic) {
-          return { isError: true, content: [{ type: "text", text: "Add a topic on the summary step before generating titles." }] };
+          return stop(
+            context.toolCallId,
+            blocked("summary", "No topic or idea", "Add a topic or idea there, then generate titles."),
+          );
         }
         try {
           const generated = await loadTitles(slot, provider);
@@ -242,7 +259,12 @@ export function createProjectTools(slot: ProposalSlot): Record<string, SDKCustom
       ),
       async execute(args, context) {
         const titles = slot.context.titleOptions.filter((item) => item.text.trim());
-        if (titles.length === 0) return toolError("Generate titles before scoring them.");
+        if (titles.length === 0) {
+          return stop(
+            context.toolCallId,
+            blocked("title", "No titles yet", "Generate titles there, then score them."),
+          );
+        }
         try {
           if (namedProvider(args.provider) === "vidiq") {
             const scored: { id: string; score: number; rank: number }[] = [];
@@ -268,7 +290,7 @@ export function createProjectTools(slot: ProposalSlot): Record<string, SDKCustom
           });
           return proposeGenerated(slot, context.toolCallId, "scoreTitles", { scores: result.scores }, "Scored the titles with Cursor.");
         } catch (error) {
-          return toolError(error instanceof Error ? error.message : "Could not score the titles.");
+          return stop(context.toolCallId, error instanceof Error ? error.message : "Could not score the titles.");
         }
       },
     },
@@ -287,9 +309,20 @@ export function createProjectTools(slot: ProposalSlot): Record<string, SDKCustom
       async execute(args, context) {
         const title = slot.context.selectedTitle.trim();
         const topic = slot.context.brief.trim();
-        if (!topic || !title) return toolError("Add a topic and choose a title before writing the script.");
+        const notice = scriptFixNotice({
+          topic,
+          title,
+          length: formatDurationLabel(slot.context.durationSeconds, slot.context.format),
+          orientation: FORMAT_LABELS[slot.context.format],
+          videoType: INTENT_LABELS[slot.context.intent],
+          durationSeconds: slot.context.durationSeconds,
+          references: [],
+        });
+        if (notice) {
+          return stop(context.toolCallId, blocked(notice.step, notice.title, notice.message));
+        }
         const provider = namedProvider(args.provider);
-        if (provider === "vidiq") return toolError("Script generation uses Cursor unless you named ChatGPT or Gemini.");
+        if (provider === "vidiq") return stop(context.toolCallId, "Script generation uses Cursor unless you named ChatGPT or Gemini.");
         try {
           if (provider === "chatgpt" || provider === "gemini") {
             const mocked = await mockGenerate(
@@ -326,7 +359,7 @@ export function createProjectTools(slot: ProposalSlot): Record<string, SDKCustom
             "Wrote the script with Cursor.",
           );
         } catch (error) {
-          return toolError(error instanceof Error ? error.message : "Could not write the script.");
+          return stop(context.toolCallId, error instanceof Error ? error.message : "Could not write the script.");
         }
       },
     },
@@ -339,10 +372,15 @@ export function createProjectTools(slot: ProposalSlot): Record<string, SDKCustom
       ),
       async execute(args, context) {
         if (namedProvider(args.provider) === "vidiq") {
-          return toolError("Script scoring from the agent uses Cursor. Use the script step if you want vidIQ.");
+          return stop(context.toolCallId, "Script scoring from the agent uses Cursor. Use the script step if you want vidIQ.");
         }
         const script = slot.context.script.trim();
-        if (!script) return toolError("Write a script before scoring it.");
+        if (!script) {
+          return stop(
+            context.toolCallId,
+            blocked("script", "No script yet", "Generate or write a script there, then score it."),
+          );
+        }
         try {
           const prompts = await getEffectiveCursorPrompts(slot.userId);
           const result = await scoreScriptWithCursor(prompts.scriptScoring, {
@@ -379,7 +417,49 @@ export function createProjectTools(slot: ProposalSlot): Record<string, SDKCustom
             `Scored the script with Cursor: ${result.grade} ${result.score}.`,
           );
         } catch (error) {
-          return toolError(error instanceof Error ? error.message : "Could not score the script.");
+          return stop(context.toolCallId, error instanceof Error ? error.message : "Could not score the script.");
+        }
+      },
+    },
+    checkScriptLowEffort: {
+      description:
+        "Check whether the current script is low-effort, repetitive, reused, or thin. Call this once when the user asks for a low-effort check. Do not invent the verdict. This uses Cursor, not vidIQ.",
+      inputSchema: objectSchema({}, []),
+      async execute(_args, context) {
+        const script = slot.context.script.trim();
+        if (!script) {
+          return stop(
+            context.toolCallId,
+            blocked("script", "No script yet", "Generate or write a script there, then check it."),
+          );
+        }
+        try {
+          const prompts = await getEffectiveCursorPrompts(slot.userId);
+          const result = await checkScriptLowEffortWithCursor(prompts.scriptLowEffort, {
+            script: script.slice(0, 120_000),
+            durationSeconds: Math.max(1, Math.min(7200, Math.round(slot.context.durationSeconds))),
+            topic: slot.context.brief.trim().slice(0, 500),
+            title: slot.context.selectedTitle.trim().slice(0, 100),
+            references: slot.context.references
+              .map((item) => item.transcript.trim())
+              .filter(Boolean)
+              .slice(0, 5)
+              .map((transcript) => transcript.slice(0, 50_000)),
+          });
+          return proposeGenerated(
+            slot,
+            context.toolCallId,
+            "checkScriptLowEffort",
+            {
+              summary: result.summary,
+              score: result.score,
+              verdict: result.verdict,
+              findings: result.findings,
+            },
+            `Low-effort check: ${result.verdict}, score ${result.score}. ${result.summary}`,
+          );
+        } catch (error) {
+          return stop(context.toolCallId, error instanceof Error ? error.message : "Could not check the script.");
         }
       },
     },
@@ -397,10 +477,15 @@ export function createProjectTools(slot: ProposalSlot): Record<string, SDKCustom
       ),
       async execute(args, context) {
         if (namedProvider(args.provider)) {
-          return toolError("Thumbnail prompts from the agent use Cursor unless that provider is connected on the thumbnail step.");
+          return stop(context.toolCallId, "Thumbnail prompts from the agent use Cursor unless that provider is connected on the thumbnail step.");
         }
         const title = slot.context.selectedTitle.trim();
-        if (!title) return toolError("Choose a title before generating thumbnail prompts.");
+        if (!title) {
+          return stop(
+            context.toolCallId,
+            blocked("title", "No title selected", "Select a title there, then generate thumbnail prompts."),
+          );
+        }
         try {
           const prompts = await getEffectiveCursorPrompts(slot.userId);
           const result = await generateThumbnailPromptsWithCursor(prompts.thumbnailPromptGeneration, {
@@ -416,8 +501,140 @@ export function createProjectTools(slot: ProposalSlot): Record<string, SDKCustom
             "Generated thumbnail prompts with Cursor.",
           );
         } catch (error) {
-          return toolError(error instanceof Error ? error.message : "Could not generate thumbnail prompts.");
+          return stop(context.toolCallId, error instanceof Error ? error.message : "Could not generate thumbnail prompts.");
         }
+      },
+    },
+    generateThumbnailImages: {
+      description:
+        "Generate a vidIQ image for every current thumbnail prompt in one call. Use this when the user wants thumbnail images, including all of them at once. Do not invent image URLs and do not call this once per prompt.",
+      inputSchema: objectSchema({}, []),
+      async execute(_args, context) {
+        const prompts = slot.context.thumbnails
+          .filter((item) => item.id && item.concept.trim())
+          .slice(0, 8);
+        if (prompts.length === 0) {
+          return stop(
+            context.toolCallId,
+            blocked("thumbnail", "No thumbnail prompts", "Generate thumbnail prompts there, then create the images."),
+          );
+        }
+        const projectId = slot.context.projectId.trim();
+        if (!isThumbnailId(projectId)) return stop(context.toolCallId, "Open a video before generating thumbnail images.");
+        if (await isDeletedVideoSession(projectId)) return stop(context.toolCallId, "This video was permanently deleted.");
+        const session = await prisma.videoSession.findFirst({
+          where: { id: projectId, userId: slot.userId },
+          select: { id: true, channel: { select: { channelId: true } } },
+        });
+        if (!session) return stop(context.toolCallId, "Open a video before generating thumbnail images.");
+        const images: { id: string; url: string }[] = [];
+        const failed: string[] = [];
+        for (const prompt of prompts) {
+          try {
+            const url = await generateVidiqThumbnailImage({
+              userId: slot.userId,
+              sessionId: session.id,
+              channelId: session.channel?.channelId,
+              thumbnailId: prompt.id,
+              prompt: prompt.concept.trim(),
+              title: slot.context.selectedTitle.trim() || undefined,
+              format: slot.context.format === "shorts" ? "short" : "long",
+            });
+            images.push({ id: prompt.id, url });
+          } catch (error) {
+            failed.push(error instanceof Error ? error.message : "vidIQ could not generate an image.");
+          }
+        }
+        if (images.length === 0) {
+          return stop(context.toolCallId, failed[0] || "vidIQ could not generate the thumbnail images.");
+        }
+        const note = failed.length > 0 ? ` ${failed.length} prompt${failed.length === 1 ? "" : "s"} failed.` : "";
+        return proposeGenerated(
+          slot,
+          context.toolCallId,
+          "generateThumbnailImages",
+          { images },
+          `Generated ${images.length} thumbnail image${images.length === 1 ? "" : "s"} with vidIQ.${note}`,
+        );
+      },
+    },
+    scoreThumbnails: {
+      description:
+        "Score every current thumbnail image with vidIQ. Use this when the user wants thumbnail scores, analysis, or feedback on the images or prompts. Do not invent scores. Call it once for all thumbnails.",
+      inputSchema: objectSchema({}, []),
+      async execute(_args, context) {
+        const ready = slot.context.thumbnails.filter(
+          (item) => item.imageUrl?.startsWith("https://") && item.id,
+        );
+        if (ready.length === 0) {
+          return stop(
+            context.toolCallId,
+            blocked("thumbnail", "No thumbnail images", "Generate or upload an image there, then score it."),
+          );
+        }
+        const title = slot.context.selectedTitle.trim();
+        if (!title) {
+          return stop(
+            context.toolCallId,
+            blocked("title", "No title selected", "Select a title there, then score the thumbnails."),
+          );
+        }
+        const videoId = slot.context.references
+          .map((reference) => parseYoutubeVideoId(reference.url))
+          .find((id): id is string => Boolean(id));
+        if (!videoId) {
+          return stop(
+            context.toolCallId,
+            blocked(
+              "summary",
+              "No reference video",
+              "Add a reference YouTube video there. vidIQ scores each thumbnail against one.",
+            ),
+          );
+        }
+        const projectId = slot.context.projectId.trim();
+        if (!isThumbnailId(projectId) || (await isDeletedVideoSession(projectId))) {
+          return stop(context.toolCallId, "Open a video before scoring thumbnails.");
+        }
+        const session = await prisma.videoSession.findFirst({
+          where: { id: projectId, userId: slot.userId },
+          select: { id: true, channel: { select: { channelId: true } } },
+        });
+        if (!session) return stop(context.toolCallId, "Open a video before scoring thumbnails.");
+        const insights: Record<string, ReturnType<typeof insightFromThumbnailScore>> = {};
+        const failed: string[] = [];
+        for (const thumb of ready.slice(0, 8)) {
+          try {
+            const image = thumb.imageUrl ? await thumbnailImageDataUri(thumb.imageUrl) : "";
+            const result = await callVidiqTool<unknown>(
+              slot.userId,
+              "vidiq_score_thumbnail",
+              { videoId, title: title.slice(0, 500), image },
+              {
+                sessionId: session.id,
+                step: "THUMBNAIL",
+                channelId: session.channel?.channelId,
+              },
+            );
+            const score = thumbnailScoreFromResult(result);
+            if (!score) throw new Error("vidIQ returned an invalid thumbnail score.");
+            insights[thumb.id] = insightFromThumbnailScore(score);
+          } catch (error) {
+            failed.push(error instanceof Error ? error.message : "vidIQ could not score a thumbnail.");
+          }
+        }
+        if (Object.keys(insights).length === 0) {
+          return stop(context.toolCallId, failed[0] || "vidIQ could not score the thumbnails.");
+        }
+        const lines = Object.values(insights).map((insight) => `${insight.grade} ${insight.score}`);
+        const note = failed.length > 0 ? ` ${failed.length} image${failed.length === 1 ? "" : "s"} failed.` : "";
+        return proposeGenerated(
+          slot,
+          context.toolCallId,
+          "scoreThumbnails",
+          { insights },
+          `Scored ${lines.length} thumbnail${lines.length === 1 ? "" : "s"} with vidIQ: ${lines.join(", ")}.${note}`,
+        );
       },
     },
     generateVisualPrompts: {
@@ -429,10 +646,21 @@ export function createProjectTools(slot: ProposalSlot): Record<string, SDKCustom
       ),
       async execute(args, context) {
         if (namedProvider(args.provider)) {
-          return toolError("Visual prompts from the agent use Cursor.");
+          return stop(context.toolCallId, "Visual prompts from the agent use Cursor.");
         }
         const scenes = slot.context.scenes.filter((scene) => scene.script.trim());
-        if (scenes.length === 0) return toolError("Add scene scripts before generating visual prompts.");
+        if (!slot.context.script.trim()) {
+          return stop(
+            context.toolCallId,
+            blocked("script", "No script yet", "Generate a script there before writing visual prompts."),
+          );
+        }
+        if (scenes.length === 0) {
+          return stop(
+            context.toolCallId,
+            blocked("timeline", "No scenes yet", "Open the timeline and add scenes there, then generate visual prompts."),
+          );
+        }
         try {
           const prompts = await getEffectiveCursorPrompts(slot.userId);
           const sequence = scenes.map((scene) => ({
@@ -458,7 +686,7 @@ export function createProjectTools(slot: ProposalSlot): Record<string, SDKCustom
             "Generated visual prompts with Cursor.",
           );
         } catch (error) {
-          return toolError(error instanceof Error ? error.message : "Could not generate visual prompts.");
+          return stop(context.toolCallId, error instanceof Error ? error.message : "Could not generate visual prompts.");
         }
       },
     },

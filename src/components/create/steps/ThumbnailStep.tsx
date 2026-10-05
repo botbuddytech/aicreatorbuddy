@@ -11,11 +11,10 @@ import { SavedTitleGlimpse } from "@/components/create/PriorStepGlimpse";
 import { OptionCard } from "@/components/create/OptionCard";
 import { PlaceholderImage } from "@/components/create/PlaceholderImage";
 import { StepFixModal } from "@/components/create/StepFixModal";
-import { VidIqLeaderboard, VidIqMark, VidIqThumbStats } from "@/components/create/VidIqPanel";
+import { VidIqMark, VidIqThumbStats } from "@/components/create/VidIqPanel";
 import { CursorPromptEditor } from "@/features/cursor-title-generator/CursorPromptEditor";
 import { THUMBNAIL_PROMPT_TITLE } from "@/features/cursor-title-generator/prompt";
 import { useCursorThumbnailPromptGeneration } from "@/features/cursor-thumbnail-prompts/ThumbnailPromptActions";
-import { usePipelineGeneration } from "@/components/create/useGeneration";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import {
   FORMAT_LABELS,
@@ -24,7 +23,9 @@ import {
   PROVIDER_LABELS,
   selectedTitle,
   type ThumbnailOption,
+  type VidIqThumbInsight,
 } from "@/lib/videoProject";
+import { parseYoutubeVideoId } from "@/lib/youtube/transcript";
 
 const THUMBNAIL_GENERATORS = ["chatgpt", "gemini", "cursor", "vidiq"] as const;
 type ThumbnailGenerator = (typeof THUMBNAIL_GENERATORS)[number];
@@ -44,10 +45,10 @@ function thumbnailSourceLabel(provider: ThumbnailOption["provider"]): string {
 
 export function ThumbnailStep() {
   const { project, dispatch, savedTitle } = useVideoProject();
-  const { busy, error, generate } = usePipelineGeneration();
   const [promptOpen, setPromptOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [generator, setGenerator] = useState<ThumbnailGenerator>("cursor");
   const [missingProvider, setMissingProvider] = useState<Exclude<ThumbnailGenerator, "cursor"> | null>(
@@ -56,12 +57,11 @@ export function ThumbnailStep() {
   const fileRef = useRef<HTMLInputElement>(null);
   const promptImageRef = useRef<HTMLInputElement>(null);
   const promptImageId = useRef<string | null>(null);
-  const provider = project.providerByStep.thumbnail ?? "chatgpt";
   const chosenTitle = selectedTitle(project)?.text.trim() ?? "";
-  const scored = project.thumbnails.filter((thumb) => thumb.vidiq);
-  const ranked = [...scored].sort((a, b) => (b.vidiq?.ctr ?? 0) - (a.vidiq?.ctr ?? 0));
-  const leader = ranked[0];
-  const challenger = ranked[1];
+  const referenceVideoId =
+    project.summary.references
+      .map((reference) => parseYoutubeVideoId(reference.url))
+      .find((id): id is string => Boolean(id)) ?? "";
 
   const cursorGeneration = useCursorThumbnailPromptGeneration({
     title: chosenTitle,
@@ -116,33 +116,80 @@ export function ThumbnailStep() {
   }
 
   async function analyzeAll() {
-    if (project.thumbnails.length === 0) return;
-    const insights = await generate(
-      "vidiq",
-      "vidiqThumbnails",
-      {
-        thumbnails: project.thumbnails.map((thumb) => ({
-          id: thumb.id,
-          concept: thumb.concept,
-        })),
-      },
-      provider,
-      "thumbnail",
-    );
-    if (insights) dispatch({ type: "SET_THUMBNAIL_INSIGHTS", insights });
+    const ready = project.thumbnails.filter((thumb) => thumb.customUrl?.startsWith("https://"));
+    if (ready.length === 0) {
+      setUploadError("Generate or upload an image before analyzing with vidIQ.");
+      return;
+    }
+    if (!chosenTitle) {
+      setUploadError("Select a title before analyzing thumbnails.");
+      return;
+    }
+    if (!referenceVideoId) {
+      setUploadError("Add a reference YouTube video first. vidIQ scores each thumbnail against one.");
+      return;
+    }
+    setUploadError(null);
+    setGeneratingId("analyze");
+    try {
+      const response = await fetch("/api/vidiq/thumbnails/score", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sessionId: project.id,
+          title: chosenTitle,
+          videoId: referenceVideoId,
+          thumbnails: ready.map((thumb) => ({ id: thumb.id, imageUrl: thumb.customUrl })),
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        insights?: Record<string, VidIqThumbInsight>;
+        error?: string;
+      } | null;
+      if (!response.ok || !payload?.insights) {
+        throw new Error(payload?.error || "vidIQ could not score the thumbnails.");
+      }
+      dispatch({ type: "SET_THUMBNAIL_INSIGHTS", insights: payload.insights });
+      recordThumbnailFire("vidiq", "vidiqThumbnailScore");
+    } catch (cause) {
+      setUploadError(cause instanceof Error ? cause.message : "vidIQ could not score the thumbnails.");
+    } finally {
+      setGeneratingId(null);
+    }
   }
 
-  async function analyzeOne(id: string) {
-    const thumb = project.thumbnails.find((item) => item.id === id);
-    if (!thumb) return;
-    const insights = await generate(
-      `vidiq-${id}`,
-      "vidiqThumbnails",
-      { thumbnails: [{ id: thumb.id, concept: thumb.concept }] },
-      provider,
-      "thumbnail",
-    );
-    if (insights) dispatch({ type: "SET_THUMBNAIL_INSIGHTS", insights });
+  async function generateImage(thumb: ThumbnailOption) {
+    const prompt = thumb.concept.trim();
+    if (!prompt || generatingId) return;
+    setGeneratingId(thumb.id);
+    setUploadError(null);
+    try {
+      const response = await fetch("/api/vidiq/thumbnails/image", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sessionId: project.id,
+          thumbnailId: thumb.id,
+          prompt,
+          title: chosenTitle,
+          format: project.summary.format,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as { url?: string; error?: string } | null;
+      if (!response.ok || !payload?.url) {
+        throw new Error(payload?.error || "vidIQ could not generate the image.");
+      }
+      dispatch({
+        type: "REPLACE_THUMBNAIL",
+        id: thumb.id,
+        thumbnail: { ...thumb, customUrl: payload.url },
+      });
+      recordThumbnailFire("vidiq", "vidiqThumbnailImage");
+    } catch (cause) {
+      setUploadError(cause instanceof Error ? cause.message : "vidIQ could not generate the image.");
+    } finally {
+      setGeneratingId(null);
+    }
   }
 
   async function uploadThumbnailFile(thumbnailId: string, file: File): Promise<string> {
@@ -209,7 +256,7 @@ export function ThumbnailStep() {
           Thumbnail generation
         </h3>
         <p className="mt-1 text-sm text-muted">
-          Generate thumbnail prompts from the selected title, then upload the image you make for each one.
+          Generate thumbnail prompts from the selected title. VidIQ on each card turns that prompt into an image.
         </p>
         <div className="mt-4">
           <GenerateBar
@@ -223,7 +270,6 @@ export function ThumbnailStep() {
             hasOutput={project.thumbnails.length > 0}
             generateLabel="Generate prompts"
             regenerateLabel="Generate prompts"
-            error={error}
             extra={
               <>
                 <CursorPromptEditor
@@ -256,7 +302,7 @@ export function ThumbnailStep() {
                   variant="secondary"
                   onClick={analyzeAll}
                   disabled={project.thumbnails.length === 0}
-                  loading={busy === "vidiq"}
+                  loading={generatingId === "analyze"}
                   loadingLabel="Analyzing…"
                 >
                   <VidIqMark />
@@ -290,62 +336,11 @@ export function ThumbnailStep() {
             message="Select Cursor to generate thumbnail prompts."
             onClose={() => setMissingProvider(null)}
           />
+          {uploadError ? (
+            <p className="mt-3 rounded-xl bg-accent/10 px-3 py-2 text-sm text-accent">{uploadError}</p>
+          ) : null}
         </div>
       </div>
-
-      {ranked.length > 0 ? (
-        <VidIqLeaderboard
-          items={ranked.map((thumb) => ({
-            id: thumb.id,
-            label: thumb.concept,
-            value: thumb.vidiq?.ctr ?? 0,
-            suffix: "% CTR",
-            grade: thumb.vidiq?.grade,
-          }))}
-        />
-      ) : null}
-
-      {leader && challenger ? (
-        <div className="rounded-2xl border border-chart-blue/30 bg-surface p-5">
-          <div className="flex items-center justify-between gap-2">
-            <h4 className="font-display text-base font-semibold text-foreground">
-              A/B mockup
-            </h4>
-            <VidIqMark />
-          </div>
-          <p className="mt-1 text-xs text-muted">
-            Highest CTR vs runner-up — not a live test, just a ranking from the mock scorer.
-          </p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {[leader, challenger].map((thumb, index) => (
-              <button
-                key={thumb.id}
-                type="button"
-                onClick={() => dispatch({ type: "SELECT_THUMBNAIL", id: thumb.id })}
-                className={`rounded-xl border p-3 text-left ${
-                  project.selectedThumbnailId === thumb.id
-                    ? "border-accent/50 bg-accent/10"
-                    : "border-border bg-surface-soft"
-                }`}
-              >
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-chart-blue">
-                  Variant {index === 0 ? "A" : "B"} · {thumb.vidiq?.ctr}% CTR
-                </p>
-                {thumb.customUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={thumb.customUrl}
-                    alt=""
-                    className="aspect-video w-full rounded-lg object-cover"
-                  />
-                ) : (
-                  <PlaceholderImage label={thumb.concept} />
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
 
       <FieldFlash field="thumbnail" className="rounded-2xl">
       {project.cursorThumbnailPrompt ? (
@@ -393,7 +388,9 @@ export function ThumbnailStep() {
                   ) : null}
                   {thumb.vidiq ? (
                     <Badge tone="blue">
-                      {thumb.vidiq.ctr}% CTR · {thumb.vidiq.grade}
+                      {typeof thumb.vidiq.score === "number"
+                        ? `${thumb.vidiq.score} · ${thumb.vidiq.grade}`
+                        : `${thumb.vidiq.ctr}% CTR · ${thumb.vidiq.grade}`}
                     </Badge>
                   ) : null}
                 </div>
@@ -422,9 +419,10 @@ export function ThumbnailStep() {
                   <ActionButton
                     size="sm"
                     variant="secondary"
-                    loading={busy === `vidiq-${thumb.id}`}
-                    loadingLabel="…"
-                    onClick={() => analyzeOne(thumb.id)}
+                    loading={generatingId === thumb.id}
+                    loadingLabel="Generating…"
+                    disabled={generatingId !== null && generatingId !== thumb.id}
+                    onClick={() => void generateImage(thumb)}
                   >
                     VidIQ
                   </ActionButton>
@@ -440,7 +438,7 @@ export function ThumbnailStep() {
                   className="aspect-video w-full rounded-xl object-cover"
                 />
               ) : (
-                <PlaceholderImage label={thumb.concept} />
+                <PlaceholderImage label={thumb.concept} hideLabel />
               )}
               <p className="mt-2 text-sm font-medium leading-snug text-foreground">{thumb.concept}</p>
             </OptionCard>
@@ -448,9 +446,6 @@ export function ThumbnailStep() {
         </div>
       )}
       </FieldFlash>
-      {uploadError ? (
-        <p className="rounded-xl bg-accent/10 px-3 py-2 text-sm text-accent">{uploadError}</p>
-      ) : null}
       <Modal
         open={promptOpen}
         size="lg"

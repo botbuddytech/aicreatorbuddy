@@ -45,6 +45,7 @@ function readContext(): AgentContextPayload {
       projectId: "",
       selectedTitle: "",
       titleOptions: [],
+      thumbnails: [],
       scenes: [],
       references: [],
     };
@@ -72,6 +73,13 @@ function readContext(): AgentContextPayload {
       project.titles[0]?.text ??
       "",
     titleOptions: project.titles.map((item) => ({ id: item.id, text: item.text })),
+    thumbnails: project.thumbnails
+      .filter((item) => item.concept.trim())
+      .map((item) => ({
+        id: item.id,
+        concept: item.concept,
+        ...(item.customUrl?.startsWith("https://") ? { imageUrl: item.customUrl } : {}),
+      })),
     scenes: project.scenes.map((scene, index) => ({
       id: scene.id,
       section: scene.sectionLabel,

@@ -44,6 +44,8 @@ export type CursorScriptLowEffortRequest = {
   script: string;
   durationSeconds: number;
   references: string[];
+  topic?: string;
+  title?: string;
 };
 
 export type CursorLowEffortFinding = {
@@ -180,7 +182,15 @@ export function parseCursorScriptLowEffortRequest(
     text(item, SCRIPT_ANALYSIS_LIMITS.reference, true),
   );
   if (references.some((item) => item === null)) return null;
-  return { script, durationSeconds, references: references as string[] };
+  const topic = text(value.topic, SCRIPT_ANALYSIS_LIMITS.topic, true);
+  const title = text(value.title, SCRIPT_ANALYSIS_LIMITS.title, true);
+  return {
+    script,
+    durationSeconds,
+    references: references as string[],
+    ...(topic ? { topic } : {}),
+    ...(title ? { title } : {}),
+  };
 }
 
 export function normalizeCursorScriptLowEffort(

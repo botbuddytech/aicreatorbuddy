@@ -11,7 +11,7 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import tsx --test src/features/predictive-text/engine.test.ts src/features/suggestions/suggestions.test.ts src/lib/youtube/transcript.test.ts src/lib/session/summaryCommit.test.ts src/lib/session/laterStepCommit.test.ts src/features/cursor-thumbnail-prompts/contract.test.ts src/features/cursor-script-generator/contract.test.ts src/lib/scenesFromScript.test.ts src/features/cursor-visual-prompts/contract.test.ts src/lib/storage/sceneClipPath.test.ts src/lib/sceneTiming.test.ts src/features/cursor-sdk-agent/server/changes.test.ts",
+    "test": "node --import tsx --test src/features/predictive-text/engine.test.ts src/features/suggestions/suggestions.test.ts src/lib/youtube/transcript.test.ts src/lib/session/summaryCommit.test.ts src/lib/session/laterStepCommit.test.ts src/features/cursor-thumbnail-prompts/contract.test.ts src/features/cursor-script-generator/contract.test.ts src/lib/scenesFromScript.test.ts src/features/cursor-visual-prompts/contract.test.ts src/lib/storage/sceneClipPath.test.ts src/lib/sceneTiming.test.ts src/features/cursor-sdk-agent/server/changes.test.ts src/features/cursor-sdk-agent/server/blockers.test.ts src/lib/vidiq/thumbnailJob.test.ts src/lib/vidiq/balance.test.ts src/lib/vidiq/scoreThumbnail.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",

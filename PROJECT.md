@@ -1,6 +1,6 @@
 # AI Creator Buddy
 
-Single source of truth for the product as it exists in this repository. Written from the codebase and the documentation that is actually checked in. Last reviewed against the working tree on `main` (latest commit `331d47a`, plus uncommitted create-pipeline work present in the tree).
+Single source of truth for the product as it exists in this repository. Written from the codebase and the documentation that is actually checked in. Last reviewed against the working tree on 5 October 2026 (commit `331d47a`, plus the uncommitted create-pipeline and agent work in the tree).
 
 **`Project Context.md` is not in the repository root** (or anywhere else in this project). This file does not reconstruct a missing brief. Where marketing copy, demo data, and running code disagree, the code wins, and the disagreement is called out.
 
@@ -85,8 +85,8 @@ What the app actually does today:
 
 - Authenticated workspace for YouTube channel connect, sync, and email sharing.
 - An eight-step create flow (intro, title, thumbnail, script, timeline, description, render, editor) that persists a video session.
-- Real generation for some steps (Cursor Agent CLI in development, vidIQ titles, ElevenLabs preview, Remotion browser export, YouTube transcript fetch).
-- Simulated generation and simulated analytics, library, and scheduler for the rest.
+- Real generation for some steps (Cursor Agent CLI in development, the local Cursor SDK for the create-step agent, vidIQ titles, thumbnail images, and thumbnail scores, ElevenLabs preview, Remotion browser export, YouTube transcript fetch).
+- Simulated generation and simulated analytics, library, and scheduler for the rest. ChatGPT and Gemini pickers still do not call those APIs. vidIQ has no low-effort content check.
 
 ### Key features
 
@@ -97,12 +97,12 @@ What the app actually does today:
 | YouTube channel OAuth, sync, active channel, email share | Confirmed |
 | Create-video pipeline with local draft plus server session | Confirmed |
 | Cursor title, score, script, thumbnail prompts, visual prompts, low-effort check | Confirmed in development only (`/api/local/*` returns 404 outside development) |
-| vidIQ OAuth, title generate, title score | Confirmed |
+| vidIQ OAuth, title generate, title score, thumbnail image, thumbnail score | Confirmed. Thumbnail image is `vidiq_generate_thumbnail` (22 credits) then a job poll. Thumbnail score is `vidiq_score_thumbnail` (5 credits) |
 | ElevenLabs voices and speech preview via a shared server key | Confirmed |
-| Custom thumbnail and scene-clip upload to Supabase Storage | Confirmed |
+| Custom thumbnail and scene-clip upload to Supabase Storage | Confirmed. Agent-generated thumbnails are copied into the same bucket |
 | Remotion preview and in-browser MP4 export | Confirmed (WebCodecs browsers) |
 | Buddy floating chat | Confirmed. Live model if keys exist, otherwise a simulated specialist |
-| Create-step agent panel | Confirmed UI. The chat API is development-only |
+| Create-step agent panel | Confirmed in development. Local Cursor SDK (`@cursor/sdk`), not the Cloud Agents API. Changes auto-apply |
 | Integrations page for provider credentials and usage | Confirmed |
 | Overview, monetization, library, scheduler | Confirmed UI, **demo data** |
 | Profile settings save | UI only. Message: preferences are not persisted |
@@ -160,6 +160,7 @@ Application code is grouped by surface (`components/create`, `components/dashboa
 | Passwords | `bcryptjs` cost 12 |
 | YouTube | `googleapis`, unofficial `youtube-transcript` plus an Innertube player fetch |
 | vidIQ | MCP over Streamable HTTP (`@modelcontextprotocol/sdk`) at `https://mcp.vidiq.com/mcp` |
+| Create agent | `@cursor/sdk` local agent (`local.cwd`). Inference is still hosted. Billed to `CURSOR_API_KEY` |
 | Voice | `@elevenlabs/elevenlabs-js` |
 | Render | `remotion` 4 and `@remotion/player`, `@remotion/media`, `@remotion/web-renderer` |
 | Storage | `@supabase/supabase-js` Storage (service role, server only) |
@@ -168,7 +169,7 @@ Application code is grouped by surface (`components/create`, `components/dashboa
 | Route progress | `nextjs-toploader` |
 | Tests | Node’s built-in test runner via `node --import tsx --test` |
 | Lint | ESLint 9 with `eslint-config-next` |
-| Node | `>=20.9.0` |
+| Node | `>=22.13.0` (required by `@cursor/sdk`) |
 
 No Edge runtime is set on routes. API handlers that spawn the Cursor CLI or call providers use the Node.js runtime.
 
@@ -252,6 +253,8 @@ All JSON mutations that were inspected require a logged-in user unless noted. Ma
 | `/api/vidiq/titles/generate` | POST | `vidiq_generate_titles` |
 | `/api/vidiq/titles/score` | POST | `vidiq_score_title` |
 | `/api/vidiq/thumbnails/prompts` | POST | Asks vidIQ for thumbnail *text* prompts via `vidiq_generate_titles`. No UI caller was found |
+| `/api/vidiq/thumbnails/image` | POST | `vidiq_generate_thumbnail`, poll `vidiq_job_poll`, store the file in Supabase, return its public URL |
+| `/api/vidiq/thumbnails/score` | POST | Download each thumbnail and send it to `vidiq_score_thumbnail` as a data URI |
 | `/api/elevenlabs/voices` | GET | List voices |
 | `/api/elevenlabs/preview` | POST | Synthesize a short MP3 preview |
 | `/api/create/sessions/:id` | GET, DELETE | Load step documents, or permanently delete |
@@ -268,7 +271,7 @@ All JSON mutations that were inspected require a logged-in user unless noted. Ma
 | `/api/local/cursor-script-low-effort` | POST | Dev-only low-effort check |
 | `/api/local/cursor-thumbnail-prompts` | POST | Dev-only thumbnail prompts |
 | `/api/local/cursor-visual-prompts` | POST | Dev-only scene visual prompts |
-| `/api/agent/chat` | POST | Dev-only Cursor agent reply for the create panel |
+| `/api/agent/chat` | POST | Dev-only local Cursor SDK chat. SSE. `maxDuration` 300 |
 | `/api/chat` | POST | Buddy. No auth check in the route |
 | `/api/suggest` | GET | Topic autocomplete proxy |
 
@@ -341,12 +344,12 @@ No Dockerfile, `vercel.ts`, or CI workflow is in the repo.
 - One workspace per user. `VideoSession.workspaceId` defaults to `"default"` and is not a tenant table.
 - “Selected channel” (`User.activeChannelId`) is the channel new videos are aimed at. Overview and monetization pages do not query that channel’s analytics API.
 - Estimated dollars on create steps (`src/lib/apiCost.ts`) are local formulas, not provider invoices. Cursor and vidIQ title fires in the title step record `usd: 0`.
-- Public Storage URLs are acceptable for thumbnails and scene clips. The code calls `getPublicUrl`.
+- Public Storage URLs are acceptable for thumbnails and scene clips. The code calls `getPublicUrl`. vidIQ’s thumbnail scorer rejects the Supabase host, so scoring downloads the object and sends a `data:image/...;base64,...` URI.
 
 ### Constraints
 
-- Cursor generation cannot run on Railway as implemented: it spawns a local `agent` binary and is disabled when `NODE_ENV !== "development"`.
-- Only one Cursor generation or agent chat runs at a time per server process.
+- Cursor CLI generation cannot run on Railway as implemented: it spawns a local `agent` binary and is disabled when `NODE_ENV !== "development"`. The create-step agent uses `@cursor/sdk` with `CURSOR_API_KEY` and is also development-only.
+- One-shot Cursor CLI calls share one process lock. The SDK agent is a separate in-memory pool (`src/features/cursor-sdk-agent/server/pool.ts`).
 - Script generation timeout is 180 seconds. Other Cursor calls time out at 90 seconds.
 - Thumbnail uploads: JPEG, PNG, WebP, GIF, under 5 MB.
 - Scene clips: MP4, WebM, QuickTime, or those image types, under 100 MB.
@@ -456,8 +459,8 @@ Steps in `STEPS` (`src/lib/videoProject.ts`):
 | --- | --- | --- |
 | Video intro | Topic, Shorts or long-form, educational or entertainment, duration, up to 5 YouTube references | Transcript fetch via `/api/create/sessions/:id/references`. Topic field uses predictive text |
 | Title | Pick Cursor, vidIQ, ChatGPT, Gemini, or type titles. Score with vidIQ or Cursor | Cursor (dev) and vidIQ are live. ChatGPT and Gemini set a missing-provider modal. Manual titles are local |
-| Thumbnail | Cursor prompts, or upload an image. “Analyze” uses the mock VidIQ thumbnail scorer | Cursor prompts (dev). Image upload is real. ChatGPT, Gemini, and thumbnail scoring are not live APIs. `/api/vidiq/thumbnails/prompts` is unused by the UI |
-| Script | Cursor, or upload `.txt` / `.md`. Low-effort check | Cursor (dev). Other providers show missing-provider. Low-effort check is Cursor and dev-only |
+| Thumbnail | Cursor prompts, upload an image, or ask the agent to generate images. **Analyze with vidIQ** scores each image | Cursor prompts (dev). Upload and agent images go to the `thumbnails` bucket at `{sessionId}/{thumbnailId}.ext` and are stored as `customUrl`. Scoring is live `vidiq_score_thumbnail` (needs a selected title and a reference YouTube id). The old VidIQ lab and A/B mock ranking are gone. ChatGPT and Gemini still open a missing-provider modal |
+| Script | Cursor, upload `.txt` / `.md`, or ask the agent to write the script. Low-effort check | `generateScript` uses the Cursor script prompt and writes `fullScript`. **Check low-effort with Cursor** and the agent tool `checkScriptLowEffort` use the low-effort prompt. A clean script may return no findings, which is a pass. vidIQ does not offer this check |
 | Timeline | Split the saved script into labeled sections, edit beats, upload a clip, preview ElevenLabs | Split is local (`scenesFromScript`). Visual prompts are Cursor (dev). ElevenLabs preview is live when the server key and integration gate allow it. Browser speech is a separate voice picker |
 | Description | Generate copy and tags, then edit | `mockGenerate` in `src/lib/mockAi.ts` |
 | Render | Readiness checklist, Remotion MP4 download, low-effort check | Real browser export when scenes exist |
@@ -473,7 +476,25 @@ Mounted on every page from the root layout. `POST /api/chat` with `{ messages, p
 
 ### Create agent panel
 
-Only inside `/dashboard/create/[projectId]`. Threads persist in `localStorage` (`acb_agent_threads`). `POST /api/agent/chat` runs the Cursor CLI in agent or ask mode and returns 404 outside development. The panel can reference step context with `@` mentions (`src/lib/agent/types.ts`).
+On `/dashboard/create` and `/dashboard/create/[projectId]`. Threads persist in this browser’s `localStorage` (`acb_agent_threads_${videoId}`), not in the database. The index page uses video id `create-index` and hands the thread to the new project. The panel stays open across navigation until the user closes it.
+
+`POST /api/agent/chat` runs a **local** Cursor SDK agent (`Agent.create` / `Agent.resume`, `tools: ["mcp"]` plus custom project tools). It returns 404 outside development. It does not call `POST https://api.cursor.com/v1/agents`. The model preference is `composer-2.5` when `Cursor.models.list()` includes it. Instructions are in the user prompt. `settingSources` is empty.
+
+The panel has no Ask/Agent switch and no Auto-apply checkbox. Mode is always `agent`, and project changes apply as soon as the `change` event arrives. While a tool runs, the transcript shows a spinner and `Calling {label}…`. Step, topic, and channel context is still sent with the next message. The “Included with the next message” chips are not shown. `@` can still attach title, script, thumbnail, brief, or timeline.
+
+Custom tools live in `src/features/cursor-sdk-agent/server/tools.ts`. Generation and scoring default to Cursor unless the user names ChatGPT, Gemini, or vidIQ. Thumbnail images and thumbnail scores are vidIQ. The low-effort check is Cursor. SDK tool events arrive as MCP name `mcp`; the real name is `args.toolName`.
+
+| Tool | What it writes |
+| --- | --- |
+| `setBrief`, `setProjectName`, `setApproxLength` | Topic, workspace name, duration |
+| `addReference`, `fetchReferenceTranscript` | YouTube reference and its transcript |
+| `generateTitles`, `scoreTitles`, `applyTitle` | Titles and scores |
+| `generateScript`, `scoreScript`, `editScript`, `checkScriptLowEffort` | Script, script score, low-effort report |
+| `generateThumbnailPrompt`, `generateThumbnailImages`, `scoreThumbnails` | Prompt text, one Supabase image per prompt, vidIQ score per image |
+| `generateVisualPrompts`, `updateTimeline`, `writeDescription` | Scene prompts, scenes, description |
+| `navigateToStep`, `markStepApproved` | Step focus and approval |
+
+`generateThumbnailImages` calls the same generator as the per-card VidIQ button. `scoreThumbnails` calls the same scorer as **Analyze with vidIQ**. Both need the video open. Scoring also needs a title and a reference YouTube id. Approval that is missing a title, thumbnail, or script opens one notice (`StepFixModal` in `VideoProjectProvider`). Closing it releases the page scroll lock.
 
 ### Permissions
 
@@ -496,8 +517,8 @@ None on a schedule. The only automatic behaviors are: share linking on sign-in, 
 - Timeline split depends on a script with labeled sections.
 - Editor depends on a successful render (`renderedAt`).
 - Render depends on at least one scene.
-- Cursor steps depend on a local CLI and `agent login`.
-- vidIQ steps depend on a connected, enabled integration with credits (`vidiq_score_title` and `vidiq_generate_titles` are recorded as 5 credits in `src/lib/vidiq/client.ts`).
+- One-shot Cursor steps depend on a local CLI and `agent login`. The create agent depends on `CURSOR_API_KEY` and Node `>=22.13`.
+- vidIQ steps depend on a connected account and credits. Recorded costs in `src/lib/vidiq/client.ts`: title score and title generate 5, thumbnail score 5, thumbnail generate 22, job poll 0. In development, if the logged-in user has no vidIQ OAuth token, calls fall back to the bearer token in `~/.cursor/mcp.json`. That token is not copied into the repo. The integrations page can show that fallback as connected and refresh `vidiq_balance` (remaining credits versus the plan cap).
 - ElevenLabs preview depends on `ELEVEN_LABS_API_KEY` and `authorizeElevenLabs`.
 - Thumbnail and clip URLs depend on Supabase buckets.
 - New videos are associated with the active channel chosen on the overview.
@@ -643,7 +664,7 @@ Deleting a user cascades owned channels, sessions, shares, and integrations. Del
 | --- | --- |
 | YouTube OAuth and sync | Auth code, then channel and video metadata coming back |
 | Reference transcript | Video id to YouTube Innertube and `youtube-transcript` |
-| vidIQ | Title or prompt text, format, session id for usage rows |
+| vidIQ | Title text, thumbnail image bytes (data URI), a reference YouTube id, session id for usage rows. The Supabase URL is not sent as the image |
 | ElevenLabs | Voice id and preview text. Response is audio bytes |
 | Cursor CLI | Prompt and project context on the local machine. Not sent by this app to a hosted Cursor API of its own |
 | Buddy | Recent chat messages to OpenAI or Gemini when those keys exist |
@@ -675,7 +696,7 @@ Catalog: `src/lib/integrations/catalog.ts`.
 | Id | Auth | What the app does with it |
 | --- | --- | --- |
 | youtube | OAuth | Connect and sync. Upload scope unused |
-| vidiq | OAuth (MCP) | Titles, scores, usage credits |
+| vidiq | OAuth (MCP). Dev fallback: Cursor MCP bearer | Titles, title scores, thumbnail images, thumbnail scores, credit balance |
 | chatgpt | API key `sk-` | Key probe against `GET /v1/models`. Not used to generate create-step text |
 | gemini | API key `AIza` | Key probe against the models list. Same gap |
 | elevenlabs | Shared env key | Voices, TTS preview, subscription quota on refresh |
@@ -705,6 +726,7 @@ From `.env.example` and additional names read in code.
 | `OPENAI_CHAT_MODEL` | Optional Buddy model override. Not in `.env.example` |
 | `GEMINI_CHAT_MODEL` | Optional Buddy model override. Not in `.env.example` |
 | `NEXT_PUBLIC_SITE_URL` | Canonical URL override. Not in `.env.example` |
+| `CURSOR_API_KEY` | Local Cursor SDK agent. Same key as the Cursor dashboard API key. Not a cloud-agent spend limit |
 | `CURSOR_AGENT_PATH`, `CURSOR_AGENT_MODEL` | Fallback if `config/cursor-cli.local.json` is empty. The README says not to put the path in `.env` |
 | `RAILWAY_PUBLIC_DOMAIN`, `VERCEL_PROJECT_PRODUCTION_URL` | Read for SEO URL if present |
 | `NODE_ENV` | Gates every `/api/local/*` route and `/api/agent/chat` |
@@ -763,7 +785,7 @@ No backup job, dump script, or point-in-time restore doc is in the repo. Persist
 
 ## Current development status
 
-Branch: `main`. Latest commit inspected: `331d47a` (video session documents, reference titles, step navigation). The working tree also contains further create-pipeline files (Cursor script, thumbnail, and visual prompts, ElevenLabs routes, scene clip storage, timing helpers, and their tests). Treat the tree, not only that commit, as the product.
+Branch: `main`. Latest commit inspected: `331d47a` (video session documents, reference titles, step navigation). The working tree also contains the create-step Cursor SDK agent, vidIQ thumbnail image and score, the low-effort agent tool, ElevenLabs routes, scene clip storage, and their tests. Treat the tree, not only that commit, as the product.
 
 ### Completed (usable in the tree)
 
@@ -773,19 +795,20 @@ Branch: `main`. Latest commit inspected: `331d47a` (video session documents, ref
 - Create index and eight-step workspace, local draft, server document hydrate, approve-to-persist, permanent delete.
 - Reference transcript fetch.
 - Cursor generators and prompt editor in development.
-- vidIQ title generate and score.
+- Create-step agent: local Cursor SDK, persisted browser threads, auto-applied project tools.
+- vidIQ title generate and score, thumbnail image generation, and live thumbnail scoring.
 - ElevenLabs voice list and preview.
 - Supabase thumbnail and scene-clip upload.
 - Remotion player and browser MP4 download.
 - Buddy chat with provider fallback.
 - Predictive text on the topic field.
-- Unit tests listed in `npm test` (contracts, transcript, session commits, scene split, clip paths, timing, predictive text, suggestions).
+- Unit tests listed in `npm test` (contracts, transcript, session commits, scene split, clip paths, timing, predictive text, suggestions, agent change parsing, vidIQ thumbnail job, balance, and score parsers).
 
 ### In progress
 
 Inferred from uncommitted files and TODOs, not from a ticket board:
 
-- Replacing `mockGenerate` for titles, scripts, scenes, descriptions, and VidIQ thumbnail or script scores (`TODO: replace with real API call` in `src/lib/mockAi.ts`).
+- Replacing `mockGenerate` for descriptions, scenes, and the remaining VidIQ script path (`TODO: replace with real API call` in `src/lib/mockAi.ts`). Thumbnail scoring no longer uses that mock.
 - Wiring ChatGPT and Gemini, which already have key storage, into those steps. The UI already shows a missing-provider modal instead of the mock for several generators.
 - Scene visual generation stops at prompts. Seedance is not called.
 
@@ -805,7 +828,6 @@ Inferred from uncommitted files and TODOs, not from a ticket board:
 - Stale FAQ versus live OAuth.
 - ChatGPT and Gemini create buttons do not generate.
 - Description step still returns mock copy that includes the provider name in the text.
-- Thumbnail “analyze” still uses `mockGenerate`.
 - Editor music and stock are mocks.
 - Settings “save” does not write.
 - Overview “Refresh” does not reload YouTube.
@@ -871,7 +893,7 @@ npm run db:seed   # optional demo user
 npm run dev       # http://localhost:3000
 ```
 
-Cursor steps also need [config/README.md](config/README.md) and `agent login`.
+One-shot Cursor steps also need [config/README.md](config/README.md) and `agent login`. The create agent needs `CURSOR_API_KEY` in the environment and Node `>=22.13`. A vidIQ MCP entry in `~/.cursor/mcp.json` is the development fallback when the app user has not completed vidIQ OAuth.
 
 ### Deploy
 
@@ -889,7 +911,8 @@ Railway: push the branch the service builds, `npm run build` (includes `prisma g
 | Active channel | `User.activeChannelId`. The channel new work targets |
 | Share | Email grant to use someone else’s connected channel |
 | Snapshot | Client payload posted to `/sync` |
-| Cursor CLI | Local `agent` binary. Dev-only generation backend |
+| Cursor CLI | Local `agent` binary. Dev-only one-shot generation |
+| Cursor SDK agent | In-process local agent for the create panel. Uses `CURSOR_API_KEY` |
 | Mark approved | Control that persists the current step |
 | Faceless | Marketing term for voice, scenes, and captions without an on-camera host |
 | BYOK | Marketing term for the Starter plan. Partially true: some keys can be saved; ElevenLabs is shared; Cursor is local |

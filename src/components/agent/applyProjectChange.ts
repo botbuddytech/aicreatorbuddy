@@ -3,6 +3,7 @@
 import type { AgentCheckpoint, FlashField, ProjectChange, ProjectSnapshot } from "@/lib/agent/types";
 import { getProjectBridge } from "@/components/agent/bridge";
 import { carryAgentChatsTo, useAgentStore } from "@/components/agent/store";
+import { lowEffortSourceHash } from "@/lib/lowEffortCheck";
 import { trackSessionEvent } from "@/lib/session/telemetry";
 import { upsertProjectInStore } from "@/lib/useVideoProjectDraft";
 import {
@@ -95,6 +96,20 @@ export function applyProjectChange(change: ProjectChange): boolean {
         })),
       });
       break;
+    case "thumbnailImages": {
+      const urls = new Map(payload.images.map((item) => [item.id, item.url]));
+      dispatch({
+        type: "SET_THUMBNAILS",
+        thumbnails: bridge.getProject().thumbnails.map((thumb) => {
+          const customUrl = urls.get(thumb.id);
+          return customUrl ? { ...thumb, customUrl } : thumb;
+        }),
+      });
+      break;
+    }
+    case "thumbnailScores":
+      dispatch({ type: "SET_THUMBNAIL_INSIGHTS", insights: payload.insights });
+      return true;
     case "titleScores":
       dispatch({
         type: "SET_TITLE_SCORES",
@@ -105,6 +120,21 @@ export function applyProjectChange(change: ProjectChange): boolean {
       return true;
     case "scriptScore":
       dispatch({ type: "SET_SCRIPT_SCORE", score: payload.score });
+      return true;
+    case "scriptLowEffort":
+      dispatch({
+        type: "SET_LOW_EFFORT_REPORT",
+        report: {
+          checkedAt: new Date().toISOString(),
+          scope: "script",
+          provider: "cursor",
+          sourceHash: lowEffortSourceHash(bridge.getProject(), "script"),
+          score: payload.score,
+          verdict: payload.verdict,
+          summary: payload.summary,
+          findings: payload.findings,
+        },
+      });
       return true;
     case "visualPrompts": {
       const prompts = new Map(payload.prompts.map((item) => [item.id, item.prompt]));
@@ -311,6 +341,24 @@ function applyOnto(project: VideoProject, change: ProjectChange): VideoProject {
       };
     case "scriptScore":
       return { ...project, lastUpdated: now, scriptScore: payload.score };
+    case "scriptLowEffort":
+      return {
+        ...project,
+        lastUpdated: now,
+        lowEffortByStep: {
+          ...project.lowEffortByStep,
+          script: {
+            checkedAt: now,
+            scope: "script",
+            provider: "cursor",
+            sourceHash: lowEffortSourceHash(project, "script"),
+            score: payload.score,
+            verdict: payload.verdict,
+            summary: payload.summary,
+            findings: payload.findings,
+          },
+        },
+      };
     case "thumbnailPrompts":
       return {
         ...project,
@@ -318,6 +366,27 @@ function applyOnto(project: VideoProject, change: ProjectChange): VideoProject {
         cursorThumbnailPrompt: payload.cursorPrompt,
         thumbnails: payload.concepts.map((concept) => ({ id: newId(), concept, provider: "cursor" as const })),
         stepStatus: { ...project.stepStatus, thumbnail: "generated" },
+      };
+    case "thumbnailImages": {
+      const urls = new Map(payload.images.map((item) => [item.id, item.url]));
+      return {
+        ...project,
+        lastUpdated: now,
+        thumbnails: project.thumbnails.map((thumb) => {
+          const customUrl = urls.get(thumb.id);
+          return customUrl ? { ...thumb, customUrl } : thumb;
+        }),
+        stepStatus: { ...project.stepStatus, thumbnail: "generated" },
+      };
+    }
+    case "thumbnailScores":
+      return {
+        ...project,
+        lastUpdated: now,
+        thumbnails: project.thumbnails.map((thumb) => {
+          const insight = payload.insights[thumb.id];
+          return insight ? { ...thumb, vidiq: insight } : thumb;
+        }),
       };
     case "visualPrompts": {
       const prompts = new Map(payload.prompts.map((item) => [item.id, item.prompt]));

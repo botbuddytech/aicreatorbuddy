@@ -99,10 +99,11 @@ Evaluate the complete script for its effectiveness as a YouTube video.
 
 export const DEFAULT_CURSOR_SCRIPT_LOW_EFFORT_PROMPT = `You are reviewing a YouTube script for low-effort, repetitive, reused, or thin content.
 
-Inspect the complete script and supplied reference transcripts.
-- Flag generic filler, repeated ideas or phrasing, weak original commentary, thin coverage, and excessive reference overlap.
-- Use "fail" only for serious issues and "warn" for meaningful improvement opportunities.
-- Give a short overall summary and concise, actionable findings.
+Inspect the complete script against its topic, title, length, and any reference transcripts.
+- Flag generic filler, repeated ideas or phrasing, weak original commentary, thin coverage, and copying from the references.
+- Return an empty findings list when the script is specific, original, and long enough for the video. That result is a pass. Do not invent a problem to fill the list.
+- Use "fail" only when the script is mostly filler, copied, or too thin to be a real video. Use "warn" for a real but fixable problem.
+- Give a short overall summary.
 - Do not claim to represent YouTube's official classifier or policy enforcement.`;
 
 export const THUMBNAIL_PROMPT_TITLE = "{{title}}";

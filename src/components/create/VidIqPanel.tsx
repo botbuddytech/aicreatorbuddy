@@ -75,35 +75,65 @@ export function VidIqTitleStats({ insight }: { insight: VidIqTitleInsight }) {
 }
 
 export function VidIqThumbStats({ insight }: { insight: VidIqThumbInsight }) {
+  const scored = typeof insight.score === "number";
   return (
     <div className="mt-3 space-y-2 rounded-xl border border-chart-blue/30 bg-chart-blue/5 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <VidIqMark />
         <div className="flex items-center gap-2">
           <span className="font-display text-xl font-semibold tabular-nums text-foreground">
-            {insight.ctr}%
+            {scored ? insight.score : `${insight.ctr}%`}
           </span>
           <Badge tone={vidiqGradeTone(insight.grade)}>{insight.grade}</Badge>
         </div>
       </div>
-      <Meter value={insight.ctr} max={12} label="Predicted CTR" />
-      <div className="grid grid-cols-3 gap-2 pt-1 text-center">
-        <div className="rounded-lg bg-surface-soft px-2 py-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Contrast</p>
-          <p className="text-xs font-semibold text-foreground">{insight.contrast}</p>
+      <Meter
+        value={scored ? insight.score ?? 0 : insight.ctr}
+        max={scored ? 100 : 12}
+        label={scored ? "Score" : "Predicted CTR"}
+      />
+      {scored ? (
+        <div className="space-y-2 pt-1">
+          {insight.notes ? <p className="text-xs text-muted">{insight.notes}</p> : null}
+          {insight.strengths?.length ? (
+            <ul className="space-y-1 text-xs text-foreground">
+              {insight.strengths.map((item) => (
+                <li key={item.message}>+ {item.message}</li>
+              ))}
+            </ul>
+          ) : null}
+          {insight.improvements?.length ? (
+            <ul className="space-y-1 text-xs text-muted">
+              {insight.improvements.map((item) => (
+                <li key={item.message}>
+                  {item.message}
+                  {item.tip ? ` — ${item.tip}` : ""}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
-        <div className="rounded-lg bg-surface-soft px-2 py-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Text</p>
-          <p className="text-xs font-semibold text-foreground">{insight.textDensity}</p>
-        </div>
-        <div className="rounded-lg bg-surface-soft px-2 py-1.5">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Face</p>
-          <p className="text-xs font-semibold text-foreground">
-            {insight.facePresent ? "Yes" : "No"}
-          </p>
-        </div>
-      </div>
-      <p className="text-xs text-muted">{insight.notes}</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-3 gap-2 pt-1 text-center">
+            <div className="rounded-lg bg-surface-soft px-2 py-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Contrast</p>
+              <p className="text-xs font-semibold text-foreground">{insight.contrast}</p>
+            </div>
+            <div className="rounded-lg bg-surface-soft px-2 py-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Text</p>
+              <p className="text-xs font-semibold text-foreground">{insight.textDensity}</p>
+            </div>
+            <div className="rounded-lg bg-surface-soft px-2 py-1.5">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Face</p>
+              <p className="text-xs font-semibold text-foreground">
+                {insight.facePresent ? "Yes" : "No"}
+              </p>
+            </div>
+          </div>
+          <p className="text-xs text-muted">{insight.notes}</p>
+        </>
+      )}
     </div>
   );
 }

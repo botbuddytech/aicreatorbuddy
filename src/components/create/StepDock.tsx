@@ -68,20 +68,22 @@ export function StepDock({
     </button>
   );
 
-  const approveControl =
-    step === "editor" ? (
-      <ActionButton
-        variant={needsSaveByStep.editor || !project.editor.confirmedAt ? "primary" : "secondary"}
-        loading={summarySaving}
-        loadingLabel="Saving…"
-        onClick={() => dispatch({ type: "CONFIRM_EDIT" })}
-        className="w-full sm:w-auto"
-      >
-        {needsSaveByStep.editor || !project.editor.confirmedAt ? "Confirm edit" : "Confirmed"}
-      </ActionButton>
-    ) : (
-      <StepApprove step={step} className="w-full sm:w-auto" />
-    );
+  function approveControl() {
+    if (step === "editor") {
+      return (
+        <ActionButton
+          variant={needsSaveByStep.editor || !project.editor.confirmedAt ? "primary" : "secondary"}
+          loading={summarySaving}
+          loadingLabel="Saving…"
+          onClick={() => dispatch({ type: "CONFIRM_EDIT" })}
+          className="w-full sm:w-auto"
+        >
+          {needsSaveByStep.editor || !project.editor.confirmedAt ? "Confirm edit" : "Confirmed"}
+        </ActionButton>
+      );
+    }
+    return <StepApprove step={step} className="w-full sm:w-auto" />;
+  }
 
   return (
     <>
@@ -100,7 +102,7 @@ export function StepDock({
                 Next
               </ActionButton>
             </div>
-            {approveControl}
+            {approveControl()}
           </div>
           <div className="hidden grid-cols-[1fr_auto_1fr] items-center gap-2 sm:grid">
             <div className="flex justify-start">
@@ -110,7 +112,7 @@ export function StepDock({
             </div>
             {previewButton}
             <div className="flex flex-wrap items-center justify-end gap-2">
-              {approveControl}
+              {approveControl()}
               <ActionButton disabled={!next} onClick={onNext}>
                 Next
               </ActionButton>

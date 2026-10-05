@@ -1,21 +1,18 @@
 "use client";
 
 import { ActionButton } from "@/components/ui/ActionButton";
-import { StepFixModal } from "@/components/create/StepFixModal";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { savesOnMarkApprove } from "@/lib/session/laterStepCommit";
 import type { StepId } from "@/lib/videoProject";
 
 export function StepApprove({ step, className = "" }: { step: StepId; className?: string }) {
-  const { project, dispatch, needsSaveByStep, summarySaving, approveNotice, dismissApproveNotice } =
-    useVideoProject();
+  const { project, dispatch, needsSaveByStep, summarySaving } = useVideoProject();
   const approved = project.stepStatus[step] === "approved";
   const gated = savesOnMarkApprove(step);
   const saveStep = gated && (needsSaveByStep[step] || !approved);
   const showApproved = gated ? !saveStep : approved;
 
   return (
-    <>
     <ActionButton
       variant={showApproved ? "secondary" : "primary"}
       loading={gated && summarySaving}
@@ -38,15 +35,5 @@ export function StepApprove({ step, className = "" }: { step: StepId; className?
         </>
       )}
     </ActionButton>
-    {approveNotice ? (
-      <StepFixModal
-        open
-        step={approveNotice.step}
-        title={approveNotice.title}
-        message={approveNotice.message}
-        onClose={dismissApproveNotice}
-      />
-    ) : null}
-  </>
   );
 }

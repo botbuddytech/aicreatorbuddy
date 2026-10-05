@@ -65,25 +65,55 @@ function QuotaBar({
     );
   }
   const percent = quotaPercent(integration.quota);
-  const barColor =
-    percent >= 90 ? "bg-accent" : percent >= 75 ? "bg-chart-amber" : "bg-success";
+  const remaining =
+    integration.quota.limit > 0
+      ? Math.max(0, integration.quota.limit - integration.quota.used)
+      : null;
+  const leftPercent =
+    integration.quota.limit > 0 && remaining != null
+      ? Math.min(100, (remaining / integration.quota.limit) * 100)
+      : 0;
+  const barPercent = isVidiq ? leftPercent : percent;
+  const barColor = isVidiq
+    ? leftPercent <= 10
+      ? "bg-accent"
+      : leftPercent <= 25
+        ? "bg-chart-amber"
+        : "bg-success"
+    : percent >= 90
+      ? "bg-accent"
+      : percent >= 75
+        ? "bg-chart-amber"
+        : "bg-success";
 
   return (
     <div className="rounded-xl border border-border bg-surface-soft p-4">
       <div className="flex items-center justify-between gap-3 text-sm">
         <p className="font-medium text-foreground">
-          {isVidiq ? "Credits remaining" : "Quota"}
+          {isVidiq ? "Credits" : "Quota"}
         </p>
-        <p className="text-muted">
-          {formatInt(integration.quota.used)} / {formatInt(integration.quota.limit)}{" "}
-          {integration.quota.unit}
+        <p className="text-right text-muted">
+          {isVidiq && remaining != null ? (
+            <>
+              {formatInt(remaining)} left
+              <span className="mt-0.5 block text-xs">
+                {formatInt(integration.quota.used)} used / {formatInt(integration.quota.limit)}{" "}
+                {integration.quota.unit}
+              </span>
+            </>
+          ) : (
+            <>
+              {formatInt(integration.quota.used)} / {formatInt(integration.quota.limit)}{" "}
+              {integration.quota.unit}
+            </>
+          )}
         </p>
       </div>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-background">
-        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${percent}%` }} />
+        <div className={`h-full rounded-full ${barColor}`} style={{ width: `${barPercent}%` }} />
       </div>
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted">
-        <span>{isVidiq ? `${percent.toFixed(0)}% available` : `${percent.toFixed(0)}% of ${integration.quota.window.toLowerCase()} window`}</span>
+        <span>{isVidiq ? `${leftPercent.toFixed(0)}% left` : `${percent.toFixed(0)}% of ${integration.quota.window.toLowerCase()} window`}</span>
         <span>Resets {integration.quota.resetsOn}</span>
       </div>
     </div>

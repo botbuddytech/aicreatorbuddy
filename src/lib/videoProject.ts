@@ -202,6 +202,11 @@ export type VidIqTitleInsight = {
   predictedCtr: number;
 };
 
+export type VidIqThumbFinding = {
+  message: string;
+  tip?: string;
+};
+
 export type VidIqThumbInsight = {
   ctr: number;
   grade: VidIqGrade;
@@ -209,6 +214,10 @@ export type VidIqThumbInsight = {
   textDensity: "Low" | "Medium" | "High";
   facePresent: boolean;
   notes: string;
+  /** Real vidIQ thumbnail score, 0–100. Absent on older mock insights. */
+  score?: number;
+  strengths?: VidIqThumbFinding[];
+  improvements?: VidIqThumbFinding[];
 };
 
 export type VidIqScriptInsight = {

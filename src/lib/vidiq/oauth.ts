@@ -3,6 +3,7 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { decrypt, encrypt } from "@/lib/crypto";
+import { readCursorVidiqBearer } from "@/lib/vidiq/cursorMcpAuth";
 
 export const VIDIQ_MCP_URL = "https://mcp.vidiq.com/mcp";
 export const VIDIQ_OAUTH_COOKIE = "vidiq_oauth";
@@ -200,6 +201,12 @@ export async function getVidiqAccessToken(
     where: { userId_provider: { userId, provider: "VIDIQ" } },
   });
   if (!connection?.accessTokenEnc) {
+    const cursorToken = readCursorVidiqBearer();
+    const paused = connection?.status === "CONNECTED" && !connection.enabled;
+    if (cursorToken && connection && (!paused || options.allowDisabled)) {
+      return { integrationId: connection.id, accessToken: cursorToken };
+    }
+    if (paused) throw new VidiqAuthError("disabled", "Enable the vidIQ integration first.");
     throw new VidiqAuthError("not-connected", "Connect your vidIQ account first.");
   }
   if (!connection.enabled && !options.allowDisabled) {

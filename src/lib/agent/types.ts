@@ -1,9 +1,12 @@
 import type {
+  LowEffortFinding,
+  LowEffortVerdict,
   Scene,
   ScriptScore,
   StepId,
   StepStatus,
   ThumbnailOption,
+  VidIqThumbInsight,
   TitleOption,
   VideoFormat,
   VideoSummary,
@@ -27,8 +30,11 @@ export type ToolName =
   | "applyTitle"
   | "generateScript"
   | "scoreScript"
+  | "checkScriptLowEffort"
   | "editScript"
   | "generateThumbnailPrompt"
+  | "generateThumbnailImages"
+  | "scoreThumbnails"
   | "generateVisualPrompts"
   | "updateTimeline"
   | "writeDescription"
@@ -73,7 +79,16 @@ export type ChangePayload =
   | { type: "titleScores"; scores: { id: string; score: number; rank: number }[] }
   | { type: "script"; script: string; cursorPrompt?: string | null; generated?: boolean }
   | { type: "scriptScore"; score: ScriptScore }
+  | {
+      type: "scriptLowEffort";
+      summary: string;
+      score: number;
+      verdict: LowEffortVerdict;
+      findings: LowEffortFinding[];
+    }
   | { type: "thumbnailPrompts"; concepts: string[]; cursorPrompt: string | null }
+  | { type: "thumbnailImages"; images: { id: string; url: string }[] }
+  | { type: "thumbnailScores"; insights: Record<string, VidIqThumbInsight> }
   | { type: "visualPrompts"; prompts: { id: string; prompt: string }[] }
   | { type: "thumbnail"; concept: string }
   | { type: "timeline"; scenes: { sectionLabel: string; finalScript: string }[] }
@@ -176,6 +191,7 @@ export type AgentContextPayload = {
   projectId: string;
   selectedTitle: string;
   titleOptions: { id: string; text: string }[];
+  thumbnails: { id: string; concept: string; imageUrl?: string }[];
   scenes: { id: string; section: string; script: string; durationSeconds: number; order: number; existingPrompt: string }[];
   references: { url: string; title: string; transcript: string; hasTranscript: boolean }[];
 };

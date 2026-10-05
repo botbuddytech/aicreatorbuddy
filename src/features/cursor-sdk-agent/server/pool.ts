@@ -47,6 +47,7 @@ type Held = {
   agent: SDKAgent;
   mode: AgentMode;
   proposals: Map<string, ProjectChange>;
+  blockers: Map<string, string>;
   context: AgentContextPayload;
   userId: string;
 };
@@ -96,7 +97,7 @@ function promptFor(request: LocalChatRequest): string {
     .join("\n\n");
   const lines = [
     "You help create one YouTube video inside AI Creator Buddy.",
-    "When the user wants a change, call a project tool. For every generation or score that can use Cursor or another provider, always use Cursor. Do not invent titles, scores, scripts, thumbnail prompts, or visual prompts. Pass provider only when the user explicitly names chatgpt, gemini, or vidiq. Use setProjectName for the workspace name, not the YouTube title. Call generateTitles to generate titles. Call scoreTitles to score titles. Call scoreScript to score a script. Call generateScript, generateThumbnailPrompt, and generateVisualPrompts for those steps. Call addReference once per YouTube link. Call fetchReferenceTranscript once per reference video that has no transcript. Use setApproxLength to change the approximate length, passing seconds. Do not edit files or run commands.",
+    "When the user wants a change, call a project tool. For every generation or score that can use Cursor or another provider, always use Cursor. Do not invent titles, scores, scripts, thumbnail prompts, or visual prompts. Pass provider only when the user explicitly names chatgpt, gemini, or vidiq. Use setProjectName for the workspace name, not the YouTube title. Call generateTitles to generate titles. Call scoreTitles to score titles. Call scoreScript to score a script. When the user asks to generate or write the script, call generateScript once and do not draft the script in the chat. If a tool says an earlier step is missing, stop and let that message stand. Do not invent the missing title, script, thumbnail, or scenes. When the user asks whether the script is low-effort, repetitive, or thin, call checkScriptLowEffort once. vidIQ does not provide that check. Call generateThumbnailPrompt and generateVisualPrompts for those steps. When the user wants thumbnail images, call generateThumbnailImages once. It creates a vidIQ image for every current thumbnail prompt. Do not invent image URLs. When the user wants thumbnail scores or analysis, call scoreThumbnails once. It scores every thumbnail image with vidIQ. Do not invent scores. Call addReference once per YouTube link. Call fetchReferenceTranscript once per reference video that has no transcript. Use setApproxLength to change the approximate length, passing seconds. Do not edit files or run commands.",
     "",
   ];
   if (!skipped.has("channel")) lines.push(`Channel: ${clip(context.channel, 200) || "unknown"}`);
@@ -121,6 +122,11 @@ function promptFor(request: LocalChatRequest): string {
     `Script: ${clip(context.script, 8000) || "empty"}`,
     `Description: ${clip(context.description, 2000) || "empty"}`,
     `Thumbnail: ${clip(context.thumbnail, 2000) || "empty"}`,
+    `Thumbnail prompts: ${
+      context.thumbnails.length
+        ? context.thumbnails.map((item, index) => `${index + 1}. ${clip(item.concept, 300)}`).join(" | ")
+        : "none"
+    }`,
     `Timeline: ${clip(context.timeline, 4000) || "empty"}`,
     `Mentions: ${mentions}`,
   );
@@ -156,6 +162,7 @@ async function acquire(request: LocalChatRequest, key: string, model: ModelSelec
     agent: undefined as unknown as SDKAgent,
     mode: request.mode,
     proposals: new Map(),
+    blockers: new Map(),
     context: request.context,
     userId: request.userId,
   };
@@ -214,6 +221,7 @@ export async function streamLocalChat(request: LocalChatRequest): Promise<void> 
   const model = await resolveModel(key);
   const held = await acquire(request, key, model);
   held.proposals = new Map();
+  held.blockers = new Map();
   held.context = request.context;
   held.userId = request.userId;
   request.onEvent("session", { sdkAgentId: held.agent.agentId });
@@ -236,6 +244,7 @@ export async function streamLocalChat(request: LocalChatRequest): Promise<void> 
 
   let sent = "";
   const emittedChanges = new Set<string>();
+  const shownBlockers = new Set<string>();
   try {
     for await (const event of run.stream()) {
       if (request.signal.aborted) break;
@@ -252,6 +261,13 @@ export async function streamLocalChat(request: LocalChatRequest): Promise<void> 
       if (event.type !== "tool_call" || request.mode !== "agent") continue;
       const tool = toolState(event);
       if (tool) request.onEvent("tool", { tool });
+      const blocker = held.blockers.get(event.call_id);
+      if (blocker && (event.status === "completed" || event.status === "error") && !shownBlockers.has(event.call_id)) {
+        shownBlockers.add(event.call_id);
+        const text = `${sent && !sent.endsWith("\n") ? "\n\n" : ""}${blocker}`;
+        sent += text;
+        request.onEvent("token", { text });
+      }
       if (event.status !== "completed" || emittedChanges.has(event.call_id)) continue;
       const call = unwrapMcpTool(event.name, event.args);
       const change =

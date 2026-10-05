@@ -9,6 +9,42 @@ const SIZES = {
   xl: "max-w-4xl",
 } as const;
 
+let scrollLocks = 0;
+let savedScroll: {
+  bodyOverflow: string;
+  htmlOverflow: string;
+  bodyOverscroll: string;
+  htmlOverscroll: string;
+} | null = null;
+
+function lockPageScroll() {
+  const html = document.documentElement;
+  if (scrollLocks === 0) {
+    savedScroll = {
+      bodyOverflow: document.body.style.overflow,
+      htmlOverflow: html.style.overflow,
+      bodyOverscroll: document.body.style.overscrollBehavior,
+      htmlOverscroll: html.style.overscrollBehavior,
+    };
+    document.body.style.overflow = "hidden";
+    html.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    html.style.overscrollBehavior = "none";
+  }
+  scrollLocks += 1;
+}
+
+function unlockPageScroll() {
+  scrollLocks = Math.max(0, scrollLocks - 1);
+  if (scrollLocks > 0 || !savedScroll) return;
+  const html = document.documentElement;
+  document.body.style.overflow = savedScroll.bodyOverflow;
+  html.style.overflow = savedScroll.htmlOverflow;
+  document.body.style.overscrollBehavior = savedScroll.bodyOverscroll;
+  html.style.overscrollBehavior = savedScroll.htmlOverscroll;
+  savedScroll = null;
+}
+
 type ModalSize = keyof typeof SIZES;
 
 type ModalProps = {
@@ -45,15 +81,7 @@ export function Modal({
     previousFocus.current = document.activeElement as HTMLElement | null;
     dialogRef.current?.focus();
 
-    const html = document.documentElement;
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousHtmlOverflow = html.style.overflow;
-    const previousBodyOverscroll = document.body.style.overscrollBehavior;
-    const previousHtmlOverscroll = html.style.overscrollBehavior;
-    document.body.style.overflow = "hidden";
-    html.style.overflow = "hidden";
-    document.body.style.overscrollBehavior = "none";
-    html.style.overscrollBehavior = "none";
+    lockPageScroll();
 
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
@@ -91,10 +119,7 @@ export function Modal({
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("wheel", preventBackgroundScroll);
       document.removeEventListener("touchmove", preventBackgroundScroll);
-      document.body.style.overflow = previousBodyOverflow;
-      html.style.overflow = previousHtmlOverflow;
-      document.body.style.overscrollBehavior = previousBodyOverscroll;
-      html.style.overscrollBehavior = previousHtmlOverscroll;
+      unlockPageScroll();
       previousFocus.current?.focus();
     };
   }, [open]);

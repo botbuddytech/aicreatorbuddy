@@ -6,6 +6,7 @@ import type { StepId } from "@/lib/videoProject";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 const NO_STORE_HEADERS = { "cache-control": "no-store" };
 const STEPS = new Set<StepId>([
@@ -62,6 +63,7 @@ function contextFrom(value: unknown): AgentContextPayload {
     projectId: text(source.projectId, 80),
     selectedTitle: text(source.selectedTitle, 500),
     titleOptions: titleOptionsFrom(source.titleOptions),
+    thumbnails: thumbnailPromptsFrom(source.thumbnails),
     scenes: scenesFrom(source.scenes),
     references: referenceList(source.references),
   };
@@ -80,6 +82,26 @@ function titleOptionsFrom(value: unknown): AgentContextPayload["titleOptions"] {
     if (titles.length >= 20) break;
   }
   return titles;
+}
+
+function thumbnailPromptsFrom(value: unknown): AgentContextPayload["thumbnails"] {
+  if (!Array.isArray(value)) return [];
+  const prompts: AgentContextPayload["thumbnails"] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") continue;
+    const record = item as Record<string, unknown>;
+    const id = text(record.id, 80);
+    const concept = text(record.concept, 2000);
+    const imageUrl = text(record.imageUrl, 2000);
+    if (!id || !concept) continue;
+    prompts.push({
+      id,
+      concept,
+      ...(imageUrl.startsWith("https://") ? { imageUrl } : {}),
+    });
+    if (prompts.length >= 8) break;
+  }
+  return prompts;
 }
 
 function scenesFrom(value: unknown): AgentContextPayload["scenes"] {

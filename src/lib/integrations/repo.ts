@@ -4,6 +4,8 @@ import type {
 } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
 import { getElevenLabsSnapshot, type ElevenLabsSnapshot } from "@/features/elevenlabs/account";
+import { callVidiqTool } from "@/lib/vidiq/client";
+import { readCursorVidiqBearer } from "@/lib/vidiq/cursorMcpAuth";
 import {
   INTEGRATION_CATALOG,
   type IntegrationId,
@@ -212,10 +214,36 @@ export async function ensureUserIntegrationRows(userId: string): Promise<void> {
   });
 }
 
+async function refreshVidiqCredits(userId: string): Promise<void> {
+  const row = await prisma.userIntegration.findUnique({
+    where: { userId_provider: { userId, provider: "VIDIQ" } },
+  });
+  if (!row) return;
+  const paused = row.status === "CONNECTED" && !row.enabled;
+  if (paused) return;
+  const cursorConnected = !row.accessTokenEnc && Boolean(readCursorVidiqBearer());
+  if (!row.accessTokenEnc && !cursorConnected) return;
+  if (!row.enabled) {
+    await prisma.userIntegration.update({
+      where: { id: row.id },
+      data: {
+        enabled: true,
+        accountLabel: row.accountLabel ?? "Cursor vidIQ MCP",
+      },
+    });
+  }
+  try {
+    await callVidiqTool(userId, "vidiq_balance", {}, { allowDisabled: true });
+  } catch (error) {
+    console.error("[vidiq] credit sync failed", error);
+  }
+}
+
 export async function listUserIntegrations(
   userId: string,
 ): Promise<UserIntegrationState[]> {
   await ensureUserIntegrationRows(userId);
+  await refreshVidiqCredits(userId);
   const [rows, vidiqUsage, elevenLabs] = await Promise.all([
     prisma.userIntegration.findMany({ where: { userId } }),
     getVidiqUsage(userId),
