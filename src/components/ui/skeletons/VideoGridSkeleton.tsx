@@ -32,24 +32,22 @@ function VideoCardSkeleton() {
 
 function ProjectCardSkeleton() {
   return (
-    <div className="flex flex-col rounded-2xl border border-border bg-surface p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <Skeleton className="h-5 w-3/4" />
-          <Skeleton className="mt-2 h-3.5 w-1/2" />
+    <article className="overflow-hidden rounded-2xl border border-border bg-surface">
+      <Skeleton className="aspect-video w-full rounded-none" />
+      <div className="space-y-3 p-4">
+        <Skeleton className="h-5 w-3/4" />
+        <Skeleton className="h-3.5 w-1/2" />
+        <div className="flex gap-1.5">
+          <Skeleton className="h-5 w-20 rounded-full" />
+          <Skeleton className="h-5 w-16 rounded-full" />
         </div>
-        <Skeleton className="h-6 w-16 rounded-full" />
+        <Skeleton className="h-1.5 w-full rounded-full" />
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-20" />
+          <Skeleton className="h-9 w-24" />
+        </div>
       </div>
-      <Skeleton className="mt-5 h-1.5 w-full rounded-full" />
-      <div className="mt-3 flex gap-1.5">
-        <Skeleton className="h-6 w-20 rounded-full" />
-        <Skeleton className="h-6 w-16 rounded-full" />
-      </div>
-      <div className="mt-4 flex gap-2">
-        <Skeleton className="h-9 w-20" />
-        <Skeleton className="h-9 w-24" />
-      </div>
-    </div>
+    </article>
   );
 }
 

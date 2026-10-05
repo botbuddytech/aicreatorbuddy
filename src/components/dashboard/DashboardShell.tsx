@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { DashboardTopNav } from "@/components/dashboard/DashboardTopNav";
-import type { ActiveChannelBadge } from "@/lib/youtube/activeChannel";
+import type { DashboardChannelNav } from "@/lib/youtube/activeChannel";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { DashboardUiContext } from "@/components/dashboard/dashboardUi";
 import { RouteFade } from "@/components/ui/RouteFade";
@@ -11,10 +11,10 @@ import { SidebarSkeleton } from "@/components/ui/skeletons/SidebarSkeleton";
 
 export function DashboardShell({
   children,
-  activeChannel,
+  channelNav,
 }: {
   children: ReactNode;
-  activeChannel: ActiveChannelBadge | null;
+  channelNav: DashboardChannelNav;
 }) {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -55,7 +55,7 @@ export function DashboardShell({
           <Sidebar />
         </Suspense>
         <div className="min-w-0 flex-1 overflow-x-hidden">
-          <DashboardTopNav activeChannel={activeChannel} />
+          <DashboardTopNav channelNav={channelNav} />
           <RouteFade>{children}</RouteFade>
         </div>
       </div>

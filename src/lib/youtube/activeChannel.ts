@@ -7,6 +7,18 @@ export type ActiveChannelBadge = {
   thumbnailUrl: string | null;
 };
 
+export type NavChannel = {
+  id: string;
+  title: string;
+  thumbnailUrl: string | null;
+  customUrl: string | null;
+};
+
+export type DashboardChannelNav = {
+  activeChannelId: string | null;
+  channels: NavChannel[];
+};
+
 /**
  * The channel new videos are created for.
  * A saved id the user can no longer access is cleared so they can choose again.
@@ -45,9 +57,22 @@ export async function resolveActiveChannelId(
 export async function getActiveChannelBadge(
   user: SessionUser,
 ): Promise<ActiveChannelBadge | null> {
-  const channels = await listChannels(user);
-  const activeChannelId = await resolveActiveChannelId(user, channels);
-  const channel = channels.find((item) => item.id === activeChannelId);
+  const nav = await getDashboardChannelNav(user);
+  const channel = nav.channels.find((item) => item.id === nav.activeChannelId);
   if (!channel) return null;
   return { title: channel.title, thumbnailUrl: channel.thumbnailUrl };
+}
+
+export async function getDashboardChannelNav(user: SessionUser): Promise<DashboardChannelNav> {
+  const channels = await listChannels(user);
+  const activeChannelId = await resolveActiveChannelId(user, channels);
+  return {
+    activeChannelId,
+    channels: channels.map((channel) => ({
+      id: channel.id,
+      title: channel.title,
+      thumbnailUrl: channel.thumbnailUrl,
+      customUrl: channel.customUrl,
+    })),
+  };
 }

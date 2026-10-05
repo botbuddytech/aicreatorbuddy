@@ -6,8 +6,8 @@ import { requireUser } from "@/lib/auth/session";
 import { AuthSessionProvider } from "@/components/auth/AuthSessionProvider";
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import {
-  getActiveChannelBadge,
-  type ActiveChannelBadge,
+  getDashboardChannelNav,
+  type DashboardChannelNav,
 } from "@/lib/youtube/activeChannel";
 
 export const metadata: Metadata = {
@@ -21,16 +21,16 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     redirect("/login");
   }
 
-  let activeChannel: ActiveChannelBadge | null = null;
+  let channelNav: DashboardChannelNav = { activeChannelId: null, channels: [] };
   try {
-    activeChannel = await getActiveChannelBadge(await requireUser());
+    channelNav = await getDashboardChannelNav(await requireUser());
   } catch (err) {
     console.error("[dashboard] failed to load selected channel", err);
   }
 
   return (
     <AuthSessionProvider session={session}>
-      <DashboardShell activeChannel={activeChannel}>{children}</DashboardShell>
+      <DashboardShell channelNav={channelNav}>{children}</DashboardShell>
     </AuthSessionProvider>
   );
 }
