@@ -18,6 +18,8 @@ export type IntegrationCatalogItem = {
   authKind: IntegrationAuthKind;
   keyPrefix?: string;
   connectUrl?: string;
+  /** One server environment key is shared by every account. */
+  sharedEnv?: boolean;
 };
 
 export const INTEGRATION_CATALOG: readonly IntegrationCatalogItem[] = [
@@ -35,7 +37,7 @@ export const INTEGRATION_CATALOG: readonly IntegrationCatalogItem[] = [
   },
   { id: "chatgpt", provider: "CHATGPT", authKind: "API_KEY", keyPrefix: "sk-" },
   { id: "gemini", provider: "GEMINI", authKind: "API_KEY", keyPrefix: "AIza" },
-  { id: "elevenlabs", provider: "ELEVENLABS", authKind: "API_KEY" },
+  { id: "elevenlabs", provider: "ELEVENLABS", authKind: "API_KEY", sharedEnv: true },
   { id: "seedance", provider: "SEEDANCE", authKind: "API_KEY" },
   { id: "remotion", provider: "REMOTION", authKind: "NONE" },
 ] as const;

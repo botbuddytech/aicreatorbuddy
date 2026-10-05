@@ -55,7 +55,7 @@ export function OptionCard({
         {onEdit ? (
           <ActionButton
             size="sm"
-            variant="ghost"
+            variant="secondary"
             onClick={() => {
               setDraft(editSeed);
               setEditing((value) => !value);

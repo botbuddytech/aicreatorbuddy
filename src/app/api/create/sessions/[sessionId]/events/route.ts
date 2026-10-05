@@ -7,6 +7,7 @@ import {
   isDeletedVideoSessionError,
 } from "@/lib/session/deletion";
 import { jsonValue, safeDate, toCreateStep } from "@/lib/session/server";
+import { withWriteRetry } from "@/lib/session/writeRetry";
 
 type RouteContext = { params: Promise<{ sessionId: string }> };
 
@@ -90,7 +91,7 @@ export async function POST(request: Request, { params }: RouteContext) {
     const fresh = events.filter((item) => !knownIds.has(item.clientEventId));
     if (!fresh.length) return Response.json({ ok: true, accepted: 0 });
 
-    await prisma.$transaction(async (tx) => {
+    await withWriteRetry(() => prisma.$transaction(async (tx) => {
       await tx.videoSessionEvent.createMany({
         data: fresh.map((item) => ({
           sessionId,
@@ -155,6 +156,23 @@ export async function POST(request: Request, { params }: RouteContext) {
             create: { sessionId, step, apiCallCount: 1 },
             update: { apiCallCount: { increment: 1 } },
           });
+          const clientCallId = text(item.payload, "clientCallId");
+          if (clientCallId) {
+            await tx.videoSessionApiCall.upsert({
+              where: { clientCallId },
+              create: {
+                sessionId,
+                step,
+                tool: text(item.payload, "provider") ?? "unknown",
+                kind: text(item.payload, "kind") ?? "call",
+                estimatedUsd: number(item.payload, "estimatedUsd") ?? 0,
+                ok: true,
+                at: safeDate(item.at),
+                clientCallId,
+              },
+              update: {},
+            });
+          }
         }
         if (item.type === "asset.clip_added") {
           const localClipId = text(item.payload, "localClipId");
@@ -219,7 +237,7 @@ export async function POST(request: Request, { params }: RouteContext) {
         ...(deleted ? { deletedAt: new Date(), status: "ABANDONED" as const } : {}),
       };
       await tx.videoSession.update({ where: { id: sessionId }, data: update });
-    });
+    }));
 
     return Response.json({ ok: true, accepted: fresh.length });
   } catch (error) {

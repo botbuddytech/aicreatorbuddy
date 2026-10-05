@@ -9,6 +9,7 @@ import type {
   MentionId,
 } from "@/lib/agent/types";
 import { MENTIONS } from "@/lib/agent/types";
+import { readProjectStore } from "@/lib/useVideoProjectDraft";
 import { newId } from "@/lib/videoProject";
 
 export const AGENT_PANEL_MIN = 340;
@@ -69,19 +70,81 @@ function sanitizeThread(value: unknown): AgentThread | null {
       ? source.dismissedChips.filter((item): item is string => typeof item === "string")
       : [],
     mentions,
+    sdkAgentId:
+      typeof source.sdkAgentId === "string" && /^agent-[A-Za-z0-9-]{8,80}$/.test(source.sdkAgentId)
+        ? source.sdkAgentId
+        : undefined,
   };
 }
 
-function loadThreads(videoId: string): AgentThread[] {
+const HANDOFF_KEY = "acb_agent_handoff";
+
+function threadKey(videoId: string): string {
+  return `${THREADS_KEY}_${videoId}`;
+}
+
+function parseStoredThreads(raw: string | null): { threads: AgentThread[]; activeThreadId: string | null } | null {
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(`${THREADS_KEY}_${videoId}`);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as { version?: number; threads?: unknown };
-    if (parsed.version !== 1 || !Array.isArray(parsed.threads)) return [];
-    return parsed.threads.map(sanitizeThread).filter((thread): thread is AgentThread => !!thread);
+    const parsed = JSON.parse(raw) as { version?: number; threads?: unknown; activeThreadId?: unknown };
+    if (parsed.version !== 1 || !Array.isArray(parsed.threads)) return null;
+    const threads = parsed.threads.map(sanitizeThread).filter((thread): thread is AgentThread => !!thread);
+    const requested = typeof parsed.activeThreadId === "string" ? parsed.activeThreadId : null;
+    const activeThreadId = threads.some((thread) => thread.id === requested)
+      ? requested
+      : (threads[0]?.id ?? null);
+    return { threads, activeThreadId };
   } catch {
-    return [];
+    return null;
   }
+}
+
+function writeStoredThreads(videoId: string, threads: AgentThread[], activeThreadId: string | null) {
+  localStorage.setItem(
+    threadKey(videoId),
+    JSON.stringify({ version: 1, threads: threads.slice(0, 30), activeThreadId }),
+  );
+}
+
+function hasConversation(threads: AgentThread[]): boolean {
+  return threads.some(
+    (thread) =>
+      thread.messages.some((message) => message.content.trim()) ||
+      thread.messages.some((message) => (message.changes?.length ?? 0) > 0),
+  );
+}
+
+function newestProjectId(): string | null {
+  try {
+    const projects = readProjectStore().projects;
+    return [...projects].sort((a, b) => b.lastUpdated.localeCompare(a.lastUpdated))[0]?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function loadThreads(videoId: string): { threads: AgentThread[]; activeThreadId: string | null } {
+  if (typeof window === "undefined") return { threads: [], activeThreadId: null };
+  const own = parseStoredThreads(localStorage.getItem(threadKey(videoId)));
+  if (own && hasConversation(own.threads)) return own;
+  if (videoId === "create-index") return own ?? { threads: [], activeThreadId: null };
+  const source = parseStoredThreads(localStorage.getItem(threadKey("create-index")));
+  if (!source || !hasConversation(source.threads)) return own ?? { threads: [], activeThreadId: null };
+  const handoff = localStorage.getItem(HANDOFF_KEY);
+  if (handoff !== videoId && newestProjectId() !== videoId) {
+    return own ?? { threads: [], activeThreadId: null };
+  }
+  writeStoredThreads(videoId, source.threads, source.activeThreadId);
+  if (handoff === videoId) localStorage.removeItem(HANDOFF_KEY);
+  return source;
+}
+
+/** Keep the current conversation when a list-page chat creates a video. */
+export function carryAgentChatsTo(videoId: string) {
+  if (typeof window === "undefined") return;
+  const state = useAgentStore.getState();
+  writeStoredThreads(videoId, state.threads, state.activeThreadId);
+  localStorage.setItem(HANDOFF_KEY, videoId);
 }
 
 let runController: AbortController | null = null;
@@ -152,7 +215,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   width: AGENT_PANEL_DEFAULT,
   mode: "agent",
   modelId: "cursor-cli",
-  autoApply: false,
+  autoApply: true,
   prefsLoaded: false,
   videoId: null,
   threads: [],
@@ -175,7 +238,8 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     let width = AGENT_PANEL_DEFAULT;
     let mode: AgentMode = "agent";
     let modelId = "cursor-cli";
-    let autoApply = false;
+    let autoApply = true;
+    let panelOpen = false;
     try {
       const storedWidth = Number(localStorage.getItem(WIDTH_KEY));
       if (Number.isFinite(storedWidth)) width = clampPanelWidth(storedWidth);
@@ -185,6 +249,8 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
           mode?: unknown;
           modelId?: unknown;
           autoApply?: unknown;
+          fullAccess?: unknown;
+          panelOpen?: unknown;
         };
         if (parsed.mode === "ask" || parsed.mode === "agent") mode = parsed.mode;
         if (typeof parsed.modelId === "string" && parsed.modelId.trim()) {
@@ -193,22 +259,23 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
               ? "cursor-cli"
               : parsed.modelId;
         }
-        if (parsed.autoApply === true) autoApply = true;
+        if (parsed.fullAccess === false) autoApply = false;
+        if (parsed.panelOpen === true) panelOpen = true;
       }
     } catch {
       /* ignore broken prefs */
     }
-    set({ prefsLoaded: true, width, mode, modelId, autoApply });
+    set({ prefsLoaded: true, width, mode, modelId, autoApply, panelOpen });
   },
   bindVideo: (videoId) => {
     if (get().hydratedVideoId === videoId) return;
-    const loaded = typeof window === "undefined" ? [] : loadThreads(videoId);
-    const threads = loaded.length > 0 ? loaded : [emptyThread()];
+    const loaded = loadThreads(videoId);
+    const threads = loaded.threads.length > 0 ? loaded.threads : [emptyThread()];
     set({
       videoId,
       hydratedVideoId: videoId,
       threads,
-      activeThreadId: threads[0]?.id ?? null,
+      activeThreadId: loaded.activeThreadId ?? threads[0]?.id ?? null,
       streamingStatus: "idle",
       streamingMessageId: null,
       streamingText: "",
@@ -324,18 +391,25 @@ if (typeof window !== "undefined") {
       if (
         state.mode !== before.mode ||
         state.modelId !== before.modelId ||
-        state.autoApply !== before.autoApply
+        state.autoApply !== before.autoApply ||
+        state.panelOpen !== before.panelOpen
       ) {
         localStorage.setItem(
           PREFS_KEY,
-          JSON.stringify({ mode: state.mode, modelId: state.modelId, autoApply: state.autoApply }),
+          JSON.stringify({
+            mode: state.mode,
+            modelId: state.modelId,
+            autoApply: state.autoApply,
+            fullAccess: state.autoApply,
+            panelOpen: state.panelOpen,
+          }),
         );
       }
-      if (state.videoId && state.threads !== before.threads) {
-        localStorage.setItem(
-          `${THREADS_KEY}_${state.videoId}`,
-          JSON.stringify({ version: 1, threads: state.threads.slice(0, 30) }),
-        );
+      if (
+        state.videoId &&
+        (state.threads !== before.threads || state.activeThreadId !== before.activeThreadId)
+      ) {
+        writeStoredThreads(state.videoId, state.threads, state.activeThreadId);
       }
     } catch {
       /* storage full or blocked */

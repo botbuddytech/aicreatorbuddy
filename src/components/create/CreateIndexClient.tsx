@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "nextjs-toploader/app";
+import { AgentLayout } from "@/components/agent/AgentLayout";
+import { AgentToggle } from "@/components/agent/AgentToggle";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Badge } from "@/components/ui/Badge";
@@ -109,6 +111,8 @@ export function CreateIndexClient({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const latest = [...projects].sort((a, b) => b.lastUpdated.localeCompare(a.lastUpdated))[0];
   const channelById = new Map(channels.map((channel) => [channel.id, channel.title]));
+  const activeChannelName =
+    (activeChannelId ? channelById.get(activeChannelId) : undefined) ?? "";
 
   function onNew() {
     const channelId =
@@ -136,10 +140,11 @@ export function CreateIndexClient({
   }
 
   return (
-    <>
+    <AgentLayout videoId="create-index" channelName={activeChannelName}>
       <Topbar
         title="Create Video"
         subtitle="AI pipeline drafts — generate, preview, and pick before you render"
+        actions={<AgentToggle />}
       />
       <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
         {hydrated && latest ? (
@@ -243,6 +248,6 @@ export function CreateIndexClient({
           </div>
         </div>
       </Modal>
-    </>
+    </AgentLayout>
   );
 }

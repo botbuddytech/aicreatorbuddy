@@ -2,6 +2,7 @@ import { requireUser } from "@/lib/auth/session";
 import {
   getEffectiveCursorPrompts,
   saveCursorPrompt,
+  saveCursorPromptDefault,
 } from "@/features/cursor-title-generator/repo";
 import {
   CURSOR_PROMPT_LIMIT,
@@ -14,6 +15,9 @@ const PROMPT_KINDS = new Set<CursorPromptKind>([
   "titleScoring",
   "scriptScoring",
   "scriptLowEffort",
+  "thumbnailPromptGeneration",
+  "scriptGeneration",
+  "visualPromptGeneration",
 ]);
 
 function json(body: Record<string, unknown>, status = 200) {
@@ -67,7 +71,7 @@ export async function PATCH(request: Request) {
       return json({ error: "Invalid request." }, 400);
     }
 
-    const value = body as { kind?: unknown; prompt?: unknown };
+    const value = body as { kind?: unknown; prompt?: unknown; saveAsDefault?: unknown };
     if (typeof value.kind !== "string" || !PROMPT_KINDS.has(value.kind as CursorPromptKind)) {
       return json({ error: "Invalid prompt type." }, 400);
     }
@@ -78,10 +82,13 @@ export async function PATCH(request: Request) {
     if (prompt !== null && (!prompt || prompt.length > CURSOR_PROMPT_LIMIT)) {
       return json({ error: "Prompt must be between 1 and 6,000 characters." }, 400);
     }
+    const kind = value.kind as CursorPromptKind;
+    if (value.saveAsDefault === true) {
+      if (!prompt) return json({ error: "Enter a prompt to save as default." }, 400);
+      return json(await saveCursorPromptDefault(user.id, kind, prompt));
+    }
 
-    return json(
-      await saveCursorPrompt(user.id, value.kind as CursorPromptKind, prompt),
-    );
+    return json(await saveCursorPrompt(user.id, kind, prompt));
   } catch (error) {
     if (unauthorized(error)) return json({ error: "Unauthorized." }, 401);
     console.error("[cursor-prompts] save failed", error);

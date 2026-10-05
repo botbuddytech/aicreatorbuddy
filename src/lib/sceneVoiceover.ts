@@ -43,13 +43,17 @@ export function startSceneVoiceover(
   scene: VoiceoverScene,
   options?: {
     offsetSeconds?: number;
+    /** Speak with the browser Listen voice. Do not play a saved or ElevenLabs file. */
+    browserVoice?: boolean;
     onEnded?: () => void;
     onError?: (message: string) => void;
   },
 ): ActiveVoice | null {
   const offset = Math.max(0, options?.offsetSeconds ?? 0);
   const audioUrl =
-    scene.voiceover.status === "ready" ? scene.voiceover.audioUrl : null;
+    options?.browserVoice || scene.voiceover.status !== "ready"
+      ? null
+      : scene.voiceover.audioUrl;
   const volume = Math.max(0, Math.min(1, (scene.editing?.volume ?? 100) / 100));
 
   if (audioUrl) {
@@ -117,13 +121,27 @@ export function startSceneVoiceover(
   utterance.onend = () => {
     if (!stopped) options?.onEnded?.();
   };
-  utterance.onerror = () => {
-    if (!stopped) options?.onEnded?.();
+  utterance.onerror = (event) => {
+    if (stopped) return;
+    const reason = event.error;
+    if (reason === "interrupted" || reason === "canceled") return;
+    options?.onError?.(
+      reason === "not-allowed"
+        ? "The browser blocked the voice. Click Play voice to hear this scene."
+        : "Could not speak this scene's script.",
+    );
   };
-  // Slight delay so a prior cancel doesn't swallow this utterance.
-  const timer = window.setTimeout(() => {
-    if (!stopped) window.speechSynthesis.speak(utterance);
-  }, 40);
+  const speak = () => {
+    if (stopped) return;
+    // Chrome leaves the synth paused, which queues speech that never plays.
+    window.speechSynthesis.resume();
+    window.speechSynthesis.speak(utterance);
+  };
+  // A cancel in the same turn swallows the next utterance, so wait a beat
+  // only when something was already speaking.
+  const timer = window.speechSynthesis.speaking
+    ? window.setTimeout(speak, 40)
+    : window.setTimeout(speak, 0);
 
   return {
     sceneId: scene.id,
@@ -145,6 +163,9 @@ type SyncOptions = {
    * even when the scene id did not change.
    */
   syncKey?: number;
+  /** Preview uses the built-in Listen voice, not a generated audio file. */
+  browserVoice?: boolean;
+  onError?: (message: string) => void;
 };
 
 /**
@@ -157,12 +178,16 @@ export function useSyncedSceneVoiceover({
   enabled,
   sceneLocalSeconds = 0,
   syncKey = 0,
+  browserVoice = false,
+  onError,
 }: SyncOptions) {
   const activeRef = useRef<ActiveVoice | null>(null);
   const sceneRef = useRef(scene);
   sceneRef.current = scene;
   const offsetRef = useRef(sceneLocalSeconds);
   offsetRef.current = sceneLocalSeconds;
+  const onErrorRef = useRef(onError);
+  onErrorRef.current = onError;
 
   const sceneId = scene?.id ?? null;
   const scriptKey = scene
@@ -178,6 +203,8 @@ export function useSyncedSceneVoiceover({
 
     const handle = startSceneVoiceover(current, {
       offsetSeconds: offsetRef.current,
+      browserVoice,
+      onError: (message) => onErrorRef.current?.(message),
     });
     if (!handle) return;
     activeRef.current = handle;
@@ -188,7 +215,7 @@ export function useSyncedSceneVoiceover({
     };
     // offset is sampled when syncKey / scene / play state changes — not every frame.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sceneId, scriptKey, playing, enabled, syncKey]);
+  }, [sceneId, scriptKey, playing, enabled, syncKey, browserVoice]);
 
   useEffect(
     () => () => {

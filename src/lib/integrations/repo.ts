@@ -3,6 +3,7 @@ import type {
   IntegrationProvider,
 } from "@/generated/prisma/enums";
 import { prisma } from "@/lib/db";
+import { getElevenLabsSnapshot, type ElevenLabsSnapshot } from "@/features/elevenlabs/account";
 import {
   INTEGRATION_CATALOG,
   type IntegrationId,
@@ -15,6 +16,7 @@ export type UserIntegrationState = {
   authKind: "OAUTH" | "API_KEY" | "NONE";
   connectUrl: string | null;
   keyPrefix: string | null;
+  sharedEnv: boolean;
   status: IntegrationConnectionStatus;
   enabled: boolean;
   maskedCredential: string | null;
@@ -24,6 +26,7 @@ export type UserIntegrationState = {
   quotaLimit: number | null;
   quotaUnit: string | null;
   quotaResetsAt: string | null;
+  quotaNote: string | null;
   lastUsedAt: string | null;
   connectedAt: string | null;
   lastErrorMessage: string | null;
@@ -57,6 +60,7 @@ export type UserIntegrationState = {
       channel: string;
       step: string;
     }>;
+    daily: Array<{ date: string; calls: number; spendUsd: number }>;
   } | null;
 };
 
@@ -156,6 +160,7 @@ async function getVidiqUsage(userId: string): Promise<NonNullable<UserIntegratio
       errorRate:
         Math.round((calls.filter((call) => !call.ok).length / calls.length) * 1000) / 10,
     })),
+    daily: [],
     recentCalls: rows.slice(0, 50).map((row) => ({
       id: row.id,
       time: row.at.toLocaleString(),
@@ -211,16 +216,21 @@ export async function listUserIntegrations(
   userId: string,
 ): Promise<UserIntegrationState[]> {
   await ensureUserIntegrationRows(userId);
-  const [rows, vidiqUsage] = await Promise.all([
+  const [rows, vidiqUsage, elevenLabs] = await Promise.all([
     prisma.userIntegration.findMany({ where: { userId } }),
     getVidiqUsage(userId),
+    getElevenLabsSnapshot(),
   ]);
   const byProvider = new Map(rows.map((row) => [row.provider, row]));
 
-  return INTEGRATION_CATALOG.map((item) => {
+  return Promise.all(INTEGRATION_CATALOG.map(async (item) => {
     const row = byProvider.get(item.provider);
     if (!row) throw new Error(`Missing integration row for ${item.provider}`);
     const prefix = item.keyPrefix ?? "";
+    const elevenLabsState =
+      item.provider === "ELEVENLABS" ? await connectSharedElevenLabs(row, elevenLabs) : null;
+    const status = elevenLabsState?.status ?? row.status;
+    const enabled = elevenLabsState?.enabled ?? row.enabled;
     return {
       id: row.id,
       integrationId: item.id,
@@ -228,24 +238,111 @@ export async function listUserIntegrations(
       authKind: item.authKind,
       connectUrl: item.connectUrl ?? null,
       keyPrefix: item.keyPrefix ?? null,
-      status: row.status,
-      enabled: row.enabled,
+      sharedEnv: item.sharedEnv ?? false,
+      status,
+      enabled,
       maskedCredential: row.apiKeyLast4
         ? `${prefix}${"•".repeat(12)}${row.apiKeyLast4}`
         : null,
-      accountLabel: row.accountLabel,
-      plan: row.plan,
-      quotaUsed: row.quotaUsed,
-      quotaLimit: row.quotaLimit,
-      quotaUnit: row.quotaUnit,
-      quotaResetsAt: row.quotaResetsAt?.toISOString() ?? null,
-      lastUsedAt: row.lastUsedAt?.toISOString() ?? null,
+      accountLabel: elevenLabsState?.accountLabel ?? row.accountLabel,
+      plan: elevenLabsState?.plan ?? row.plan,
+      quotaUsed: elevenLabsState?.quotaUsed ?? row.quotaUsed,
+      quotaLimit: elevenLabsState?.quotaLimit ?? row.quotaLimit,
+      quotaUnit: elevenLabsState?.quotaUnit ?? row.quotaUnit,
+      quotaResetsAt: elevenLabsState?.quotaResetsAt ?? row.quotaResetsAt?.toISOString() ?? null,
+      quotaNote: elevenLabsState?.quotaNote ?? null,
+      lastUsedAt: elevenLabsState?.lastUsedAt ?? row.lastUsedAt?.toISOString() ?? null,
       connectedAt:
-        row.status === "CONNECTED" || row.status === "NEEDS_REAUTH"
-          ? row.createdAt.toISOString()
+        status === "CONNECTED" || status === "NEEDS_REAUTH"
+          ? (elevenLabsState?.accountCreatedAt ?? row.createdAt.toISOString())
           : null,
-      lastErrorMessage: row.lastErrorMessage,
-      usage: item.provider === "VIDIQ" ? vidiqUsage : null,
+      lastErrorMessage: elevenLabsState?.lastErrorMessage ?? row.lastErrorMessage,
+      usage:
+        item.provider === "VIDIQ"
+          ? vidiqUsage
+          : item.provider === "ELEVENLABS"
+            ? elevenLabsState?.usage ?? null
+            : null,
     };
-  });
+  }));
+}
+
+async function connectSharedElevenLabs(
+  row: {
+    id: string;
+    status: UserIntegrationState["status"];
+    enabled: boolean;
+  },
+  snapshot: ElevenLabsSnapshot,
+): Promise<{
+  status: UserIntegrationState["status"];
+  enabled: boolean;
+  accountLabel: string | null;
+  plan: string | null;
+  quotaUsed: number | null;
+  quotaLimit: number | null;
+  quotaUnit: string | null;
+  quotaResetsAt: string | null;
+  quotaNote: string | null;
+  lastUsedAt: string | null;
+  accountCreatedAt: string | null;
+  lastErrorMessage: string | null;
+  usage: UserIntegrationState["usage"];
+}> {
+  const connected = snapshot.configured && snapshot.ok;
+  let status = row.status;
+  let enabled = row.enabled;
+  if (connected && status !== "CONNECTED") {
+    status = "CONNECTED";
+    enabled = true;
+    await prisma.userIntegration.update({
+      where: { id: row.id },
+      data: {
+        status: "CONNECTED",
+        enabled: true,
+        accountLabel: "Shared environment key",
+        plan: snapshot.tier,
+      },
+    });
+  }
+  const month = new Date().toISOString().slice(0, 7);
+  const callsMonth = snapshot.daily
+    .filter((day) => day.date.startsWith(month))
+    .reduce((sum, day) => sum + day.calls, 0);
+  const lastActive = [...snapshot.daily].reverse().find((day) => day.calls > 0 || day.spendUsd > 0);
+  return {
+    status,
+    enabled,
+    accountLabel: connected ? "Shared environment key" : null,
+    plan: snapshot.tier,
+    quotaUsed: clampInt(snapshot.characterCount),
+    quotaLimit: clampInt(snapshot.characterLimit),
+    quotaUnit: snapshot.characterLimit == null ? null : "characters",
+    quotaResetsAt: snapshot.resetsAt,
+    quotaNote: snapshot.quotaError,
+    lastUsedAt: lastActive ? `${lastActive.date}T00:00:00.000Z` : null,
+    accountCreatedAt: snapshot.accountCreatedAt,
+    lastErrorMessage: connected ? null : snapshot.error,
+    usage: {
+      hasData: snapshot.daily.length > 0,
+      callsToday: snapshot.callsToday,
+      callsMonth: snapshot.daily.length ? callsMonth : null,
+      spendMonthUsd: snapshot.spendMonthUsd,
+      successRate: null,
+      averageLatencyMs: null,
+      p95LatencyMs: null,
+      trend: snapshot.daily.map((day) => day.calls),
+      trendDates: snapshot.daily.map((day) => day.date),
+      stepBreakdown: [],
+      channelBreakdown: [],
+      endpoints: [],
+      recentCalls: [],
+      daily: snapshot.daily,
+    },
+  };
+}
+
+function clampInt(value: number | null): number | null {
+  if (value == null || !Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(Math.round(value), 2_147_483_647));
 }

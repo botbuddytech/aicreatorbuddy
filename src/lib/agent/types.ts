@@ -1,9 +1,11 @@
 import type {
   Scene,
+  ScriptScore,
   StepId,
   StepStatus,
   ThumbnailOption,
   TitleOption,
+  VideoFormat,
   VideoSummary,
 } from "@/lib/videoProject";
 
@@ -21,14 +23,21 @@ export function agentModelLabel(id: string): string {
 export type ToolName =
   | "setBrief"
   | "generateTitles"
+  | "scoreTitles"
   | "applyTitle"
   | "generateScript"
+  | "scoreScript"
   | "editScript"
   | "generateThumbnailPrompt"
+  | "generateVisualPrompts"
   | "updateTimeline"
   | "writeDescription"
   | "navigateToStep"
-  | "markStepApproved";
+  | "markStepApproved"
+  | "setProjectName"
+  | "addReference"
+  | "fetchReferenceTranscript"
+  | "setApproxLength";
 
 export type MentionId = "title" | "script" | "thumbnail" | "brief" | "timeline";
 
@@ -60,18 +69,33 @@ export type ToolCallState = {
 
 export type ChangePayload =
   | { type: "brief"; topic: string }
-  | { type: "titles"; titles: string[] }
-  | { type: "script"; script: string }
+  | { type: "titles"; titles: string[]; provider: "cursor" | "chatgpt" | "gemini" | "vidiq" | "manual"; cursorPrompt?: string | null }
+  | { type: "titleScores"; scores: { id: string; score: number; rank: number }[] }
+  | { type: "script"; script: string; cursorPrompt?: string | null; generated?: boolean }
+  | { type: "scriptScore"; score: ScriptScore }
+  | { type: "thumbnailPrompts"; concepts: string[]; cursorPrompt: string | null }
+  | { type: "visualPrompts"; prompts: { id: string; prompt: string }[] }
   | { type: "thumbnail"; concept: string }
   | { type: "timeline"; scenes: { sectionLabel: string; finalScript: string }[] }
   | { type: "description"; description: string; tags: string[] }
   | { type: "navigate"; step: StepId }
-  | { type: "approve"; step: StepId };
+  | { type: "approve"; step: StepId }
+  | { type: "name"; name: string }
+  | { type: "addReference"; url: string }
+  | {
+      type: "referenceTranscript";
+      url: string;
+      title: string;
+      transcript: string;
+      lang: string | null;
+      fetchedAt: string;
+    }
+  | { type: "duration"; durationSeconds: number };
 
 export type ProjectChange = {
   id: string;
   tool: ToolName;
-  field: FlashField | "step";
+  field: FlashField | "step" | "name";
   label: string;
   summary: string;
   before: string;
@@ -112,6 +136,7 @@ export type ProjectSnapshot = {
   tags: string[];
   stepStatus: Record<StepId, StepStatus>;
   activeStep: StepId;
+  name?: string;
 };
 
 export type AgentCheckpoint = {
@@ -131,6 +156,8 @@ export type AgentThread = {
   checkpoints: AgentCheckpoint[];
   dismissedChips: string[];
   mentions: MentionId[];
+  /** Local Cursor SDK agent id for this thread. Absent until the first reply starts. */
+  sdkAgentId?: string;
 };
 
 export type AgentContextPayload = {
@@ -142,6 +169,15 @@ export type AgentContextPayload = {
   timeline: string;
   channel: string;
   step: StepId;
+  projectName: string;
+  format: VideoFormat;
+  durationSeconds: number;
+  intent: "educational" | "entertainment";
+  projectId: string;
+  selectedTitle: string;
+  titleOptions: { id: string; text: string }[];
+  scenes: { id: string; section: string; script: string; durationSeconds: number; order: number; existingPrompt: string }[];
+  references: { url: string; title: string; transcript: string; hasTranscript: boolean }[];
 };
 
 export type StreamEvent =

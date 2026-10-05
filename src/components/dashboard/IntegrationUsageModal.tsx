@@ -356,6 +356,66 @@ function LogsTab({
   );
 }
 
+function ElevenLabsUsage({
+  integration,
+  liveState,
+}: {
+  integration: Integration;
+  liveState: UserIntegrationState | null;
+}) {
+  const days = liveState?.usage?.daily ?? [];
+  return (
+    <div className="space-y-4">
+      <QuotaBar integration={integration} liveState={liveState} />
+      {liveState?.quotaNote ? (
+        <p className="rounded-xl bg-accent/10 px-3 py-2 text-sm text-accent">{liveState.quotaNote}</p>
+      ) : null}
+      <div>
+        <h3 className="font-display text-lg font-semibold text-foreground">Daily usage</h3>
+        <p className="mt-1 text-sm text-muted">
+          API calls and amount billed each day, from the first day ElevenLabs reported activity.
+        </p>
+      </div>
+      {days.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-surface-soft px-5 py-10 text-center">
+          <p className="font-display text-lg font-semibold text-foreground">No usage yet</p>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-muted">
+            ElevenLabs has not returned any daily usage for this key.
+          </p>
+        </div>
+      ) : (
+        <div className="max-h-[28rem] overflow-auto rounded-xl border border-border">
+          <table className="w-full text-left text-sm">
+            <thead className="sticky top-0 bg-surface-soft">
+              <tr className="border-b border-border text-xs uppercase tracking-wider text-muted">
+                <th className="px-4 py-3 font-medium">Day</th>
+                <th className="px-4 py-3 font-medium">API calls</th>
+                <th className="px-4 py-3 font-medium">Amount billed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {days.map((day) => (
+                <tr key={day.date} className="border-b border-border/60 last:border-0">
+                  <td className="px-4 py-3 text-foreground">
+                    {new Date(`${day.date}T00:00:00Z`).toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                      timeZone: "UTC",
+                    })}
+                  </td>
+                  <td className="px-4 py-3 text-foreground">{formatInt(day.calls)}</td>
+                  <td className="px-4 py-3 text-foreground">{formatUsd(day.spendUsd)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UsageModalBody({
   integration,
   liveState,
@@ -386,6 +446,7 @@ function UsageModalBody({
             <span className="text-xs text-muted">·</span>
             <span className="text-xs text-muted">{integration.environment}</span>
           </div>
+          {liveState?.integrationId === "elevenlabs" ? null : (
           <div className="mt-4 flex gap-1 border-b border-border">
             {TABS.map((item) => {
               const active = tab === item.id;
@@ -405,22 +466,25 @@ function UsageModalBody({
               );
             })}
           </div>
+          )}
         </div>
       }
     >
-      {tab === "overview" ? (
+      {liveState?.integrationId === "elevenlabs" ? (
+        <ElevenLabsUsage integration={integration} liveState={liveState} />
+      ) : tab === "overview" ? (
         <OverviewTab integration={integration} liveState={liveState} />
       ) : null}
-      {tab === "usage" ? (
+      {liveState?.integrationId === "elevenlabs" || tab !== "usage" ? null : (
         <UsageTab integration={integration} liveState={liveState} />
-      ) : null}
-      {tab === "logs" ? (
+      )}
+      {liveState?.integrationId === "elevenlabs" || tab !== "logs" ? null : (
         <LogsTab
           calls={integration.recentCalls}
           disconnected={integration.status === "disconnected"}
           note={integration.statusNote}
         />
-      ) : null}
+      )}
     </Modal>
   );
 }

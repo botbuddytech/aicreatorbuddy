@@ -5,6 +5,7 @@ import {
   createEmptyProject,
   normalizeApiCosts,
   normalizeEditorSettings,
+  normalizeElevenLabsVoice,
   normalizeLowEffortByStep,
   normalizeScenes,
   normalizeScriptScore,
@@ -46,10 +47,17 @@ function parseStore(raw: string): ProjectStore {
         ...project,
         summary: normalizeSummary(project.summary),
         titles: normalizeTitles(project.titles),
+        cursorTitlePrompt:
+          typeof project.cursorTitlePrompt === "string" ? project.cursorTitlePrompt : null,
+        cursorThumbnailPrompt:
+          typeof project.cursorThumbnailPrompt === "string" ? project.cursorThumbnailPrompt : null,
+        cursorScriptPrompt:
+          typeof project.cursorScriptPrompt === "string" ? project.cursorScriptPrompt : null,
         scriptScore: normalizeScriptScore(project.scriptScore ?? project.scriptVidiq),
         scriptVidiq: undefined,
         apiCosts: normalizeApiCosts(project.apiCosts),
         scenes: normalizeScenes(project.scenes),
+        elevenLabsVoice: normalizeElevenLabsVoice(project.elevenLabsVoice),
         editor: normalizeEditorSettings(project.editor),
         lowEffortByStep: normalizeLowEffortByStep(project.lowEffortByStep),
         stepStatus: normalizeStepStatus(project.stepStatus),

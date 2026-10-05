@@ -7,7 +7,6 @@ const TEXT_USD_PER_1K_TOKENS: Record<string, number> = {
 };
 
 const VIDIQ_USD_PER_REQUEST = 0.008;
-const THUMBNAIL_USD = 0.04;
 const SCENE_VISUAL_USD = 0.08;
 
 function roundUsd(value: number): number {
@@ -32,10 +31,6 @@ export function estimateGenerationCost<T extends GenerationType>(
     case "titles": {
       const { prompt, count = 5 } = input as GenerationInput["titles"];
       return roundUsd(llmUsd(provider, prompt, 90 * Math.max(1, count)));
-    }
-    case "thumbnails": {
-      const { count = 4 } = input as GenerationInput["thumbnails"];
-      return roundUsd(Math.max(1, count) * THUMBNAIL_USD);
     }
     case "script": {
       const { prompt, durationSeconds } = input as GenerationInput["script"];

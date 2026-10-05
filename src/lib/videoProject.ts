@@ -81,6 +81,8 @@ export type TextOverlay = {
 export type SceneEditing = {
   notes: string;
   durationSeconds: number | null;
+  /** Length assigned when the script was split. A clip upload cannot change this. */
+  scriptDurationSeconds: number | null;
   /** In-point inside the source clip, in source seconds. Head trim, not a timeline offset. */
   trimStartSeconds: number;
   transition: TransitionId;
@@ -88,6 +90,8 @@ export type SceneEditing = {
   filter: FilterId;
   speed: number;
   volume: number;
+  /** Uploaded clip sound. Defaults to muted so the AI voice is what you hear. */
+  clipMuted: boolean;
   textOverlay: TextOverlay | null;
 };
 
@@ -150,6 +154,10 @@ export interface Scene {
     /** Key into the IndexedDB clip store; the blob never enters the draft. */
     uploadedClipId: string | null;
     uploadedClipName: string | null;
+    /** Object path in the scene-clips bucket: {sessionId}/{sceneId}/{clipId}.ext */
+    uploadedClipStoragePath: string | null;
+    /** Public URL for the stored clip. Playback uses this after a refresh. */
+    uploadedClipUrl: string | null;
     uploadedClipKind: "image" | "video" | null;
     /** Real source length, so trimming can't run past the end of the footage. */
     uploadedClipDurationSeconds: number | null;
@@ -161,7 +169,7 @@ export interface Scene {
 export interface TitleOption {
   id: string;
   text: string;
-  provider: AiProvider | "cursor" | "vidiq";
+  provider: AiProvider | "cursor" | "vidiq" | "manual";
   score?: TitleScore;
   /** Legacy local-draft field, normalized into score during hydration. */
   vidiq?: VidIqTitleInsight;
@@ -178,7 +186,7 @@ export type TitleScore = {
 export interface ThumbnailOption {
   id: string;
   concept: string;
-  provider: AiProvider;
+  provider: AiProvider | "cursor" | "vidiq" | "manual";
   customUrl?: string;
   vidiq?: VidIqThumbInsight;
 }
@@ -253,6 +261,23 @@ export type LowEffortReport = {
   findings: LowEffortFinding[];
 };
 
+export type ElevenLabsVoice = {
+  voiceId: string;
+  name: string;
+};
+
+const ELEVENLABS_VOICE_ID = /^[A-Za-z0-9_-]{8,64}$/;
+
+export function normalizeElevenLabsVoice(raw: unknown): ElevenLabsVoice | null {
+  if (!raw || typeof raw !== "object") return null;
+  const source = raw as { voiceId?: unknown; name?: unknown };
+  if (typeof source.voiceId !== "string" || typeof source.name !== "string") return null;
+  const voiceId = source.voiceId.trim();
+  const name = source.name.trim();
+  if (!ELEVENLABS_VOICE_ID.test(voiceId) || !name || name.length > 120) return null;
+  return { voiceId, name };
+}
+
 export interface VideoProject {
   id: string;
   name: string;
@@ -260,13 +285,21 @@ export interface VideoProject {
   summary: VideoSummary;
   titles: TitleOption[];
   selectedTitleId: string | null;
+  /** Exact Cursor prompt last used to generate the current title set. */
+  cursorTitlePrompt: string | null;
   thumbnails: ThumbnailOption[];
   selectedThumbnailId: string | null;
+  /** Exact Cursor prompt last used to generate the current thumbnail prompts. */
+  cursorThumbnailPrompt: string | null;
   fullScript: string;
+  /** Exact Cursor prompt last used to generate the current script. */
+  cursorScriptPrompt: string | null;
   scriptScore?: ScriptScore;
   /** Legacy local-draft field, normalized into scriptScore during hydration. */
   scriptVidiq?: VidIqScriptInsight;
   scenes: Scene[];
+  /** ElevenLabs voice chosen for this session. Separate from each scene's browser voice. */
+  elevenLabsVoice: ElevenLabsVoice | null;
   description: string;
   tags: string[];
   providerByStep: Partial<Record<StepId, AiProvider>>;
@@ -556,7 +589,8 @@ export function normalizeTitles(raw: unknown): TitleOption[] {
       item.provider === "gemini" ||
       item.provider === "elevenlabs" ||
       item.provider === "cursor" ||
-      item.provider === "vidiq"
+      item.provider === "vidiq" ||
+      item.provider === "manual"
         ? item.provider
         : "chatgpt";
     const score =
@@ -601,12 +635,14 @@ export function emptyEditing(): SceneEditing {
   return {
     notes: "",
     durationSeconds: null,
+    scriptDurationSeconds: null,
     trimStartSeconds: 0,
     transition: "none",
     transitionSeconds: 0.5,
     filter: "none",
     speed: 1,
     volume: 100,
+    clipMuted: true,
     textOverlay: null,
   };
 }
@@ -647,6 +683,10 @@ export function normalizeEditing(raw: unknown): SceneEditing {
       : source.durationSeconds === null
         ? null
         : base.durationSeconds;
+  const scriptDurationSeconds =
+    typeof source.scriptDurationSeconds === "number" && source.scriptDurationSeconds > 0
+      ? source.scriptDurationSeconds
+      : null;
   const trimStartSeconds =
     typeof source.trimStartSeconds === "number" && source.trimStartSeconds > 0
       ? source.trimStartSeconds
@@ -674,12 +714,14 @@ export function normalizeEditing(raw: unknown): SceneEditing {
   return {
     notes: typeof source.notes === "string" ? source.notes : "",
     durationSeconds,
+    scriptDurationSeconds,
     trimStartSeconds,
     transition: isTransitionId(source.transition) ? source.transition : base.transition,
     transitionSeconds,
     filter: isFilterId(source.filter) ? source.filter : base.filter,
     speed,
     volume,
+    clipMuted: source.clipMuted === false ? false : true,
     textOverlay,
   };
 }
@@ -850,6 +892,12 @@ export function normalizeScenes(raw: unknown): Scene[] {
           needsCustomFootage: Boolean(item.visuals?.needsCustomFootage),
           uploadedClipId: item.visuals?.uploadedClipId ?? null,
           uploadedClipName: item.visuals?.uploadedClipName ?? null,
+          uploadedClipStoragePath:
+            typeof item.visuals?.uploadedClipStoragePath === "string"
+              ? item.visuals.uploadedClipStoragePath
+              : null,
+          uploadedClipUrl:
+            typeof item.visuals?.uploadedClipUrl === "string" ? item.visuals.uploadedClipUrl : null,
           uploadedClipKind:
             item.visuals?.uploadedClipKind === "video" ||
             item.visuals?.uploadedClipKind === "image"
@@ -900,10 +948,14 @@ export function createEmptyProject(partial?: {
     summary: emptySummary(),
     titles: [],
     selectedTitleId: null,
+    cursorTitlePrompt: null,
     thumbnails: [],
     selectedThumbnailId: null,
+    cursorThumbnailPrompt: null,
     fullScript: "",
+    cursorScriptPrompt: null,
     scenes: [],
+    elevenLabsVoice: null,
     description: "",
     tags: [],
     providerByStep: {
@@ -946,6 +998,8 @@ export function createEmptyScene(
       needsCustomFootage: false,
       uploadedClipId: null,
       uploadedClipName: null,
+      uploadedClipStoragePath: null,
+      uploadedClipUrl: null,
       uploadedClipKind: null,
       uploadedClipDurationSeconds: null,
     },
@@ -1092,13 +1146,12 @@ export function providersForStep(stepId: StepId): AiProvider[] {
 
 export function isPlaceholderProjectName(project: VideoProject): boolean {
   const name = project.name.trim();
-  if (!name || name === DEFAULT_PROJECT_NAME) return true;
-  const topic = project.summary.topic.trim();
-  return Boolean(topic) && name === topic;
+  return !name || name === DEFAULT_PROJECT_NAME;
 }
 
 export function resolveProjectName(project: VideoProject): string {
-  if (!isPlaceholderProjectName(project)) return project.name.trim();
+  const name = project.name.trim();
+  if (name && name !== DEFAULT_PROJECT_NAME) return name;
   if (project.stepStatus.title === "approved") {
     const title = selectedTitle(project)?.text.trim();
     if (title) return title;
@@ -1128,6 +1181,8 @@ export function formatTimecode(totalSeconds: number): string {
 }
 
 export function sceneDuration(scene: Scene): number {
+  const locked = scene.editing.scriptDurationSeconds;
+  if (locked && locked > 0) return locked;
   return scene.editing.durationSeconds && scene.editing.durationSeconds > 0
     ? scene.editing.durationSeconds
     : 15;
@@ -1137,6 +1192,22 @@ export function sceneDuration(scene: Scene): number {
  * Hard ceiling for `editing.durationSeconds`, in source seconds. Stills and
  * placeholder scenes have no footage to run out of, so they return null.
  */
+/** Playable video for a scene: the stored clip, or a local blob URL from this browser. */
+export function sceneClipMuted(scene: Scene): boolean {
+  return scene.editing.clipMuted !== false;
+}
+
+export function sceneUploadedVideoUrl(
+  scene: Scene,
+  localUrls?: Record<string, string>,
+): string | null {
+  if (scene.visuals.uploadedClipKind !== "video") return null;
+  if (scene.visuals.uploadedClipUrl) return scene.visuals.uploadedClipUrl;
+  const id = scene.visuals.uploadedClipId;
+  if (id && localUrls?.[id]) return localUrls[id];
+  return null;
+}
+
 export function sceneSourceSeconds(scene: Scene): number | null {
   if (scene.visuals.uploadedClipKind !== "video") return null;
   const source = scene.visuals.uploadedClipDurationSeconds;
@@ -1191,6 +1262,21 @@ const API_TOOL_LABELS: Record<string, string> = {
   vidiq: "VidIQ",
   agent: "Agent",
 };
+
+export function apiFiresByStep(
+  project: VideoProject,
+  stepIds: readonly StepId[],
+): Array<{ id: StepId; label: string; calls: number }> {
+  const counts = new Map<StepId, number>();
+  for (const entry of project.apiCosts ?? []) {
+    counts.set(entry.step, (counts.get(entry.step) ?? 0) + 1);
+  }
+  return stepIds.map((id) => ({
+    id,
+    label: STEPS.find((step) => step.id === id)?.label ?? id,
+    calls: counts.get(id) ?? 0,
+  }));
+}
 
 export function apiCostByTool(project: VideoProject): ApiCostByTool[] {
   const totals = new Map<string, ApiCostByTool>();

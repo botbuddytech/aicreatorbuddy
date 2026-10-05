@@ -14,12 +14,20 @@ export type CursorTitleContext = {
   duration: string;
 };
 
+export type CursorTitleReference = {
+  title: string;
+  transcript: string;
+};
+
 export type CursorTitleRequest = {
   context: CursorTitleContext;
+  referenceTitles: string[];
+  referenceTranscripts: string[];
 };
 
 export type CursorTitleResponse = {
   titles: string[];
+  promptUsed: string;
 };
 
 export type CursorTitleScoreInput = {
@@ -52,26 +60,43 @@ function boundedText(value: unknown, max: number): string | null {
   return text && text.length <= max ? text : null;
 }
 
-function parseContext(value: unknown): CursorTitleContext | null {
+function parseContext(
+  value: unknown,
+  options: { topicRequired: boolean },
+): CursorTitleContext | null {
   if (!isRecord(value)) return null;
-  const topic = boundedText(value.topic, CURSOR_TITLE_LIMITS.topic);
+  const topic = boundedText(value.topic, CURSOR_TITLE_LIMITS.topic) ?? "";
   const format = boundedText(value.format, CURSOR_TITLE_LIMITS.contextField);
   const intent = boundedText(value.intent, CURSOR_TITLE_LIMITS.contextField);
   const duration = boundedText(value.duration, CURSOR_TITLE_LIMITS.contextField);
 
-  if (!topic || !format || !intent || !duration) return null;
+  if ((options.topicRequired && !topic) || !format || !intent || !duration) return null;
   return { topic, format, intent, duration };
+}
+
+function parseStringList(value: unknown, itemMax: number): string[] | null {
+  if (value == null) return [];
+  if (!Array.isArray(value) || value.length > 5) return null;
+  const items: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") return null;
+    items.push(item.trim().slice(0, itemMax));
+  }
+  return items;
 }
 
 export function parseCursorTitleRequest(value: unknown): CursorTitleRequest | null {
   if (!isRecord(value)) return null;
-  const context = parseContext(value.context);
-  return context ? { context } : null;
+  const context = parseContext(value.context, { topicRequired: true });
+  const referenceTitles = parseStringList(value.referenceTitles, 200);
+  const referenceTranscripts = parseStringList(value.referenceTranscripts, 200_000);
+  if (!context || !referenceTitles || !referenceTranscripts) return null;
+  return { context, referenceTitles, referenceTranscripts };
 }
 
 export function parseCursorTitleScoreRequest(value: unknown): CursorTitleScoreRequest | null {
   if (!isRecord(value) || !Array.isArray(value.titles)) return null;
-  const context = parseContext(value.context);
+  const context = parseContext(value.context, { topicRequired: false });
   if (
     !context ||
     value.titles.length < CURSOR_TITLE_LIMITS.minTitles ||

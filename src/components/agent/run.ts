@@ -1,6 +1,6 @@
 "use client";
 
-import { acceptAllChanges, recordAgentCost } from "@/components/agent/applyProjectChange";
+import { acceptAllChanges, acceptChange, recordAgentCost } from "@/components/agent/applyProjectChange";
 import { getProjectBridge } from "@/components/agent/bridge";
 import {
   abortAgentRun,
@@ -38,6 +38,15 @@ function readContext(): AgentContextPayload {
       timeline: "",
       channel,
       step,
+      projectName: "",
+      format: "long-form",
+      durationSeconds: 300,
+      intent: "educational",
+      projectId: "",
+      selectedTitle: "",
+      titleOptions: [],
+      scenes: [],
+      references: [],
     };
   }
   const thumbnail =
@@ -53,6 +62,30 @@ function readContext(): AgentContextPayload {
     timeline: project.scenes.map((scene) => `${scene.sectionLabel}: ${scene.finalScript}`).join("\n"),
     channel,
     step,
+    projectName: project.name,
+    format: project.summary.format,
+    durationSeconds: project.summary.durationSeconds,
+    intent: project.summary.intent,
+    projectId: project.id,
+    selectedTitle:
+      project.titles.find((item) => item.id === project.selectedTitleId)?.text ??
+      project.titles[0]?.text ??
+      "",
+    titleOptions: project.titles.map((item) => ({ id: item.id, text: item.text })),
+    scenes: project.scenes.map((scene, index) => ({
+      id: scene.id,
+      section: scene.sectionLabel,
+      script: scene.finalScript,
+      durationSeconds: Math.max(1, Math.round(scene.editing.durationSeconds || 1)),
+      order: scene.order ?? index,
+      existingPrompt: scene.visuals.description ?? "",
+    })),
+    references: project.summary.references.map((reference) => ({
+      url: reference.url.trim(),
+      title: reference.title.trim(),
+      transcript: reference.transcript,
+      hasTranscript: Boolean(reference.transcript.trim()),
+    })),
   };
 }
 
@@ -65,7 +98,18 @@ function stoppedTools(message: AgentMessage): AgentMessage {
   };
 }
 
-async function streamReply(threadId: string, userText: string) {
+function priorTurns(messages: AgentMessage[]): { role: "user" | "assistant"; content: string }[] {
+  let end = messages.length;
+  while (end > 0 && messages[end - 1]?.role === "assistant" && !messages[end - 1]?.content.trim()) end -= 1;
+  if (end > 0 && messages[end - 1]?.role === "user") end -= 1;
+  return messages
+    .slice(0, end)
+    .filter((message) => message.content.trim())
+    .slice(-12)
+    .map((message) => ({ role: message.role, content: message.content }));
+}
+
+async function streamReply(threadId: string, userText: string, options?: { reset?: boolean }) {
   const store = useAgentStore.getState();
   const assistantId = newId();
   const assistant: AgentMessage = {
@@ -84,9 +128,11 @@ async function streamReply(threadId: string, userText: string) {
   store.beginStream(assistantId);
 
   const controller = takeRunController();
-  const mode = store.mode;
+  const mode = "agent" as const;
   const model = store.modelId;
   const context = readContext();
+  const thread = useAgentStore.getState().threads.find((item) => item.id === threadId);
+  const sdkAgentId = options?.reset ? undefined : thread?.sdkAgentId;
   let costRecorded = false;
   let settled = false;
 
@@ -115,7 +161,12 @@ async function streamReply(threadId: string, userText: string) {
         model,
         step: context.step,
         context,
-        mentions: store.threads.find((thread) => thread.id === threadId)?.mentions ?? [],
+        threadId,
+        sdkAgentId,
+        reset: options?.reset === true,
+        history: sdkAgentId ? [] : priorTurns(thread?.messages ?? []),
+        mentions: thread?.mentions ?? [],
+        dismissed: thread?.dismissedChips ?? [],
       }),
     });
     if (!response.ok) {
@@ -126,6 +177,12 @@ async function streamReply(threadId: string, userText: string) {
     await readSse(response, (event, data) => {
       if (controller.signal.aborted) return;
       const record = isRecord(data) ? data : {};
+      if (event === "session" && typeof record.sdkAgentId === "string") {
+        useAgentStore.getState().mutateThread(threadId, (current) => ({
+          ...current,
+          sdkAgentId: record.sdkAgentId as string,
+        }));
+      }
       if (event === "thinking" && typeof record.model === "string" && record.model.trim()) {
         useAgentStore.getState().setModelId(record.model.trim());
       }
@@ -151,6 +208,7 @@ async function streamReply(threadId: string, userText: string) {
           ...message,
           changes: [...(message.changes ?? []), { ...change, status: "pending" }],
         }));
+        if (useAgentStore.getState().autoApply) acceptChange(threadId, assistantId, change.id);
         return;
       }
       if (event === "cost" && isRecord(record.cost)) {
@@ -201,6 +259,7 @@ export async function sendAgentMessage(text: string, options?: { truncateFromUse
     createdAt: new Date().toISOString(),
   };
 
+  const reset = Boolean(options?.truncateFromUserId);
   state.mutateThread(threadId, (thread) => {
     const index = options?.truncateFromUserId
       ? thread.messages.findIndex((message) => message.id === options.truncateFromUserId)
@@ -213,10 +272,11 @@ export async function sendAgentMessage(text: string, options?: { truncateFromUse
       updatedAt: new Date().toISOString(),
       messages: [...kept, user],
       checkpoints: thread.checkpoints.filter((item) => keptIds.has(item.messageId)),
+      sdkAgentId: reset ? undefined : thread.sdkAgentId,
     };
   });
 
-  await streamReply(threadId, trimmed);
+  await streamReply(threadId, trimmed, { reset });
 }
 
 export async function editAgentMessage(userId: string, text: string) {

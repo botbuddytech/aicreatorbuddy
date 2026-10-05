@@ -107,9 +107,13 @@ function buildSteps(
       sceneCount: project.scenes.length,
       totalSeconds: totalTimelineSeconds(project.scenes),
       targetSeconds: project.summary.durationSeconds,
-      scenesWithClip: project.scenes.filter((scene) => scene.visuals.uploadedClipId).length,
+      scenesWithClip: project.scenes.filter(
+        (scene) => scene.visuals.uploadedClipId || scene.visuals.uploadedClipStoragePath,
+      ).length,
       scenesWithVoiceover: project.scenes.filter((scene) => scene.voiceover.audioUrl).length,
-      manualClipCount: project.scenes.filter((scene) => scene.visuals.uploadedClipId).length,
+      manualClipCount: project.scenes.filter(
+        (scene) => scene.visuals.uploadedClipId || scene.visuals.uploadedClipStoragePath,
+      ).length,
       splitCount: 0,
       deleteCount: 0,
       viewMode: null,
@@ -150,7 +154,7 @@ function buildScenes(project: VideoProject): SessionSceneSnapshot[] {
     filter: scene.editing.filter,
     speed: scene.editing.speed,
     volume: scene.editing.volume,
-    hasClip: Boolean(scene.visuals.uploadedClipId),
+    hasClip: Boolean(scene.visuals.uploadedClipId || scene.visuals.uploadedClipStoragePath),
     hasVoiceover: Boolean(scene.voiceover.audioUrl),
     wordCount: words(scene.finalScript),
   }));
@@ -158,9 +162,10 @@ function buildScenes(project: VideoProject): SessionSceneSnapshot[] {
 
 function buildAssets(project: VideoProject): SessionAssetSnapshot[] {
   return project.scenes.flatMap((scene) => {
-    if (!scene.visuals.uploadedClipId) return [];
+    const localClipId = scene.visuals.uploadedClipId || scene.visuals.uploadedClipStoragePath;
+    if (!localClipId) return [];
     return [{
-      localClipId: scene.visuals.uploadedClipId,
+      localClipId,
       sceneKey: scene.id,
       kind: "UPLOADED_CLIP" as const,
       source: "MANUAL_UPLOAD" as const,
@@ -169,7 +174,7 @@ function buildAssets(project: VideoProject): SessionAssetSnapshot[] {
       mimeType: null,
       sizeBytes: null,
       durationSec: scene.visuals.uploadedClipDurationSeconds,
-      storageUrl: null,
+      storageUrl: scene.visuals.uploadedClipUrl,
     }];
   });
 }

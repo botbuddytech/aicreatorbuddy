@@ -54,15 +54,22 @@ export function IntegrationCard({
   const percent = quotaPercent(integration.quota);
   const barColor =
     percent >= 90 ? "bg-accent" : percent >= 75 ? "bg-chart-amber" : "bg-success";
-  const sparkline = integration.trend.slice(-14);
   const isVidiq = liveState?.integrationId === "vidiq";
-  const hasVidiqTrend = Boolean(liveState?.usage?.trend.some((value) => value > 0));
-  const callsToday = isVidiq
+  const isElevenLabs = liveState?.integrationId === "elevenlabs";
+  const hasLiveTrend = Boolean(liveState?.usage?.trend.some((value) => value > 0));
+  const callsToday = isVidiq || isElevenLabs
     ? liveState.usage?.callsToday
     : (integration.trend[integration.trend.length - 1] ?? 0);
-  const spendMonth = isVidiq
-    ? liveState.usage?.spendMonthUsd
-    : integration.cost.monthToDate;
+  const spendMonth = isElevenLabs
+    ? (liveState.usage?.spendMonthUsd ?? 0)
+    : isVidiq
+      ? liveState.usage?.spendMonthUsd
+      : integration.cost.monthToDate;
+  const sparkline = (isVidiq || isElevenLabs ? liveState.usage?.trend ?? [] : integration.trend).slice(-14);
+  const remaining =
+    integration.quota.limit > 0
+      ? Math.max(0, integration.quota.limit - integration.quota.used)
+      : null;
   function runAction(task: () => Promise<{ ok: boolean; message?: string; error?: string }>) {
     setNotice(null);
     startTransition(async () => {
@@ -135,9 +142,19 @@ export function IntegrationCard({
       <div className="mt-4">
         <div className="flex items-center justify-between gap-3 text-xs">
           <span className="text-muted">Quota</span>
-          <span className="font-medium text-foreground">
-            {isVidiq && !liveState.quotaLimit ? (
+          <span className="text-right font-medium text-foreground">
+            {isElevenLabs && liveState.quotaNote && remaining == null ? (
+              liveState.quotaNote
+            ) : isVidiq && !liveState.quotaLimit ? (
               "—"
+            ) : isElevenLabs && remaining != null ? (
+              <>
+                {formatInt(remaining)} remaining
+                <span className="mt-0.5 block text-[11px] font-normal text-muted">
+                  {formatInt(integration.quota.used)} / {formatInt(integration.quota.limit)}{" "}
+                  {integration.quota.unit}
+                </span>
+              </>
             ) : (
               <>
                 {isVidiq
@@ -148,7 +165,7 @@ export function IntegrationCard({
             )}
           </span>
         </div>
-        {!isVidiq || liveState.quotaLimit ? (
+        {(!isVidiq && !isElevenLabs) || liveState.quotaLimit ? (
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-soft">
             <div className={`h-full rounded-full ${barColor}`} style={{ width: `${percent}%` }} />
           </div>
@@ -162,7 +179,7 @@ export function IntegrationCard({
             {callsToday == null ? "—" : formatInt(callsToday)}
           </p>
         </div>
-        {!isVidiq || hasVidiqTrend ? (
+        {(!isVidiq && !isElevenLabs) || hasLiveTrend ? (
           <MiniSparkline values={sparkline} className="h-7 w-20 text-accent" />
         ) : null}
         <div className="text-right">
@@ -173,7 +190,11 @@ export function IntegrationCard({
         </div>
       </div>
 
-      {liveState?.authKind === "API_KEY" ? (
+      {liveState?.sharedEnv ? (
+        <div className="mt-4 rounded-xl border border-border bg-surface-soft px-3 py-2 text-xs text-muted">
+          {liveState.accountLabel ?? "Shared server key"}
+        </div>
+      ) : liveState?.authKind === "API_KEY" ? (
         <form
           className="mt-4 space-y-2"
           onSubmit={(event) => {
@@ -244,7 +265,7 @@ export function IntegrationCard({
               liveState &&
               runAction(() => testIntegrationAction(liveState.integrationId))
             }
-            disabled={pending || (!connected && liveState?.authKind !== "NONE")}
+            disabled={pending || (!connected && liveState?.authKind !== "NONE" && !liveState?.sharedEnv)}
             className="rounded-xl border border-border px-3 py-2.5 text-sm font-semibold text-foreground hover:bg-white/5 disabled:opacity-60"
           >
             {pending ? "Working…" : "Test connection"}
@@ -258,7 +279,10 @@ export function IntegrationCard({
             Manage
           </a>
         ) : null}
-        {connected && liveState?.integrationId !== "youtube" && liveState?.authKind !== "NONE" ? (
+        {connected &&
+        liveState?.integrationId !== "youtube" &&
+        liveState?.authKind !== "NONE" &&
+        !liveState?.sharedEnv ? (
           <button
             type="button"
             disabled={pending}

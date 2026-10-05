@@ -5,36 +5,62 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useReducer,
   useRef,
   useState,
   type ReactNode,
 } from "react";
 import { useSearchParams } from "next/navigation";
-import { useVideoProjectDraft } from "@/lib/useVideoProjectDraft";
+import { useVideoProjectDraft, upsertProjectInStore } from "@/lib/useVideoProjectDraft";
 import { mapActionToEvents } from "@/lib/session/events";
 import { buildSnapshot } from "@/lib/session/snapshot";
 import {
+  mergeApiCosts,
   projectFromSessionDocuments,
   shouldPreferServerDocuments,
   type SessionDocuments,
 } from "@/lib/session/stepPayload";
-import { scheduleSnapshotSync, trackSessionEvent } from "@/lib/session/telemetry";
+import {
+  applyLaterSteps,
+  captureLaterStepsCommit,
+  laterStepMatches,
+  withLaterStep,
+  type LaterStepId,
+  type LaterStepsCommit,
+} from "@/lib/session/laterStepCommit";
+import {
+  captureSummaryCommit,
+  captureTitleCommit,
+  projectForDatabase,
+  summaryCommitMatches,
+  titleCommitMatches,
+  type SummaryCommit,
+  type TitleCommit,
+} from "@/lib/session/summaryCommit";
+import {
+  flushSnapshotSync,
+  scheduleSnapshotSync,
+  trackSessionEvent,
+} from "@/lib/session/telemetry";
+import { MAX_TRANSCRIPT_CHARS } from "@/lib/youtube/transcript";
 import type { ConnectedChannel } from "@/lib/youtube/repo";
 import {
   applySummaryPatch,
   cloneScene,
   createEmptyScene,
+  DEFAULT_PROJECT_NAME,
   DEFAULT_STEP,
   emptyEditorSettings,
   inferStepStatus,
+  normalizeElevenLabsVoice,
   isStepId,
+  newId,
   reindexScenes,
   sceneDuration,
   type AiProvider,
   type ApiCostEntry,
   type EditorSettings,
+  type ElevenLabsVoice,
   type LowEffortReport,
   type Scene,
   type ScriptScore,
@@ -58,19 +84,21 @@ export type ProjectAction =
   | { type: "SET_NAME"; name: string }
   | { type: "SET_CHANNEL"; channelId: string }
   | { type: "UPDATE_SUMMARY"; patch: Partial<VideoProject["summary"]> }
-  | { type: "SET_TITLES"; titles: TitleOption[] }
+  | { type: "SET_TITLES"; titles: TitleOption[]; cursorPrompt?: string | null }
+  | { type: "ADD_TITLES"; titles: TitleOption[] }
+  | { type: "REMOVE_TITLE"; id: string }
   | { type: "SELECT_TITLE"; id: string }
   | { type: "EDIT_TITLE"; id: string; text: string }
   | { type: "REPLACE_TITLE"; id: string; title: TitleOption }
-  | { type: "SET_THUMBNAILS"; thumbnails: ThumbnailOption[] }
+  | { type: "SET_THUMBNAILS"; thumbnails: ThumbnailOption[]; cursorPrompt?: string | null }
   | { type: "SELECT_THUMBNAIL"; id: string }
   | { type: "ADD_THUMBNAIL"; thumbnail: ThumbnailOption }
   | { type: "REPLACE_THUMBNAIL"; id: string; thumbnail: ThumbnailOption }
   | { type: "SET_TITLE_SCORES"; scores: Record<string, TitleScore> }
   | { type: "SET_THUMBNAIL_INSIGHTS"; insights: Record<string, VidIqThumbInsight> }
   | { type: "SET_SCRIPT_SCORE"; score: ScriptScore }
-  | { type: "SET_SCRIPT"; script: string }
-  | { type: "SET_SCENES"; scenes: Scene[] }
+  | { type: "SET_SCRIPT"; script: string; cursorPrompt?: string | null; generated?: boolean }
+  | { type: "SET_SCENES"; scenes: Scene[]; generated?: boolean; keepStatus?: boolean }
   | { type: "ADD_SCENE" }
   | { type: "DELETE_SCENE"; id: string }
   | { type: "MOVE_SCENE"; id: string; direction: "up" | "down" }
@@ -84,7 +112,8 @@ export type ProjectAction =
   | { type: "DUPLICATE_SCENE"; id: string }
   | { type: "UPDATE_EDITOR"; patch: Partial<EditorSettings> }
   | { type: "CONFIRM_EDIT" }
-  | { type: "SET_LOW_EFFORT_REPORT"; report: LowEffortReport };
+  | { type: "SET_LOW_EFFORT_REPORT"; report: LowEffortReport }
+  | { type: "SET_ELEVENLABS_VOICE"; voice: ElevenLabsVoice | null };
 
 function applyScenePatch(scene: Scene, patch: ScenePatch): Scene {
   return {
@@ -108,7 +137,21 @@ function reduceProject(
     case "UPDATE_SUMMARY":
       return { ...state, summary: applySummaryPatch(state.summary, action.patch) };
     case "SET_TITLES":
-      return { ...state, titles: action.titles, selectedTitleId: null };
+      return {
+        ...state,
+        titles: action.titles,
+        selectedTitleId: null,
+        cursorTitlePrompt:
+          action.cursorPrompt === undefined ? state.cursorTitlePrompt : action.cursorPrompt,
+      };
+    case "ADD_TITLES":
+      return { ...state, titles: [...state.titles, ...action.titles] };
+    case "REMOVE_TITLE":
+      return {
+        ...state,
+        titles: state.titles.filter((title) => title.id !== action.id),
+        selectedTitleId: state.selectedTitleId === action.id ? null : state.selectedTitleId,
+      };
     case "SELECT_TITLE":
       return { ...state, selectedTitleId: action.id };
     case "EDIT_TITLE":
@@ -130,7 +173,13 @@ function reduceProject(
         ),
       };
     case "SET_THUMBNAILS":
-      return { ...state, thumbnails: action.thumbnails, selectedThumbnailId: null };
+      return {
+        ...state,
+        thumbnails: action.thumbnails,
+        selectedThumbnailId: null,
+        cursorThumbnailPrompt:
+          action.cursorPrompt === undefined ? state.cursorThumbnailPrompt : action.cursorPrompt,
+      };
     case "SELECT_THUMBNAIL":
       return { ...state, selectedThumbnailId: action.id };
     case "ADD_THUMBNAIL":
@@ -178,7 +227,12 @@ function reduceProject(
     case "SET_SCRIPT_SCORE":
       return { ...state, scriptScore: action.score, scriptVidiq: undefined };
     case "SET_SCRIPT":
-      return { ...state, fullScript: action.script };
+      return {
+        ...state,
+        fullScript: action.script,
+        cursorScriptPrompt:
+          action.cursorPrompt === undefined ? state.cursorScriptPrompt : action.cursorPrompt,
+      };
     case "SET_SCENES":
       return { ...state, scenes: reindexScenes(action.scenes) };
     case "ADD_SCENE": {
@@ -290,6 +344,11 @@ function reduceProject(
           [action.report.scope]: action.report,
         },
       };
+    case "SET_ELEVENLABS_VOICE":
+      return {
+        ...state,
+        elevenLabsVoice: normalizeElevenLabsVoice(action.voice),
+      };
     default: {
       const exhaustive: never = action;
       return exhaustive;
@@ -316,7 +375,76 @@ type ProjectContextValue = {
   setPreviewOpen: (open: boolean) => void;
   activeStep: StepId;
   setActiveStep: (step: StepId) => void;
+  summaryNeedsSave: boolean;
+  titleNeedsSave: boolean;
+  needsSaveByStep: Record<StepId, boolean>;
+  summarySaving: boolean;
+  summarySaveError: string | null;
+  approveNotice: { step: StepId; title: string; message: string } | null;
+  dismissApproveNotice: () => void;
+  savedSummary: SummaryCommit | null;
+  savedTitle: TitleCommit | null;
+  deleteSummaryReference: (referenceId: string) => void;
 };
+
+function projectSavedToDatabase(
+  project: VideoProject,
+  summary: SummaryCommit,
+  title: TitleCommit,
+  later: LaterStepsCommit,
+): VideoProject {
+  return applyLaterSteps(projectForDatabase(project, summary, title), later);
+}
+
+const LATER_APPROVE_STEPS = new Set<LaterStepId>([
+  "thumbnail",
+  "script",
+  "timeline",
+  "description",
+  "render",
+]);
+
+function isLaterApproveStep(step: StepId): step is Exclude<LaterStepId, "editor"> {
+  return LATER_APPROVE_STEPS.has(step as LaterStepId);
+}
+
+const UNSAVED_SUMMARY_EVENTS = new Set([
+  "summary.changed",
+  "summary.reference_added",
+  "summary.reference_removed",
+]);
+
+async function commitSummaryReferences(
+  sessionId: string,
+  references: VideoProject["summary"]["references"],
+): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `/api/create/sessions/${encodeURIComponent(sessionId)}/references`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mode: "commit",
+          references: references.map((reference, order) => ({
+            referenceKey: reference.id,
+            order,
+            url: reference.url.trim(),
+            title: reference.title.trim().slice(0, 200),
+            transcript: reference.transcript.slice(0, MAX_TRANSCRIPT_CHARS),
+            lang: reference.lang,
+            source: reference.transcriptSource === "fetched" ? "fetched" : "manual",
+            fetchedAt: reference.fetchedAt,
+          })),
+        }),
+      },
+    );
+    return response.ok;
+  } catch (error) {
+    console.error("[video-session] video intro reference save failed", error);
+    return false;
+  }
+}
 
 const VideoProjectContext = createContext<ProjectContextValue | null>(null);
 
@@ -340,8 +468,24 @@ export function VideoProjectProvider({
   const [loadedId, setLoadedId] = useState<string | null>(null);
   const [sourceResolved, setSourceResolved] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [summaryCommit, setSummaryCommit] = useState<SummaryCommit | null>(null);
+  const [titleCommit, setTitleCommit] = useState<TitleCommit | null>(null);
+  const [laterCommit, setLaterCommit] = useState<LaterStepsCommit | null>(null);
+  const [summarySaving, setSummarySaving] = useState(false);
+  const [summarySaveError, setSummarySaveError] = useState<string | null>(null);
+  const [approveNotice, setApproveNotice] = useState<{
+    step: StepId;
+    title: string;
+    message: string;
+  } | null>(null);
+  const dismissApproveNotice = useCallback(() => setApproveNotice(null), []);
   const openedIdRef = useRef<string | null>(null);
   const localAtLoadRef = useRef<VideoProject | null>(null);
+  const summaryCommitRef = useRef<SummaryCommit | null>(null);
+  const titleCommitRef = useRef<TitleCommit | null>(null);
+  const laterCommitRef = useRef<LaterStepsCommit | null>(null);
+  const summarySavingRef = useRef(false);
+  const commitTokenRef = useRef(0);
 
   // The URL owns the step, so refresh, back/forward and shared links all land
   // on the same place. An unknown or missing value reads as the first step.
@@ -370,26 +514,675 @@ export function VideoProjectProvider({
     }
   }, [project, activeStep]);
 
+  const commitSummaryStatus = useCallback((status: StepStatus) => {
+    const current = project;
+    if (!current || summarySavingRef.current) return;
+    const previousCommit = summaryCommitRef.current ?? captureSummaryCommit(current);
+    const nextCommit: SummaryCommit = status === "approved"
+      ? captureSummaryCommit({
+          ...current,
+          stepStatus: { ...current.stepStatus, summary: status },
+        })
+      : { ...previousCommit, stepStatus: status };
+    const token = commitTokenRef.current + 1;
+    commitTokenRef.current = token;
+    summarySavingRef.current = true;
+    summaryCommitRef.current = nextCommit;
+    setSummaryCommit(nextCommit);
+    setSummarySaving(true);
+    setSummarySaveError(null);
+    rawDispatch({ type: "SET_STEP_STATUS", step: "summary", status });
+
+    const channelTitle = channels.find((channel) => channel.id === nextCommit.channelId)?.title ?? null;
+    const stored = projectSavedToDatabase(
+      {
+        ...current,
+        stepStatus: { ...current.stepStatus, summary: status },
+        lastUpdated: new Date().toISOString(),
+      },
+      nextCommit,
+      titleCommitRef.current ?? captureTitleCommit(current),
+      laterCommitRef.current ?? captureLaterStepsCommit(current),
+    );
+
+    void (async () => {
+      const result = await flushSnapshotSync(buildSnapshot(stored, activeStep, channelTitle));
+      if (commitTokenRef.current !== token) return;
+      if (result !== "ok") {
+        summaryCommitRef.current = previousCommit;
+        setSummaryCommit(previousCommit);
+        setSummarySaveError("Save failed. Click Mark approved again.");
+        rawDispatch({ type: "SET_STEP_STATUS", step: "summary", status: previousCommit.stepStatus });
+        summarySavingRef.current = false;
+        setSummarySaving(false);
+        return;
+      }
+      const referencesSaved = status === "approved"
+        ? await commitSummaryReferences(current.id, nextCommit.summary.references)
+        : true;
+      if (commitTokenRef.current !== token) return;
+      if (!referencesSaved) {
+        summaryCommitRef.current = previousCommit;
+        setSummaryCommit(previousCommit);
+        setSummarySaveError("Save failed. Click Mark approved again.");
+        rawDispatch({ type: "SET_STEP_STATUS", step: "summary", status: previousCommit.stepStatus });
+      } else {
+        trackSessionEvent(current.id, {
+          type: status === "approved" ? "step.approved" : "step.state_changed",
+          step: "summary",
+          payload: { status, previousStatus: previousCommit.stepStatus },
+        });
+      }
+      summarySavingRef.current = false;
+      setSummarySaving(false);
+    })();
+  }, [project, channels, activeStep]);
+
+  const deleteSummaryReference = useCallback((referenceId: string) => {
+    const current = project;
+    if (!current) return;
+    const nextReferences = current.summary.references.filter((item) => item.id !== referenceId);
+    if (nextReferences.length === current.summary.references.length) return;
+
+    rawDispatch({ type: "UPDATE_SUMMARY", patch: { references: nextReferences } });
+
+    const commit = summaryCommitRef.current;
+    const wasSaved = commit?.summary.references.some((item) => item.id === referenceId) ?? false;
+    if (!commit || !wasSaved) return;
+
+    const previousCommit = commit;
+    const nextCommit: SummaryCommit = {
+      ...commit,
+      summary: {
+        ...commit.summary,
+        references: commit.summary.references.filter((item) => item.id !== referenceId),
+      },
+    };
+    commitTokenRef.current += 1;
+    const token = commitTokenRef.current;
+    if (summarySavingRef.current) {
+      summarySavingRef.current = false;
+      setSummarySaving(false);
+    }
+    summaryCommitRef.current = nextCommit;
+    setSummaryCommit(nextCommit);
+
+    const channelTitle = channels.find((channel) => channel.id === nextCommit.channelId)?.title ?? null;
+    const stored = projectSavedToDatabase(
+      { ...current, lastUpdated: new Date().toISOString() },
+      nextCommit,
+      titleCommitRef.current ?? captureTitleCommit(current),
+      laterCommitRef.current ?? captureLaterStepsCommit(current),
+    );
+    void (async () => {
+      const result = await flushSnapshotSync(buildSnapshot(stored, activeStep, channelTitle));
+      if (commitTokenRef.current !== token) return;
+      if (result !== "ok") {
+        summaryCommitRef.current = previousCommit;
+        setSummaryCommit(previousCommit);
+        rawDispatch({
+          type: "UPDATE_SUMMARY",
+          patch: { references: current.summary.references },
+        });
+        setSummarySaveError("Could not delete that reference.");
+      }
+    })();
+  }, [project, channels, activeStep]);
+
+  const persistGeneratedTitles = useCallback((action: Extract<ProjectAction, { type: "SET_TITLES" }>) => {
+    const current = project;
+    if (!current) return;
+    const summary = summaryCommitRef.current ?? captureSummaryCommit(current);
+    const previousCommit = titleCommitRef.current ?? captureTitleCommit(current);
+    const cursorTitlePrompt =
+      action.cursorPrompt === undefined ? current.cursorTitlePrompt : action.cursorPrompt;
+    const nextCommit: TitleCommit = {
+      titles: structuredClone(action.titles),
+      selectedTitleId: null,
+      cursorTitlePrompt: typeof cursorTitlePrompt === "string" ? cursorTitlePrompt : null,
+      provider: current.providerByStep.title,
+      stepStatus: "generated",
+    };
+    const token = commitTokenRef.current + 1;
+    commitTokenRef.current = token;
+    titleCommitRef.current = nextCommit;
+    setTitleCommit(nextCommit);
+    rawDispatch(action);
+    rawDispatch({ type: "SET_STEP_STATUS", step: "title", status: "generated" });
+
+    const channelTitle = channels.find((channel) => channel.id === summary.channelId)?.title ?? null;
+    const stored = projectSavedToDatabase(
+      {
+        ...current,
+        titles: action.titles,
+        selectedTitleId: null,
+        cursorTitlePrompt: nextCommit.cursorTitlePrompt,
+        stepStatus: { ...current.stepStatus, title: "generated" },
+        lastUpdated: new Date().toISOString(),
+      },
+      summary,
+      nextCommit,
+      laterCommitRef.current ?? captureLaterStepsCommit(current),
+    );
+    void (async () => {
+      const result = await flushSnapshotSync(buildSnapshot(stored, activeStep, channelTitle));
+      if (commitTokenRef.current !== token) return;
+      if (result !== "ok") {
+        titleCommitRef.current = previousCommit;
+        setTitleCommit(previousCommit);
+        setSummarySaveError("Could not save the generated titles.");
+      }
+    })();
+  }, [project, channels, activeStep]);
+
+  const persistGeneratedThumbnails = useCallback((action: Extract<ProjectAction, { type: "SET_THUMBNAILS" }>) => {
+    const current = project;
+    if (!current) return;
+    const summary = summaryCommitRef.current ?? captureSummaryCommit(current);
+    const title = titleCommitRef.current ?? captureTitleCommit(current);
+    const previousLater = laterCommitRef.current ?? captureLaterStepsCommit(current);
+    const cursorThumbnailPrompt =
+      action.cursorPrompt === undefined ? current.cursorThumbnailPrompt : action.cursorPrompt;
+    const generated: VideoProject = {
+      ...current,
+      thumbnails: action.thumbnails,
+      selectedThumbnailId: null,
+      cursorThumbnailPrompt: typeof cursorThumbnailPrompt === "string" ? cursorThumbnailPrompt : null,
+      stepStatus: { ...current.stepStatus, thumbnail: "generated" },
+    };
+    const nextLater = withLaterStep(previousLater, generated, "thumbnail", "generated");
+    const token = commitTokenRef.current + 1;
+    commitTokenRef.current = token;
+    laterCommitRef.current = nextLater;
+    setLaterCommit(nextLater);
+    rawDispatch(action);
+    rawDispatch({ type: "SET_STEP_STATUS", step: "thumbnail", status: "generated" });
+
+    const channelTitle = channels.find((channel) => channel.id === summary.channelId)?.title ?? null;
+    const stored = projectSavedToDatabase(
+      { ...generated, lastUpdated: new Date().toISOString() },
+      summary,
+      title,
+      nextLater,
+    );
+    void (async () => {
+      const result = await flushSnapshotSync(buildSnapshot(stored, activeStep, channelTitle));
+      if (commitTokenRef.current !== token) return;
+      if (result !== "ok") {
+        laterCommitRef.current = previousLater;
+        setLaterCommit(previousLater);
+        setSummarySaveError("Could not save the generated prompts.");
+      }
+    })();
+  }, [project, channels, activeStep]);
+
+  const persistGeneratedScript = useCallback((action: Extract<ProjectAction, { type: "SET_SCRIPT" }>) => {
+    const current = project;
+    if (!current) return;
+    const summary = summaryCommitRef.current ?? captureSummaryCommit(current);
+    const title = titleCommitRef.current ?? captureTitleCommit(current);
+    const previousLater = laterCommitRef.current ?? captureLaterStepsCommit(current);
+    const cursorScriptPrompt =
+      action.cursorPrompt === undefined ? current.cursorScriptPrompt : action.cursorPrompt;
+    const fire = {
+      id: newId(),
+      at: new Date().toISOString(),
+      step: "script" as const,
+      provider: "cursor",
+      kind: "script",
+      usd: 0,
+    };
+    const generated: VideoProject = {
+      ...current,
+      fullScript: action.script,
+      cursorScriptPrompt: typeof cursorScriptPrompt === "string" ? cursorScriptPrompt : null,
+      apiCosts: [...(current.apiCosts ?? []), fire],
+      stepStatus: { ...current.stepStatus, script: "generated" },
+    };
+    const nextLater = withLaterStep(previousLater, generated, "script", "generated");
+    const token = commitTokenRef.current + 1;
+    commitTokenRef.current = token;
+    laterCommitRef.current = nextLater;
+    setLaterCommit(nextLater);
+    rawDispatch({ type: "SET_SCRIPT", script: action.script, cursorPrompt: action.cursorPrompt });
+    rawDispatch({ type: "RECORD_API_COST", entry: fire });
+    rawDispatch({ type: "SET_STEP_STATUS", step: "script", status: "generated" });
+
+    const channelTitle = channels.find((channel) => channel.id === summary.channelId)?.title ?? null;
+    const stored = projectSavedToDatabase(
+      { ...generated, lastUpdated: new Date().toISOString() },
+      summary,
+      title,
+      nextLater,
+    );
+    void (async () => {
+      const result = await flushSnapshotSync(buildSnapshot(stored, activeStep, channelTitle));
+      if (commitTokenRef.current !== token) return;
+      if (result !== "ok") {
+        laterCommitRef.current = previousLater;
+        setLaterCommit(previousLater);
+        setSummarySaveError("Could not save the generated script.");
+      }
+    })();
+  }, [project, channels, activeStep]);
+
+  const persistGeneratedScenes = useCallback((action: Extract<ProjectAction, { type: "SET_SCENES" }>) => {
+    const current = project;
+    if (!current) return;
+    const summary = summaryCommitRef.current ?? captureSummaryCommit(current);
+    const title = titleCommitRef.current ?? captureTitleCommit(current);
+    const previousLater = laterCommitRef.current ?? captureLaterStepsCommit(current);
+    const scenes = reindexScenes(action.scenes);
+    const currentStatus = current.stepStatus.timeline;
+    const status =
+      action.keepStatus && (currentStatus === "approved" || currentStatus === "generated")
+        ? currentStatus
+        : "generated";
+    const generated: VideoProject = {
+      ...current,
+      scenes,
+      stepStatus: { ...current.stepStatus, timeline: status },
+    };
+    const nextLater = withLaterStep(previousLater, generated, "timeline", status);
+    const token = commitTokenRef.current + 1;
+    commitTokenRef.current = token;
+    laterCommitRef.current = nextLater;
+    setLaterCommit(nextLater);
+    rawDispatch({ type: "SET_SCENES", scenes });
+    rawDispatch({ type: "SET_STEP_STATUS", step: "timeline", status });
+
+    const channelTitle = channels.find((channel) => channel.id === summary.channelId)?.title ?? null;
+    const stored = projectSavedToDatabase(
+      { ...generated, lastUpdated: new Date().toISOString() },
+      summary,
+      title,
+      nextLater,
+    );
+    void (async () => {
+      const result = await flushSnapshotSync(buildSnapshot(stored, activeStep, channelTitle));
+      if (commitTokenRef.current !== token) return;
+      if (result !== "ok") {
+        laterCommitRef.current = previousLater;
+        setLaterCommit(previousLater);
+        setSummarySaveError("Could not save the scenes.");
+      }
+    })();
+  }, [project, channels, activeStep]);
+
+  const persistStoredThumbnail = useCallback((
+    action: Extract<ProjectAction, { type: "REPLACE_THUMBNAIL" } | { type: "ADD_THUMBNAIL" }>,
+  ) => {
+    const imageUrl = action.thumbnail.customUrl;
+    if (!imageUrl?.startsWith("https://")) {
+      rawDispatch(action);
+      return;
+    }
+    const current = project;
+    if (!current) return;
+    const summary = summaryCommitRef.current ?? captureSummaryCommit(current);
+    const title = titleCommitRef.current ?? captureTitleCommit(current);
+    const previousLater = laterCommitRef.current ?? captureLaterStepsCommit(current);
+    const thumbnails = action.type === "REPLACE_THUMBNAIL"
+      ? (previousLater.thumbnail.thumbnails.some((item) => item.id === action.id)
+          ? previousLater.thumbnail.thumbnails
+          : current.thumbnails
+        ).map((item) => (item.id === action.id ? action.thumbnail : item))
+      : [
+          action.thumbnail,
+          ...previousLater.thumbnail.thumbnails.filter((item) => item.id !== action.thumbnail.id),
+        ];
+    const storedProject: VideoProject = {
+      ...current,
+      thumbnails,
+      selectedThumbnailId:
+        action.type === "ADD_THUMBNAIL"
+          ? action.thumbnail.id
+          : previousLater.thumbnail.selectedThumbnailId,
+      cursorThumbnailPrompt: previousLater.thumbnail.cursorThumbnailPrompt,
+      stepStatus: { ...current.stepStatus, thumbnail: previousLater.thumbnail.stepStatus },
+    };
+    const nextLater = withLaterStep(
+      previousLater,
+      storedProject,
+      "thumbnail",
+      previousLater.thumbnail.stepStatus,
+    );
+    const token = commitTokenRef.current + 1;
+    commitTokenRef.current = token;
+    laterCommitRef.current = nextLater;
+    setLaterCommit(nextLater);
+    rawDispatch(action);
+
+    const channelTitle = channels.find((channel) => channel.id === summary.channelId)?.title ?? null;
+    const stored = projectSavedToDatabase(
+      { ...storedProject, lastUpdated: new Date().toISOString() },
+      summary,
+      title,
+      nextLater,
+    );
+    void (async () => {
+      const result = await flushSnapshotSync(buildSnapshot(stored, activeStep, channelTitle));
+      if (commitTokenRef.current !== token) return;
+      if (result !== "ok") {
+        laterCommitRef.current = previousLater;
+        setLaterCommit(previousLater);
+        setSummarySaveError("Could not save the uploaded image.");
+      }
+    })();
+  }, [project, channels, activeStep]);
+
+  const persistElevenLabsVoice = useCallback((voice: ElevenLabsVoice | null) => {
+    const current = project;
+    if (!current) return;
+    const nextVoice = normalizeElevenLabsVoice(voice);
+    const summary = summaryCommitRef.current ?? captureSummaryCommit(current);
+    const title = titleCommitRef.current ?? captureTitleCommit(current);
+    const previousLater = laterCommitRef.current ?? captureLaterStepsCommit(current);
+    const nextLater: LaterStepsCommit = {
+      ...previousLater,
+      timeline: {
+        ...previousLater.timeline,
+        elevenLabsVoice: nextVoice,
+      },
+    };
+    const token = commitTokenRef.current + 1;
+    commitTokenRef.current = token;
+    laterCommitRef.current = nextLater;
+    setLaterCommit(nextLater);
+    rawDispatch({ type: "SET_ELEVENLABS_VOICE", voice: nextVoice });
+
+    const channelTitle = channels.find((channel) => channel.id === summary.channelId)?.title ?? null;
+    const stored = projectSavedToDatabase(
+      { ...current, elevenLabsVoice: nextVoice, lastUpdated: new Date().toISOString() },
+      summary,
+      title,
+      nextLater,
+    );
+    void (async () => {
+      const result = await flushSnapshotSync(buildSnapshot(stored, activeStep, channelTitle));
+      if (commitTokenRef.current !== token) return;
+      if (result !== "ok") {
+        laterCommitRef.current = previousLater;
+        setLaterCommit(previousLater);
+        rawDispatch({ type: "SET_ELEVENLABS_VOICE", voice: current.elevenLabsVoice ?? null });
+        setSummarySaveError("Could not save the ElevenLabs voice.");
+      }
+    })();
+  }, [project, channels, activeStep]);
+
+  const commitTitleStatus = useCallback((status: StepStatus) => {
+    const current = project;
+    if (!current || summarySavingRef.current) return;
+    const previousCommit = titleCommitRef.current ?? captureTitleCommit(current);
+    const summary = summaryCommitRef.current ?? captureSummaryCommit(current);
+    const selected = current.titles.find(
+      (title) => title.id === current.selectedTitleId && title.text.trim(),
+    );
+    if (status === "approved" && !selected) {
+      setApproveNotice({
+        step: "title",
+        title: "No title selected",
+        message: "Select one title before marking this step approved.",
+      });
+      return;
+    }
+    const nextCommit: TitleCommit = captureTitleCommit({
+      ...current,
+      stepStatus: { ...current.stepStatus, title: status },
+    });
+    const token = commitTokenRef.current + 1;
+    commitTokenRef.current = token;
+    summarySavingRef.current = true;
+    titleCommitRef.current = nextCommit;
+    setTitleCommit(nextCommit);
+    setSummarySaving(true);
+    setSummarySaveError(null);
+    rawDispatch({ type: "SET_STEP_STATUS", step: "title", status });
+
+    const channelTitle = channels.find((channel) => channel.id === summary.channelId)?.title ?? null;
+    const stored = projectSavedToDatabase(
+      {
+        ...current,
+        stepStatus: { ...current.stepStatus, title: status },
+        lastUpdated: new Date().toISOString(),
+      },
+      summary,
+      nextCommit,
+      laterCommitRef.current ?? captureLaterStepsCommit(current),
+    );
+
+    void (async () => {
+      const result = await flushSnapshotSync(buildSnapshot(stored, activeStep, channelTitle));
+      if (commitTokenRef.current !== token) return;
+      if (result !== "ok") {
+        titleCommitRef.current = previousCommit;
+        setTitleCommit(previousCommit);
+        setSummarySaveError("Save failed. Click Mark approved again.");
+        rawDispatch({ type: "SET_STEP_STATUS", step: "title", status: previousCommit.stepStatus });
+      } else {
+        trackSessionEvent(current.id, {
+          type: status === "approved" ? "step.approved" : "step.state_changed",
+          step: "title",
+          payload: { status, previousStatus: previousCommit.stepStatus },
+        });
+      }
+      summarySavingRef.current = false;
+      setSummarySaving(false);
+    })();
+  }, [project, channels, activeStep]);
+
+  const commitLaterStatus = useCallback((step: Exclude<LaterStepId, "editor">, status: StepStatus) => {
+    const current = project;
+    if (!current || summarySavingRef.current) return;
+    const previousCommit = laterCommitRef.current ?? captureLaterStepsCommit(current);
+    const summary = summaryCommitRef.current ?? captureSummaryCommit(current);
+    const title = titleCommitRef.current ?? captureTitleCommit(current);
+    if (step === "thumbnail" && status === "approved") {
+      const selected = current.thumbnails.find(
+        (thumb) => thumb.id === current.selectedThumbnailId && thumb.concept.trim(),
+      );
+      if (!selected) {
+        setApproveNotice({
+          step: "thumbnail",
+          title: "No prompt selected",
+          message: "Select one thumbnail prompt before marking this step approved.",
+        });
+        return;
+      }
+    }
+    if (step === "script" && status === "approved" && !current.fullScript.trim()) {
+      setApproveNotice({
+        step: "script",
+        title: "No script yet",
+        message: "Generate or write a script before marking this step approved.",
+      });
+      return;
+    }
+    const nextCommit = withLaterStep(previousCommit, current, step, status);
+    const token = commitTokenRef.current + 1;
+    commitTokenRef.current = token;
+    summarySavingRef.current = true;
+    laterCommitRef.current = nextCommit;
+    setLaterCommit(nextCommit);
+    setSummarySaving(true);
+    setSummarySaveError(null);
+    rawDispatch({ type: "SET_STEP_STATUS", step, status });
+
+    const channelTitle = channels.find((channel) => channel.id === summary.channelId)?.title ?? null;
+    const stored = projectSavedToDatabase(
+      {
+        ...current,
+        stepStatus: { ...current.stepStatus, [step]: status },
+        lastUpdated: new Date().toISOString(),
+      },
+      summary,
+      title,
+      nextCommit,
+    );
+
+    void (async () => {
+      const result = await flushSnapshotSync(buildSnapshot(stored, activeStep, channelTitle));
+      if (commitTokenRef.current !== token) return;
+      if (result !== "ok") {
+        laterCommitRef.current = previousCommit;
+        setLaterCommit(previousCommit);
+        setSummarySaveError("Save failed. Click Mark approved again.");
+        rawDispatch({ type: "SET_STEP_STATUS", step, status: previousCommit[step].stepStatus });
+      } else {
+        trackSessionEvent(current.id, {
+          type: status === "approved" ? "step.approved" : "step.state_changed",
+          step,
+          payload: { status, previousStatus: previousCommit[step].stepStatus },
+        });
+      }
+      summarySavingRef.current = false;
+      setSummarySaving(false);
+    })();
+  }, [project, channels, activeStep]);
+
+  const commitEditor = useCallback(() => {
+    const current = project;
+    if (!current || summarySavingRef.current) return;
+    const previousCommit = laterCommitRef.current ?? captureLaterStepsCommit(current);
+    const summary = summaryCommitRef.current ?? captureSummaryCommit(current);
+    const title = titleCommitRef.current ?? captureTitleCommit(current);
+    const confirmed: VideoProject = {
+      ...current,
+      editor: {
+        ...(current.editor ?? emptyEditorSettings()),
+        confirmedAt: new Date().toISOString(),
+      },
+    };
+    const nextCommit = withLaterStep(previousCommit, confirmed, "editor", "approved");
+    const token = commitTokenRef.current + 1;
+    commitTokenRef.current = token;
+    summarySavingRef.current = true;
+    laterCommitRef.current = nextCommit;
+    setLaterCommit(nextCommit);
+    setSummarySaving(true);
+    setSummarySaveError(null);
+    rawDispatch({ type: "CONFIRM_EDIT" });
+
+    const channelTitle = channels.find((channel) => channel.id === summary.channelId)?.title ?? null;
+    const stored = projectSavedToDatabase(
+      { ...confirmed, lastUpdated: new Date().toISOString() },
+      summary,
+      title,
+      nextCommit,
+    );
+
+    void (async () => {
+      const result = await flushSnapshotSync(buildSnapshot(stored, activeStep, channelTitle));
+      if (commitTokenRef.current !== token) return;
+      if (result !== "ok") {
+        laterCommitRef.current = previousCommit;
+        setLaterCommit(previousCommit);
+        setSummarySaveError("Save failed. Click Confirm edit again.");
+        rawDispatch({
+          type: "UPDATE_EDITOR",
+          patch: {
+            confirmedAt: previousCommit.editor.editor.confirmedAt,
+          },
+        });
+      } else {
+        trackSessionEvent(current.id, {
+          type: "editor.confirmed",
+          step: "editor",
+          payload: {},
+        });
+      }
+      summarySavingRef.current = false;
+      setSummarySaving(false);
+    })();
+  }, [project, channels, activeStep]);
+
   const dispatch = useCallback((action: ProjectAction) => {
+    if (action.type === "SET_STEP_STATUS" && action.step === "summary") {
+      commitSummaryStatus(action.status);
+      return;
+    }
+    if (action.type === "SET_STEP_STATUS" && action.step === "title") {
+      commitTitleStatus(action.status);
+      return;
+    }
+    if (action.type === "SET_TITLES") {
+      persistGeneratedTitles(action);
+      return;
+    }
+    if (action.type === "SET_THUMBNAILS") {
+      persistGeneratedThumbnails(action);
+      return;
+    }
+    if (action.type === "SET_SCRIPT" && action.generated) {
+      persistGeneratedScript(action);
+      return;
+    }
+    if (action.type === "SET_SCENES" && action.generated) {
+      persistGeneratedScenes(action);
+      return;
+    }
+    if (action.type === "REPLACE_THUMBNAIL" || action.type === "ADD_THUMBNAIL") {
+      persistStoredThumbnail(action);
+      return;
+    }
+    if (action.type === "SET_STEP_STATUS" && isLaterApproveStep(action.step)) {
+      commitLaterStatus(action.step, action.status);
+      return;
+    }
+    if (action.type === "CONFIRM_EDIT") {
+      commitEditor();
+      return;
+    }
+    if (action.type === "SET_ELEVENLABS_VOICE") {
+      persistElevenLabsVoice(action.voice);
+      return;
+    }
+    if (action.type === "SET_NAME" && project) {
+      const name = action.name.trim().slice(0, 120) || DEFAULT_PROJECT_NAME;
+      const next = { ...project, name, lastUpdated: new Date().toISOString() };
+      rawDispatch({ type: "SET_NAME", name });
+      upsertProjectInStore(next);
+      const channelTitle = channels.find((channel) => channel.id === project.channelId)?.title ?? null;
+      void flushSnapshotSync(buildSnapshot(next, activeStep, channelTitle));
+      return;
+    }
     if (project && action.type !== "HYDRATE") {
       for (const item of mapActionToEvents(action, project)) {
+        if (UNSAVED_SUMMARY_EVENTS.has(item.type)) continue;
         trackSessionEvent(project.id, item);
       }
     }
     rawDispatch(action);
-  }, [project]);
+  }, [project, channels, activeStep, commitSummaryStatus, commitTitleStatus, persistGeneratedTitles, persistGeneratedThumbnails, persistGeneratedScript, persistGeneratedScenes, persistStoredThumbnail, persistElevenLabsVoice, commitLaterStatus, commitEditor]);
 
   if (hydrated && loadedId !== projectId) {
     setLoadedId(projectId);
     setPreviewOpen(false);
     setSourceResolved(false);
-    localAtLoadRef.current = initial;
+    setSummaryCommit(null);
+    setTitleCommit(null);
+    setLaterCommit(null);
+    setSummarySaveError(null);
     rawDispatch({ type: "HYDRATE", project: initial });
   }
 
   useEffect(() => {
+    summaryCommitRef.current = summaryCommit;
+  }, [summaryCommit]);
+
+  useEffect(() => {
+    titleCommitRef.current = titleCommit;
+  }, [titleCommit]);
+
+  useEffect(() => {
+    laterCommitRef.current = laterCommit;
+  }, [laterCommit]);
+
+  useEffect(() => {
     if (!hydrated || loadedId !== projectId || sourceResolved) return;
+    localAtLoadRef.current = initial;
     let cancelled = false;
+    let baseline = initial;
     const controller = new AbortController();
 
     void (async () => {
@@ -400,20 +1193,15 @@ export function VideoProjectProvider({
           signal: controller.signal,
         });
         if (cancelled) return;
-        if (response.status === 404 || response.status === 410) {
-          setSourceResolved(true);
-          return;
-        }
-        if (!response.ok) {
-          setSourceResolved(true);
-          return;
-        }
+        if (response.status === 404 || response.status === 410 || !response.ok) return;
         const docs = (await response.json()) as SessionDocuments;
         if (cancelled) return;
         const local = localAtLoadRef.current;
         if (shouldPreferServerDocuments(local, docs)) {
           const fromServer = projectFromSessionDocuments(docs);
           if (fromServer) {
+            fromServer.apiCosts = mergeApiCosts(local?.apiCosts, fromServer.apiCosts);
+            baseline = fromServer;
             rawDispatch({ type: "HYDRATE", project: fromServer });
             persist(fromServer);
           }
@@ -422,7 +1210,20 @@ export function VideoProjectProvider({
         if (controller.signal.aborted || cancelled) return;
         console.error("[video-session] documents hydrate failed", error);
       } finally {
-        if (!cancelled) setSourceResolved(true);
+        if (!cancelled) {
+          if (baseline) {
+            const summary = captureSummaryCommit(baseline);
+            const title = captureTitleCommit(baseline);
+            const later = captureLaterStepsCommit(baseline);
+            summaryCommitRef.current = summary;
+            titleCommitRef.current = title;
+            laterCommitRef.current = later;
+            setSummaryCommit(summary);
+            setTitleCommit(title);
+            setLaterCommit(later);
+          }
+          setSourceResolved(true);
+        }
       }
     })();
 
@@ -430,18 +1231,19 @@ export function VideoProjectProvider({
       cancelled = true;
       controller.abort();
     };
-  }, [hydrated, loadedId, projectId, sourceResolved, persist]);
+  }, [hydrated, loadedId, projectId, sourceResolved, persist, initial]);
 
   useEffect(() => {
-    if (!project || loadedId !== projectId || !sourceResolved) return;
-    persist(project);
-  }, [project, persist, loadedId, projectId, sourceResolved]);
+    if (!project || loadedId !== projectId || !sourceResolved || !summaryCommit || !titleCommit || !laterCommit) return;
+    persist(projectSavedToDatabase(project, summaryCommit, titleCommit, laterCommit));
+  }, [project, persist, loadedId, projectId, sourceResolved, summaryCommit, titleCommit, laterCommit]);
 
   useEffect(() => {
-    if (!project || loadedId !== projectId || !sourceResolved) return;
-    const channelTitle = channels.find((channel) => channel.id === project.channelId)?.title ?? null;
-    scheduleSnapshotSync(buildSnapshot(project, activeStep, channelTitle));
-  }, [project, activeStep, channels, loadedId, projectId, sourceResolved]);
+    if (!project || loadedId !== projectId || !sourceResolved || !summaryCommit || !titleCommit || !laterCommit) return;
+    const stored = projectSavedToDatabase(project, summaryCommit, titleCommit, laterCommit);
+    const channelTitle = channels.find((channel) => channel.id === stored.channelId)?.title ?? null;
+    scheduleSnapshotSync(buildSnapshot(stored, activeStep, channelTitle));
+  }, [project, activeStep, channels, loadedId, projectId, sourceResolved, summaryCommit, titleCommit, laterCommit]);
 
   useEffect(() => {
     if (!project || loadedId !== projectId || !sourceResolved) return;
@@ -454,17 +1256,52 @@ export function VideoProjectProvider({
     });
   }, [project, activeStep, loadedId, projectId, sourceResolved]);
 
-  const value = useMemo(
-    () =>
-      project
-        ? { project, savedAt, dispatch, previewOpen, setPreviewOpen, activeStep, setActiveStep }
-        : null,
-    [project, savedAt, dispatch, previewOpen, activeStep, setActiveStep],
+  const summaryNeedsSave = Boolean(
+    project && summaryCommit && !summaryCommitMatches(project, summaryCommit),
   );
+  const titleNeedsSave = Boolean(
+    project && titleCommit && !titleCommitMatches(project, titleCommit),
+  );
+  const laterNeedsSave = (step: LaterStepId) =>
+    Boolean(project && laterCommit && !laterStepMatches(project, laterCommit, step));
+  const needsSaveByStep: Record<StepId, boolean> = {
+    summary: summaryNeedsSave,
+    title: titleNeedsSave,
+    thumbnail: laterNeedsSave("thumbnail"),
+    script: laterNeedsSave("script"),
+    timeline: laterNeedsSave("timeline"),
+    description: laterNeedsSave("description"),
+    render: laterNeedsSave("render"),
+    editor: laterNeedsSave("editor"),
+  };
 
   if (!hydrated || !sourceResolved) return <>{fallback}</>;
-  if (!value) return <>{missing}</>;
-  return <VideoProjectContext.Provider value={value}>{children}</VideoProjectContext.Provider>;
+  if (project == null) return <>{missing}</>;
+  return (
+    <VideoProjectContext.Provider
+      value={{
+        project,
+        savedAt,
+        dispatch,
+        previewOpen,
+        setPreviewOpen,
+        activeStep,
+        setActiveStep,
+        summaryNeedsSave,
+        titleNeedsSave,
+        needsSaveByStep,
+        summarySaving,
+        summarySaveError,
+        approveNotice,
+        dismissApproveNotice,
+        savedSummary: summaryCommit,
+        savedTitle: titleCommit,
+        deleteSummaryReference,
+      }}
+    >
+      {children}
+    </VideoProjectContext.Provider>
+  );
 }
 
 export function useVideoProject() {

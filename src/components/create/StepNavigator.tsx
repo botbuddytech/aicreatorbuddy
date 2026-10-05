@@ -1,61 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { formatUsdEstimate } from "@/lib/apiCost";
 import {
   STEPS,
-  apiCostByTool,
+  apiFiresByStep,
   projectLengthStats,
   stepStatusLabel,
   stepStatusTone,
-  totalEstimatedApiCost,
   type StepId,
   type StepStatus,
   type VideoProject,
 } from "@/lib/videoProject";
 
-const TOOL_ICONS: Record<string, ReactNode> = {
-  chatgpt: (
-    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M21 12a9 9 0 0 1-9 9H6l-3 3V12a9 9 0 0 1 18 0z" />
-    </svg>
-  ),
-  gemini: (
-    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="currentColor">
-      <path d="M12 2c.6 4.6 3.4 7.4 8 8-4.6.6-7.4 3.4-8 8-.6-4.6-3.4-7.4-8-8 4.6-.6 7.4-3.4 8-8z" />
-    </svg>
-  ),
-  elevenlabs: (
-    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M4 10v4M8 6v12M12 3v18M16 6v12M20 10v4" />
-    </svg>
-  ),
-  vidiq: (
-    <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M3 17l5-6 4 3 4-6 5 5" />
-    </svg>
-  ),
-};
-
-const TOOL_ICON_COLORS: Record<string, string> = {
-  chatgpt: "text-success",
-  gemini: "text-chart-blue",
-  elevenlabs: "text-chart-purple",
-  vidiq: "text-chart-amber",
-};
-
-function ToolIcon({ tool }: { tool: string }) {
-  const glyph = TOOL_ICONS[tool];
-  if (!glyph) {
-    return <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted" aria-hidden />;
-  }
-  return (
-    <span className={`shrink-0 ${TOOL_ICON_COLORS[tool] ?? "text-muted"}`} aria-hidden>
-      {glyph}
-    </span>
-  );
-}
+const API_FIRE_STEPS: StepId[] = ["title", "thumbnail", "script"];
 
 function statusWeight(status: StepStatus): number {
   switch (status) {
@@ -80,10 +39,12 @@ export function StepNavigator({
   active,
   onSelect,
   project,
+  notice,
 }: {
   active: StepId;
   onSelect: (id: StepId) => void;
   project: VideoProject;
+  notice?: string | null;
 }) {
   const stepStatus = project.stepStatus;
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -98,9 +59,8 @@ export function StepNavigator({
     (STEPS.reduce((sum, step) => sum + statusWeight(stepStatus[step.id]), 0) / STEPS.length) * 100,
   );
   const length = projectLengthStats(project);
-  const apiCost = totalEstimatedApiCost(project);
-  const apiCalls = project.apiCosts?.length ?? 0;
-  const costByTool = apiCostByTool(project);
+  const firesByStep = apiFiresByStep(project, API_FIRE_STEPS);
+  const apiFires = firesByStep.reduce((sum, step) => sum + step.calls, 0);
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const index = STEPS.findIndex((step) => step.id === active);
@@ -161,14 +121,24 @@ export function StepNavigator({
   return (
     <div className="min-w-0 rounded-2xl border border-border bg-surface p-4 sm:p-5">
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
+        <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-wide text-accent">
             Step {String((activeIndex < 0 ? 0 : activeIndex) + 1).padStart(2, "0")} of{" "}
             {String(STEPS.length).padStart(2, "0")}
           </p>
-          <h3 className="mt-0.5 font-display text-lg font-semibold text-foreground">
-            Pipeline progress
-          </h3>
+          <div className="mt-0.5 flex items-center gap-2">
+            <h3 className="shrink-0 font-display text-lg font-semibold text-foreground">
+              Pipeline progress
+            </h3>
+            {notice ? (
+              <p
+                role="status"
+                className="truncate rounded-full border border-accent/30 bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent"
+              >
+                {notice}
+              </p>
+            ) : null}
+          </div>
         </div>
         <p className="text-sm tabular-nums text-muted">
           {pct}% · {started} started · {approved} approved
@@ -248,7 +218,7 @@ export function StepNavigator({
         ) : null}
       </div>
 
-      <div className="mt-3 grid grid-cols-1 items-start gap-2 sm:grid-cols-2">
+      <div className="mt-3 grid grid-cols-1 items-stretch gap-2 sm:grid-cols-2">
         <div className="rounded-xl border border-border bg-surface-soft px-3 py-2.5">
           <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Video length</p>
           <p className="mt-0.5 font-display text-lg font-semibold tabular-nums text-foreground">
@@ -259,44 +229,35 @@ export function StepNavigator({
           </p>
         </div>
         <div
-          className="rounded-xl border border-border bg-surface-soft px-3 py-2.5"
-          title="Estimated from current provider rates. Each generate or regenerate adds to the total."
+          className="flex h-full flex-col rounded-xl border border-border bg-surface-soft px-3 py-2.5"
+          title="Each successful generate or score on Title and Thumbnail, and each script generation, adds one fire. Cost stays at zero for now."
         >
-          <p className="text-[10px] font-bold uppercase tracking-wide text-muted">
-            API cost (est.)
-          </p>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-display text-lg font-semibold tabular-nums text-foreground">
-                {formatUsdEstimate(apiCost)}
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted">
+                API cost (est.)
               </p>
-              <p className="text-[11px] text-muted">
-                {apiCalls === 0
-                  ? "No calls yet"
-                  : `${apiCalls} call${apiCalls === 1 ? "" : "s"} so far`}
+              <p className="mt-0.5 font-display text-lg font-semibold tabular-nums text-foreground">
+                {formatUsdEstimate(0)}
               </p>
             </div>
-            {costByTool.length > 0 ? (
-              <ul className="flex flex-wrap items-center gap-1.5">
-                {costByTool.map((tool) => (
-                  <li
-                    key={tool.tool}
-                    className="flex items-center gap-1 rounded-lg border border-border bg-surface px-1.5 py-1"
-                    title={`${tool.label} · ${tool.calls} call${
-                      tool.calls === 1 ? "" : "s"
-                    } · ${formatUsdEstimate(tool.usd)}`}
-                  >
-                    <ToolIcon tool={tool.tool} />
-                    <span className="text-[10px] font-semibold text-muted">{tool.label}</span>
-                    <span className="text-[10px] font-semibold tabular-nums text-foreground">
-                      {formatUsdEstimate(tool.usd)}
-                    </span>
-                    <span className="text-[10px] tabular-nums text-muted">×{tool.calls}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
+            <div className="text-right">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted">API fires</p>
+              <p className="mt-0.5 font-display text-lg font-semibold tabular-nums text-foreground">
+                {apiFires}
+              </p>
+            </div>
           </div>
+          <ul className="mt-2 space-y-1 border-t border-border pt-2">
+            {firesByStep.map((step) => (
+              <li key={step.id} className="flex items-center justify-between gap-3 text-xs">
+                <span className="text-muted">{step.label}</span>
+                <span className="font-semibold tabular-nums text-foreground">
+                  {step.calls} {step.calls === 1 ? "fire" : "fires"}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
 

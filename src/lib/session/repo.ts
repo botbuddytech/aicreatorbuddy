@@ -153,6 +153,17 @@ export async function getSessionDocuments(
           metadata: true,
         },
       },
+      apiCalls: {
+        orderBy: { at: "asc" },
+        select: {
+          clientCallId: true,
+          step: true,
+          tool: true,
+          kind: true,
+          estimatedUsd: true,
+          at: true,
+        },
+      },
     },
   });
   if (!row) return null;
@@ -182,6 +193,14 @@ export async function getSessionDocuments(
       durationSec: reference.durationSec,
       fetchedAt: reference.fetchedAt?.toISOString() ?? null,
       metadata: asRecord(reference.metadata),
+    })),
+    apiCalls: row.apiCalls.map((call) => ({
+      clientCallId: call.clientCallId,
+      step: fromCreateStep(call.step),
+      tool: call.tool,
+      kind: call.kind,
+      estimatedUsd: Number(call.estimatedUsd),
+      at: call.at.toISOString(),
     })),
   };
 }

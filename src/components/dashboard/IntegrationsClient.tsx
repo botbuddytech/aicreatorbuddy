@@ -80,6 +80,23 @@ export function IntegrationsClient({
             window: "—",
           },
     } satisfies Integration;
+    if (state.integrationId === "elevenlabs") {
+      return {
+        ...liveItem,
+        trend: state.usage?.trend ?? [],
+        cost: {
+          monthToDate: state.usage?.spendMonthUsd ?? 0,
+          projected: 0,
+          perUnitLabel: "Reported by ElevenLabs",
+          currency: "USD",
+        },
+        scopes: [],
+        endpoints: [],
+        recentCalls: [],
+        stepBreakdown: [],
+        channelBreakdown: [],
+      } satisfies Integration;
+    }
     if (state.integrationId !== "vidiq") return liveItem;
 
     const usage = state.usage;
@@ -116,6 +133,7 @@ export function IntegrationsClient({
   const connected = displayIntegrations.filter((item) => item.connected);
   const connectedWithHealth = connected.filter((item) => {
     const state = stateById.get(item.id as UserIntegrationState["integrationId"]);
+    if (state?.integrationId === "elevenlabs") return false;
     return state?.integrationId !== "vidiq" || state.usage?.successRate != null;
   });
   const avgSuccess =

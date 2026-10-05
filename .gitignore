@@ -39,11 +39,18 @@ yarn-error.log*
 # variables (Railway) still win: Next.js resolves process.env before any .env file.
 .env*.local
 
+# Per-machine Cursor CLI config. config/README.md is the only tracked file in this folder.
+/config/*
+!/config/README.md
+
 # prisma generated client
 /src/generated
 
 # vercel
 .vercel
+
+# Local Cursor SDK chat workspaces. Not the app repo.
+/data/cursor-sdk-agents
 
 # typescript
 *.tsbuildinfo

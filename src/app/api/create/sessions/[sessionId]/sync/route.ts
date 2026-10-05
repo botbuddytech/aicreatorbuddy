@@ -6,6 +6,7 @@ import {
   isDeletedVideoSessionError,
 } from "@/lib/session/deletion";
 import { jsonValue, safeDate, toCreateStep, toStepState } from "@/lib/session/server";
+import { withWriteRetry } from "@/lib/session/writeRetry";
 import { metadataWithReferenceTitle } from "@/lib/videoProject";
 import { requireChannelAccess } from "@/lib/youtube/access";
 
@@ -25,10 +26,27 @@ export async function POST(request: Request, { params }: RouteContext) {
 
     const existing = await prisma.videoSession.findUnique({
       where: { id: sessionId },
-      select: { userId: true },
+      select: {
+        userId: true,
+        lastActiveAt: true,
+        steps: {
+          where: { schemaVersion: { gte: 1 } },
+          select: { id: true },
+          take: 1,
+        },
+      },
     });
     if (existing && existing.userId !== user.id) {
       return Response.json({ error: "Session not found." }, { status: 404 });
+    }
+    const incomingActiveAt = Date.parse(snapshot.lastActiveAt);
+    if (
+      existing &&
+      existing.steps.length > 0 &&
+      Number.isFinite(incomingActiveAt) &&
+      existing.lastActiveAt.getTime() > incomingActiveAt
+    ) {
+      return Response.json({ ok: true, ignored: true });
     }
 
     let channelTitle: string | null = null;
@@ -44,7 +62,7 @@ export async function POST(request: Request, { params }: RouteContext) {
       channelTitle = channel.title;
     }
 
-    await prisma.$transaction(async (tx) => {
+    await withWriteRetry(() => prisma.$transaction(async (tx) => {
       await tx.videoSession.upsert({
         where: { id: sessionId },
         create: {
@@ -272,7 +290,7 @@ export async function POST(request: Request, { params }: RouteContext) {
           },
         });
       }
-    });
+    }));
 
     return Response.json({ ok: true });
   } catch (error) {

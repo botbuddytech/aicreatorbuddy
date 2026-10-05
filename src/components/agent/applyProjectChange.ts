@@ -2,8 +2,19 @@
 
 import type { AgentCheckpoint, FlashField, ProjectChange, ProjectSnapshot } from "@/lib/agent/types";
 import { getProjectBridge } from "@/components/agent/bridge";
-import { useAgentStore } from "@/components/agent/store";
-import { createEmptyScene, newId, type StepId } from "@/lib/videoProject";
+import { carryAgentChatsTo, useAgentStore } from "@/components/agent/store";
+import { trackSessionEvent } from "@/lib/session/telemetry";
+import { upsertProjectInStore } from "@/lib/useVideoProjectDraft";
+import {
+  createEmptyProject,
+  createEmptyReference,
+  createEmptyScene,
+  DEFAULT_PROJECT_NAME,
+  MAX_REFERENCES,
+  newId,
+  type StepId,
+  type VideoProject,
+} from "@/lib/videoProject";
 
 const FIELD_STEP: Record<FlashField, StepId> = {
   brief: "summary",
@@ -30,6 +41,7 @@ function captureSnapshot(): ProjectSnapshot | null {
     tags: [...project.tags],
     stepStatus: { ...project.stepStatus },
     activeStep: bridge.getStep(),
+    name: project.name,
   };
 }
 
@@ -47,15 +59,24 @@ export function applyProjectChange(change: ProjectChange): boolean {
       const titles = payload.titles.map((text) => ({
         id: newId(),
         text,
-        provider: "chatgpt" as const,
+        provider: payload.provider,
       }));
-      dispatch({ type: "SET_TITLES", titles });
+      dispatch({
+        type: "SET_TITLES",
+        titles,
+        cursorPrompt: payload.provider === "cursor" ? payload.cursorPrompt : null,
+      });
       const first = titles[0];
       if (first) dispatch({ type: "SELECT_TITLE", id: first.id });
       break;
     }
     case "script":
-      dispatch({ type: "SET_SCRIPT", script: payload.script });
+      dispatch({
+        type: "SET_SCRIPT",
+        script: payload.script,
+        cursorPrompt: payload.cursorPrompt ?? null,
+        generated: payload.generated === true,
+      });
       break;
     case "thumbnail":
       dispatch({
@@ -63,6 +84,38 @@ export function applyProjectChange(change: ProjectChange): boolean {
         thumbnail: { id: newId(), concept: payload.concept, provider: "chatgpt" },
       });
       break;
+    case "thumbnailPrompts":
+      dispatch({
+        type: "SET_THUMBNAILS",
+        cursorPrompt: payload.cursorPrompt,
+        thumbnails: payload.concepts.map((concept) => ({
+          id: newId(),
+          concept,
+          provider: "cursor" as const,
+        })),
+      });
+      break;
+    case "titleScores":
+      dispatch({
+        type: "SET_TITLE_SCORES",
+        scores: Object.fromEntries(
+          payload.scores.map((item) => [item.id, { provider: "cursor" as const, score: item.score, rank: item.rank }]),
+        ),
+      });
+      return true;
+    case "scriptScore":
+      dispatch({ type: "SET_SCRIPT_SCORE", score: payload.score });
+      return true;
+    case "visualPrompts": {
+      const prompts = new Map(payload.prompts.map((item) => [item.id, item.prompt]));
+      const scenes = bridge.getProject().scenes.map((scene) => {
+        const prompt = prompts.get(scene.id);
+        if (!prompt) return scene;
+        return { ...scene, status: "generated" as const, visuals: { ...scene.visuals, description: prompt } };
+      });
+      dispatch({ type: "SET_SCENES", scenes, generated: true, keepStatus: true });
+      return true;
+    }
     case "timeline":
       dispatch({
         type: "SET_SCENES",
@@ -89,13 +142,54 @@ export function applyProjectChange(change: ProjectChange): boolean {
       dispatch({ type: "SET_STEP_STATUS", step: payload.step, status: "approved" });
       if (getStep() !== payload.step) setActiveStep(payload.step);
       return true;
+    case "name":
+      dispatch({ type: "SET_NAME", name: payload.name });
+      return true;
+    case "addReference": {
+      const current = bridge.getProject().summary.references;
+      if (current.length >= MAX_REFERENCES) return false;
+      if (current.some((item) => item.url.trim() === payload.url)) return true;
+      dispatch({
+        type: "UPDATE_SUMMARY",
+        patch: {
+          references: [...current, { ...createEmptyReference(), url: payload.url }],
+        },
+      });
+      break;
+    }
+    case "referenceTranscript": {
+      const current = bridge.getProject().summary.references;
+      const url = payload.url.trim();
+      const filled = {
+        title: payload.title,
+        transcript: payload.transcript,
+        transcriptSource: "fetched" as const,
+        fetchedUrl: url,
+        lang: payload.lang,
+        fetchedAt: payload.fetchedAt,
+      };
+      const existing = current.some((item) => item.url.trim() === url);
+      if (!existing && current.length >= MAX_REFERENCES) return false;
+      dispatch({
+        type: "UPDATE_SUMMARY",
+        patch: {
+          references: existing
+            ? current.map((item) => (item.url.trim() === url ? { ...item, ...filled } : item))
+            : [...current, { ...createEmptyReference(), url, ...filled }],
+        },
+      });
+      break;
+    }
+    case "duration":
+      dispatch({ type: "UPDATE_SUMMARY", patch: { durationSeconds: payload.durationSeconds } });
+      break;
     default: {
       const exhaustive: never = payload;
       return exhaustive;
     }
   }
 
-  if (change.field !== "step") {
+  if (change.field !== "step" && change.field !== "name") {
     const step = FIELD_STEP[change.field];
     if (getStep() !== step) setActiveStep(step);
   }
@@ -134,6 +228,9 @@ function restoreSnapshot(snapshot: ProjectSnapshot) {
   for (const step of Object.keys(snapshot.stepStatus) as StepId[]) {
     dispatch({ type: "SET_STEP_STATUS", step, status: snapshot.stepStatus[step] });
   }
+  if (typeof snapshot.name === "string") {
+    dispatch({ type: "SET_NAME", name: snapshot.name });
+  }
   if (getStep() !== snapshot.activeStep) setActiveStep(snapshot.activeStep);
 }
 
@@ -164,8 +261,184 @@ function ensureCheckpoint(threadId: string, messageId: string, label: string): s
 
 function stepForChange(change: ProjectChange): StepId {
   if (change.payload.type === "navigate" || change.payload.type === "approve") return change.payload.step;
+  if (change.payload.type === "name" || change.field === "name") return getProjectBridge()?.getStep() ?? "summary";
   if (change.field !== "step") return FIELD_STEP[change.field];
   return getProjectBridge()?.getStep() ?? "summary";
+}
+
+function applyOnto(project: VideoProject, change: ProjectChange): VideoProject {
+  const payload = change.payload;
+  const now = new Date().toISOString();
+  switch (payload.type) {
+    case "brief":
+      return {
+        ...project,
+        lastUpdated: now,
+        summary: { ...project.summary, topic: payload.topic },
+      };
+    case "titles": {
+      const titles = payload.titles.map((text) => ({
+        id: newId(),
+        text,
+        provider: payload.provider,
+      }));
+      const first = titles[0];
+      return {
+        ...project,
+        lastUpdated: now,
+        titles,
+        selectedTitleId: first?.id ?? null,
+        name: project.name === DEFAULT_PROJECT_NAME && first ? first.text : project.name,
+        stepStatus: { ...project.stepStatus, title: "generated" },
+      };
+    }
+    case "script":
+      return {
+        ...project,
+        lastUpdated: now,
+        fullScript: payload.script,
+        cursorScriptPrompt: payload.cursorPrompt ?? project.cursorScriptPrompt,
+        stepStatus: { ...project.stepStatus, script: "generated" },
+      };
+    case "titleScores":
+      return {
+        ...project,
+        lastUpdated: now,
+        titles: project.titles.map((title) => {
+          const score = payload.scores.find((item) => item.id === title.id);
+          return score ? { ...title, score: { provider: "cursor" as const, score: score.score, rank: score.rank } } : title;
+        }),
+      };
+    case "scriptScore":
+      return { ...project, lastUpdated: now, scriptScore: payload.score };
+    case "thumbnailPrompts":
+      return {
+        ...project,
+        lastUpdated: now,
+        cursorThumbnailPrompt: payload.cursorPrompt,
+        thumbnails: payload.concepts.map((concept) => ({ id: newId(), concept, provider: "cursor" as const })),
+        stepStatus: { ...project.stepStatus, thumbnail: "generated" },
+      };
+    case "visualPrompts": {
+      const prompts = new Map(payload.prompts.map((item) => [item.id, item.prompt]));
+      return {
+        ...project,
+        lastUpdated: now,
+        scenes: project.scenes.map((scene) => {
+          const prompt = prompts.get(scene.id);
+          if (!prompt) return scene;
+          return { ...scene, status: "generated" as const, visuals: { ...scene.visuals, description: prompt } };
+        }),
+      };
+    }
+    case "thumbnail": {
+      const thumbnail = { id: newId(), concept: payload.concept, provider: "manual" as const };
+      return {
+        ...project,
+        lastUpdated: now,
+        thumbnails: [...project.thumbnails, thumbnail],
+        selectedThumbnailId: thumbnail.id,
+        stepStatus: { ...project.stepStatus, thumbnail: "generated" },
+      };
+    }
+    case "timeline":
+      return {
+        ...project,
+        lastUpdated: now,
+        scenes: payload.scenes.map((scene, index) =>
+          createEmptyScene(index, {
+            sectionLabel: scene.sectionLabel,
+            finalScript: scene.finalScript,
+            originalPrompt: scene.finalScript,
+          }),
+        ),
+        stepStatus: { ...project.stepStatus, timeline: "generated" },
+      };
+    case "description":
+      return {
+        ...project,
+        lastUpdated: now,
+        description: payload.description,
+        tags: payload.tags,
+        stepStatus: { ...project.stepStatus, description: "generated" },
+      };
+    case "navigate":
+      return project;
+    case "approve":
+      return {
+        ...project,
+        lastUpdated: now,
+        stepStatus: { ...project.stepStatus, [payload.step]: "approved" },
+      };
+    case "name":
+      return { ...project, lastUpdated: now, name: payload.name };
+    case "addReference":
+      if (project.summary.references.length >= MAX_REFERENCES) return project;
+      if (project.summary.references.some((item) => item.url.trim() === payload.url)) return project;
+      return {
+        ...project,
+        lastUpdated: now,
+        summary: {
+          ...project.summary,
+          references: [...project.summary.references, { ...createEmptyReference(), url: payload.url }],
+        },
+      };
+    case "referenceTranscript": {
+      const url = payload.url.trim();
+      const filled = {
+        title: payload.title,
+        transcript: payload.transcript,
+        transcriptSource: "fetched" as const,
+        fetchedUrl: url,
+        lang: payload.lang,
+        fetchedAt: payload.fetchedAt,
+      };
+      const existing = project.summary.references.some((item) => item.url.trim() === url);
+      if (!existing && project.summary.references.length >= MAX_REFERENCES) return project;
+      return {
+        ...project,
+        lastUpdated: now,
+        summary: {
+          ...project.summary,
+          references: existing
+            ? project.summary.references.map((item) =>
+                item.url.trim() === url ? { ...item, ...filled } : item,
+              )
+            : [...project.summary.references, { ...createEmptyReference(), url, ...filled }],
+        },
+      };
+    }
+    case "duration":
+      return {
+        ...project,
+        lastUpdated: now,
+        summary: { ...project.summary, durationSeconds: payload.durationSeconds },
+      };
+    default: {
+      const exhaustive: never = payload;
+      return exhaustive;
+    }
+  }
+}
+
+function openNewVideo(changes: ProjectChange[]): { id: string; step: StepId } | null {
+  let project = createEmptyProject();
+  for (const change of changes) project = applyOnto(project, change);
+  const last = changes.at(-1);
+  if (!last) return null;
+  upsertProjectInStore(project);
+  trackSessionEvent(project.id, {
+    type: "session.created",
+    step: "summary",
+    payload: { channelId: null, createdAt: project.createdAt },
+  });
+  return { id: project.id, step: stepForChange(last) };
+}
+
+function goToNewVideo(projectId: string, step: StepId) {
+  carryAgentChatsTo(projectId);
+  const query = step === "summary" ? "" : `?step=${step}`;
+  window.location.assign(`/dashboard/create/${projectId}${query}`);
 }
 
 function postRunCost(threadId: string, messageId: string, step: StepId) {
@@ -197,10 +470,17 @@ export function acceptChange(threadId: string, messageId: string, changeId: stri
   const message = thread?.messages.find((item) => item.id === messageId);
   const change = message?.changes?.find((item) => item.id === changeId);
   if (!message || !change || change.status !== "pending") return;
+  if (!getProjectBridge()) {
+    const created = openNewVideo([change]);
+    if (!created) return;
+    markChanges(threadId, messageId, new Set([changeId]), "accepted");
+    goToNewVideo(created.id, created.step);
+    return;
+  }
   ensureCheckpoint(threadId, messageId, `Before ${change.label.toLowerCase()}`);
   if (!applyProjectChange(change)) return;
   markChanges(threadId, messageId, new Set([changeId]), "accepted");
-  if (change.field !== "step") useAgentStore.getState().pingFlash(change.field);
+  if (change.field !== "step" && change.field !== "name") useAgentStore.getState().pingFlash(change.field);
   postRunCost(threadId, messageId, stepForChange(change));
 }
 
@@ -214,12 +494,19 @@ export function acceptAllChanges(threadId: string, messageId: string) {
   const message = thread?.messages.find((item) => item.id === messageId);
   const pending = message?.changes?.filter((change) => change.status === "pending") ?? [];
   if (pending.length === 0) return;
+  if (!getProjectBridge()) {
+    const created = openNewVideo(pending);
+    if (!created) return;
+    markChanges(threadId, messageId, new Set(pending.map((change) => change.id)), "accepted");
+    goToNewVideo(created.id, created.step);
+    return;
+  }
   ensureCheckpoint(threadId, messageId, "Before this run");
   const applied = new Set<string>();
   for (const change of pending) {
     if (!applyProjectChange(change)) continue;
     applied.add(change.id);
-    if (change.field !== "step") useAgentStore.getState().pingFlash(change.field);
+    if (change.field !== "step" && change.field !== "name") useAgentStore.getState().pingFlash(change.field);
   }
   if (applied.size === 0) return;
   markChanges(threadId, messageId, applied, "accepted");

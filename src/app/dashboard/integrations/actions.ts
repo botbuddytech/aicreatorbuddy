@@ -5,6 +5,7 @@ import type { IntegrationProvider } from "@/generated/prisma/enums";
 import { requireUser } from "@/lib/auth/session";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { prisma } from "@/lib/db";
+import { getElevenLabsSnapshot } from "@/features/elevenlabs/account";
 import { integrationCatalogItem } from "@/lib/integrations/catalog";
 import { callVidiqTool } from "@/lib/vidiq/client";
 
@@ -78,6 +79,9 @@ export async function saveApiKeyAction(
     if (!item || item.authKind !== "API_KEY") {
       return { ok: false, error: "This integration does not accept an API key." };
     }
+    if (item.sharedEnv) {
+      return { ok: false, error: "ElevenLabs uses the shared server key." };
+    }
     const apiKey = apiKeyInput.trim();
     if (apiKey.length < 8 || apiKey.length > 2048 || /\s/.test(apiKey)) {
       return { ok: false, error: "Enter a valid API key." };
@@ -126,6 +130,9 @@ export async function removeCredentialAction(
     if (!item) return { ok: false, error: "Unknown integration." };
     if (item.provider === "YOUTUBE") {
       return { ok: false, error: "Disconnect YouTube channels from the Channels page." };
+    }
+    if (item.sharedEnv) {
+      return { ok: false, error: "ElevenLabs uses the shared server key." };
     }
 
     await prisma.userIntegration.updateMany({
@@ -198,6 +205,28 @@ export async function testIntegrationAction(
       });
       if (!count) throw new Error("No active YouTube channel is connected.");
       return done(`${count} YouTube channel${count === 1 ? "" : "s"} connected.`);
+    }
+    if (item.provider === "ELEVENLABS") {
+      const snapshot = await getElevenLabsSnapshot({ fresh: true });
+      if (!snapshot.configured) throw new Error("ELEVEN_LABS_API_KEY is not configured.");
+      if (!snapshot.ok) throw new Error(snapshot.error || "ElevenLabs connection failed.");
+      await prisma.userIntegration.update({
+        where: { userId_provider: { userId: user.id, provider: "ELEVENLABS" } },
+        data: {
+          status: "CONNECTED",
+          enabled: true,
+          accountLabel: "Shared environment key",
+          plan: snapshot.tier,
+          lastErrorCode: null,
+          lastErrorMessage: null,
+          lastErrorAt: null,
+        },
+      });
+      return done(
+        snapshot.quotaError
+          ? `Connection verified. ${snapshot.quotaError}`
+          : `ElevenLabs connection verified${snapshot.tier ? ` (${snapshot.tier})` : ""}.`,
+      );
     }
     if (item.authKind === "NONE") return done("Local integration is available.");
 

@@ -1,6 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
+import { AgentLayout } from "@/components/agent/AgentLayout";
+import { AgentToggle } from "@/components/agent/AgentToggle";
+import { registerProjectBridge } from "@/components/agent/bridge";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { StepNavigator } from "@/components/create/StepNavigator";
 import { StepDock } from "@/components/create/StepDock";
@@ -13,8 +17,8 @@ import { TimelineStep } from "@/components/create/steps/TimelineStep";
 import { DescriptionStep } from "@/components/create/steps/DescriptionStep";
 import { RenderPanel } from "@/components/create/steps/RenderPanel";
 import { EditorStep } from "@/components/create/editor/EditorStep";
-import { AgentToggle } from "@/components/agent/AgentToggle";
 import { ProjectNameHeading } from "@/components/create/ProjectNameHeading";
+import { savesOnMarkApprove } from "@/lib/session/laterStepCommit";
 import { STEPS, type StepId } from "@/lib/videoProject";
 
 function StepBody({ step }: { step: StepId }) {
@@ -39,21 +43,53 @@ function StepBody({ step }: { step: StepId }) {
 }
 
 export function CreateVideoWorkspace() {
-  const { project, savedAt, activeStep, setActiveStep } = useVideoProject();
+  const {
+    project,
+    dispatch,
+    savedAt,
+    activeStep,
+    setActiveStep,
+    needsSaveByStep,
+    summarySaving,
+    summarySaveError,
+  } = useVideoProject();
   const step = activeStep;
   const index = STEPS.findIndex((item) => item.id === step);
   const current = STEPS[index] ?? STEPS[0];
   const prev = index > 0 ? STEPS[index - 1] : null;
   const next = index < STEPS.length - 1 ? STEPS[index + 1] : null;
   const dirty = Boolean(savedAt) && project.lastUpdated !== savedAt;
-  const saveLabel = !savedAt
-    ? "Not saved yet"
-    : dirty
-      ? "Saving…"
-      : `Saved ${new Date(savedAt).toLocaleTimeString()}`;
+  const projectRef = useRef(project);
+  const stepRef = useRef(step);
+  const dispatchRef = useRef(dispatch);
+  projectRef.current = project;
+  stepRef.current = step;
+  dispatchRef.current = dispatch;
+
+  useEffect(() => {
+    registerProjectBridge({
+      dispatch: (action) => dispatchRef.current(action),
+      setActiveStep,
+      getProject: () => projectRef.current,
+      getStep: () => stepRef.current,
+    });
+    return () => registerProjectBridge(null);
+  }, [setActiveStep]);
+  const gatedNeedsSave = needsSaveByStep[step];
+  const unsavedLabel =
+    step === "editor" ? "Not saved until Confirm edit" : "Not saved until Mark approved";
+  const saveLabel = summarySaving
+    ? "Saving…"
+    : gatedNeedsSave
+      ? unsavedLabel
+      : !savedAt
+        ? "Not saved yet"
+        : dirty
+          ? "Saving…"
+          : `Saved ${new Date(savedAt).toLocaleTimeString()}`;
 
   return (
-    <>
+    <AgentLayout videoId={project.id}>
       <Topbar
         title={<ProjectNameHeading />}
         subtitle={`${current?.label ?? "Workspace"} · ${saveLabel}`}
@@ -75,6 +111,11 @@ export function CreateVideoWorkspace() {
             active={step}
             onSelect={setActiveStep}
             project={project}
+            notice={
+              savesOnMarkApprove(step) || step === "editor"
+                ? summarySaveError ?? unsavedLabel
+                : null
+            }
           />
 
           <div
@@ -94,6 +135,6 @@ export function CreateVideoWorkspace() {
         onBack={() => prev && setActiveStep(prev.id)}
         onNext={() => next && setActiveStep(next.id)}
       />
-    </>
+    </AgentLayout>
   );
 }

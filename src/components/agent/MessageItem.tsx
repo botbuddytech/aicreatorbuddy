@@ -159,8 +159,14 @@ export const MessageItem = memo(function MessageItem({
               {copied ? "Copied" : "Copy"}
             </IconAction>
           </HoverActions>
-          {thinking && !text ? (
-            <p className="agent-thinking text-[13px] font-medium">Thinking…</p>
+          {thinking && !text && !(message.toolCalls ?? []).some((tool) => tool.status === "running") ? (
+            <p className="flex items-center gap-2 text-[13px] text-muted">
+              <span
+                className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/15 border-t-foreground"
+                aria-hidden
+              />
+              Thinking…
+            </p>
           ) : null}
           {text ? <Markdown text={text} streaming={streaming} /> : null}
           {(message.toolCalls ?? []).map((tool) => (

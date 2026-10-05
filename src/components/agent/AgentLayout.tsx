@@ -11,15 +11,12 @@ import {
 } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { AgentPanel } from "@/components/agent/AgentPanel";
-import { registerProjectBridge } from "@/components/agent/bridge";
 import {
   AGENT_PANEL_MAX,
   AGENT_PANEL_MIN,
   clampPanelWidth,
   useAgentStore,
 } from "@/components/agent/store";
-import { useVideoProject } from "@/components/create/VideoProjectProvider";
-import type { ConnectedChannel } from "@/lib/youtube/repo";
 
 function useDesktop() {
   const [desktop, setDesktop] = useState(false);
@@ -34,13 +31,14 @@ function useDesktop() {
 }
 
 export function AgentLayout({
-  channels,
+  videoId,
+  channelName = "",
   children,
 }: {
-  channels: ConnectedChannel[];
+  videoId: string;
+  channelName?: string;
   children: ReactNode;
 }) {
-  const { project, dispatch, setActiveStep, activeStep } = useVideoProject();
   const open = useAgentStore((state) => state.panelOpen);
   const width = useAgentStore((state) => state.width);
   const setWidth = useAgentStore((state) => state.setWidth);
@@ -53,35 +51,15 @@ export function AgentLayout({
   const desktop = useDesktop();
   const [dragging, setDragging] = useState(false);
   const wasOpen = useRef(false);
-  const dispatchRef = useRef(dispatch);
-  const setStepRef = useRef(setActiveStep);
-  const projectRef = useRef(project);
-  const stepRef = useRef(activeStep);
-  useEffect(() => {
-    dispatchRef.current = dispatch;
-    setStepRef.current = setActiveStep;
-    projectRef.current = project;
-    stepRef.current = activeStep;
-    registerProjectBridge({
-      dispatch: (action) => dispatchRef.current(action),
-      setActiveStep: (step) => {
-        stepRef.current = step;
-        setStepRef.current(step);
-      },
-      getProject: () => projectRef.current,
-      getStep: () => stepRef.current,
-    });
-  }, [dispatch, setActiveStep, project, activeStep]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     loadPrefs();
-    bindVideo(project.id);
-  }, [loadPrefs, bindVideo, project.id]);
+    bindVideo(videoId);
+  }, [loadPrefs, bindVideo, videoId]);
 
   useEffect(() => {
-    const name = channels.find((channel) => channel.id === project.channelId)?.title ?? "";
-    setChannelName(name);
-  }, [channels, project.channelId, setChannelName]);
+    setChannelName(channelName);
+  }, [channelName, setChannelName]);
 
   useLayoutEffect(() => {
     const root = document.documentElement;

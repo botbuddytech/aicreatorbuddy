@@ -13,6 +13,9 @@ const MAX_VIDEO_TITLE_CHARS = 200;
 const FETCH_TIMEOUT_MS = 20_000;
 const TITLE_FETCH_TIMEOUT_MS = 8_000;
 const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+const INNERTUBE_API_URL = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false";
+const INNERTUBE_CLIENT_VERSION = "20.10.38";
+const ENGLISH_LANGUAGE_CODES = ["en", "en-us", "en-gb", "en-in", "en-au", "en-ca"];
 
 export type ReferenceTranscriptErrorCode =
   | "NO_CAPTIONS"
@@ -175,6 +178,96 @@ export async function fetchYoutubeVideoTitle(videoId: string): Promise<string | 
   }
 }
 
+type CaptionTrackList = {
+  codes: string[];
+  defaultCode: string | null;
+};
+
+function languageMatches(code: string, wanted: string): boolean {
+  const value = code.toLowerCase();
+  const target = wanted.toLowerCase();
+  return value === target || value.startsWith(`${target}-`) || value.startsWith(`${target}_`);
+}
+
+function findLanguage(codes: readonly string[], wanted: string): string | null {
+  const target = wanted.trim().toLowerCase();
+  if (!target) return null;
+  const exact = codes.find((code) => code.toLowerCase() === target);
+  if (exact) return exact;
+  if (target === "en") {
+    for (const preferred of ENGLISH_LANGUAGE_CODES) {
+      const match = codes.find((code) => code.toLowerCase() === preferred);
+      if (match) return match;
+    }
+  }
+  return codes.find((code) => languageMatches(code, target)) ?? null;
+}
+
+export function selectCaptionLanguage(
+  codes: readonly string[],
+  options: { requested?: string; defaultCode?: string | null } = {},
+): string | null {
+  const available = codes.filter((code) => code.trim());
+  const requested = options.requested?.trim();
+  if (requested) return findLanguage(available, requested);
+  return (
+    findLanguage(available, "en") ??
+    (options.defaultCode && available.includes(options.defaultCode)
+      ? options.defaultCode
+      : null) ??
+    available[0] ??
+    null
+  );
+}
+
+async function listCaptionTracks(
+  videoId: string,
+  fetchFn: typeof fetch,
+): Promise<CaptionTrackList | null> {
+  try {
+    const response = await fetchFn(INNERTUBE_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": `com.google.android.youtube/${INNERTUBE_CLIENT_VERSION} (Linux; U; Android 14)`,
+      },
+      body: JSON.stringify({
+        context: {
+          client: {
+            clientName: "ANDROID",
+            clientVersion: INNERTUBE_CLIENT_VERSION,
+          },
+        },
+        videoId,
+      }),
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as {
+      captions?: {
+        playerCaptionsTracklistRenderer?: {
+          captionTracks?: Array<{ languageCode?: unknown }>;
+          audioTracks?: Array<{ defaultCaptionTrackIndex?: unknown }>;
+        };
+      };
+    };
+    const renderer = data.captions?.playerCaptionsTracklistRenderer;
+    const codes = (renderer?.captionTracks ?? []).flatMap((track) =>
+      typeof track.languageCode === "string" && track.languageCode.trim()
+        ? [track.languageCode]
+        : [],
+    );
+    if (!codes.length) return null;
+    const defaultIndex = renderer?.audioTracks?.find(
+      (track) => typeof track.defaultCaptionTrackIndex === "number",
+    )?.defaultCaptionTrackIndex;
+    const defaultCode =
+      typeof defaultIndex === "number" ? codes[defaultIndex] ?? null : null;
+    return { codes, defaultCode };
+  } catch {
+    return null;
+  }
+}
+
 function failure(error: unknown): ReferenceTranscriptResult {
   if (
     error instanceof YoutubeTranscriptDisabledError ||
@@ -227,8 +320,24 @@ export async function fetchReferenceTranscript(
         ...init,
         signal: init?.signal ?? AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
+    // YouTube lists auto-translated captions before the spoken-language track.
+    // Prefer English so an English video is not returned in the first translation.
+    const tracks = await listCaptionTracks(videoId, timedFetch);
+    const selectedLang = tracks
+      ? selectCaptionLanguage(tracks.codes, {
+          requested: lang,
+          defaultCode: tracks.defaultCode,
+        })
+      : lang?.trim() || "en";
+    if (lang?.trim() && tracks && !selectedLang) {
+      return {
+        ok: false,
+        code: "LANGUAGE_UNAVAILABLE",
+        message: `Captions are not available in ${lang.trim()}. Available languages: ${tracks.codes.join(", ")}.`,
+      };
+    }
     const response = await fetchTranscript(videoId, {
-      ...(lang ? { lang } : {}),
+      ...(selectedLang ? { lang: selectedLang } : {}),
       fetch: timedFetch,
     });
     const segments = response

@@ -3,7 +3,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { Topbar } from "@/components/dashboard/Topbar";
-import { AgentLayout } from "@/components/agent/AgentLayout";
 import { CreateVideoWorkspace } from "@/components/create/CreateVideoWorkspace";
 import { VideoProjectProvider } from "@/components/create/VideoProjectProvider";
 import { VideoPlayerSkeleton } from "@/components/ui/skeletons/VideoPlayerSkeleton";
@@ -56,9 +55,7 @@ export function CreateProjectClient({
         fallback={<WorkspaceFallback />}
         missing={<MissingProject />}
       >
-        <AgentLayout channels={channels}>
-          <CreateVideoWorkspace />
-        </AgentLayout>
+        <CreateVideoWorkspace />
       </VideoProjectProvider>
     </Suspense>
   );

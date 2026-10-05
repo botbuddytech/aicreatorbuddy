@@ -2,7 +2,9 @@
 
 import { Badge } from "@/components/ui/Badge";
 import { SceneBeatFields } from "@/components/create/scene/SceneBeatFields";
+import { MAX_PREVIEW_CHARS } from "@/features/elevenlabs/contract";
 import { sceneVisualPreviewSrc } from "@/lib/sceneVisualImage";
+import { spokenVoiceoverText } from "@/lib/sceneVoiceover";
 import {
   formatTimecode,
   sceneStatusTone,
@@ -17,22 +19,30 @@ export function TimelineChart({
   busy,
   generateLocked,
   onSelect,
-  onGenerateScript,
   onGenerateVisuals,
   onPreviewScript,
   onPreviewVisuals,
   scriptPlayingId,
+  elevenLabsPlayingId,
+  elevenLabsLoadingId,
+  elevenLabsDisabled,
+  elevenLabsDurations,
+  onElevenLabsPreview,
 }: {
   scenes: Scene[];
   selectedId: string | null;
   busy: string | null;
   generateLocked: boolean;
   onSelect: (id: string) => void;
-  onGenerateScript: (id: string) => void;
   onGenerateVisuals: (id: string) => void;
   onPreviewScript: (id: string) => void;
   onPreviewVisuals: (id: string) => void;
   scriptPlayingId: string | null;
+  elevenLabsPlayingId: string | null;
+  elevenLabsLoadingId: string | null;
+  elevenLabsDisabled: boolean;
+  elevenLabsDurations: Record<string, number>;
+  onElevenLabsPreview: (id: string) => void;
 }) {
   const total = totalTimelineSeconds(scenes);
 
@@ -79,8 +89,7 @@ export function TimelineChart({
                 : zebra
                   ? "bg-surface-soft"
                   : "bg-surface";
-              const scriptBusy = busy === `script:${scene.id}`;
-              const visualsBusy = busy === `visuals:${scene.id}`;
+              const visualsBusy = busy === `visuals:${scene.id}` || busy === "all-visuals";
 
               return (
                 <tr
@@ -113,12 +122,18 @@ export function TimelineChart({
                     <SceneBeatFields
                       scene={scene}
                       column="script"
-                      generating={scriptBusy}
-                      generateDisabled={generateLocked && !scriptBusy}
                       previewing={scriptPlayingId === scene.id}
                       previewDisabled={!scene.finalScript.trim()}
-                      onGenerate={() => onGenerateScript(scene.id)}
                       onPreview={() => onPreviewScript(scene.id)}
+                      elevenLabsPlaying={elevenLabsPlayingId === scene.id}
+                      elevenLabsLoading={elevenLabsLoadingId === scene.id}
+                      elevenLabsDisabled={
+                        elevenLabsDisabled ||
+                        !scene.finalScript.trim() ||
+                        spokenVoiceoverText(scene.finalScript).length > MAX_PREVIEW_CHARS
+                      }
+                      elevenLabsVoiceSeconds={elevenLabsDurations[scene.id] ?? null}
+                      onElevenLabsPreview={() => onElevenLabsPreview(scene.id)}
                     />
                   </td>
                   <td className="px-4 py-4">

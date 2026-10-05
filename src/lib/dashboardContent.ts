@@ -1557,7 +1557,7 @@ export const integrations: Integration[] = [
     revealedKey: "el_live_91c0e4b2aa17c8f3",
     lastUsed: "25 min ago",
     category: "Voice synthesis",
-    docsUrl: "https://elevenlabs.io/docs",
+    docsUrl: "https://elevenlabs.io/docs/api-reference/introduction",
     plan: "Creator",
     environment: "Production",
     keyCreated: "Dec 9, 2025",

@@ -1,5 +1,6 @@
 import { parseCursorTitleRequest } from "@/features/cursor-title-generator/contract";
 import {
+  CURSOR_CLI_MISSING_MESSAGE,
   CursorRunnerError,
   generateTitlesWithCursor,
 } from "@/features/cursor-title-generator/server/runCursorAgent";
@@ -8,7 +9,7 @@ import { requireUser } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
 
-const MAX_REQUEST_BYTES = 16_000;
+const MAX_REQUEST_BYTES = 2_000_000;
 const NO_STORE_HEADERS = { "cache-control": "no-store" };
 
 function json(body: Record<string, unknown>, status = 200) {
@@ -33,7 +34,7 @@ function runnerErrorResponse(error: CursorRunnerError) {
       return json({ error: "Cursor title generation was cancelled." }, 408);
     case "missing-cli":
       return json(
-        { error: "Cursor Agent CLI was not found. Install it or set CURSOR_AGENT_PATH." },
+        { error: CURSOR_CLI_MISSING_MESSAGE },
         503,
       );
     case "not-authenticated":

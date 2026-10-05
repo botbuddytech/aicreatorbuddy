@@ -47,12 +47,7 @@ export function TitleScoreActions({
   }, [menuOpen]);
 
   async function scoreWithCursor() {
-    if (!cursorEnabled || scoringCursor) return;
-    if (!context.topic.trim()) {
-      setError("Add a topic in Video Introduction before scoring titles.");
-      setMenuOpen(false);
-      return;
-    }
+    if (!cursorEnabled || scoringCursor || titles.length === 0) return;
 
     setScoringCursor(true);
     setError(null);

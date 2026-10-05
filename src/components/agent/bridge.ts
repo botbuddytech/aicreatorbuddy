@@ -10,7 +10,7 @@ type ProjectBridge = {
 
 let bridge: ProjectBridge | null = null;
 
-export function registerProjectBridge(next: ProjectBridge) {
+export function registerProjectBridge(next: ProjectBridge | null) {
   bridge = next;
 }
 

@@ -1,7 +1,10 @@
 import { parseCursorScriptLowEffortRequest } from "@/features/cursor-script-analysis/contract";
 import { checkScriptLowEffortWithCursor } from "@/features/cursor-script-analysis/server/runCursorScriptAnalysis";
 import { getEffectiveCursorPrompts } from "@/features/cursor-title-generator/repo";
-import { CursorRunnerError } from "@/features/cursor-title-generator/server/runCursorAgent";
+import {
+  CURSOR_CLI_MISSING_MESSAGE,
+  CursorRunnerError,
+} from "@/features/cursor-title-generator/server/runCursorAgent";
 import { requireUser } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
@@ -27,7 +30,7 @@ function runnerError(error: CursorRunnerError) {
     return json({ error: "Run `agent login` before using Cursor." }, 503);
   }
   if (error.code === "missing-cli") {
-    return json({ error: "Cursor Agent CLI was not found." }, 503);
+    return json({ error: CURSOR_CLI_MISSING_MESSAGE }, 503);
   }
   if (error.code === "timeout") return json({ error: "Cursor analysis timed out." }, 504);
   if (error.code === "invalid-output") {

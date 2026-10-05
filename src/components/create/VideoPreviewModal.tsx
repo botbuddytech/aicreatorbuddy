@@ -18,6 +18,8 @@ import {
   formatTimecode,
   sceneRuntimeSeconds,
   sceneTimeRange,
+  sceneClipMuted,
+  sceneUploadedVideoUrl,
   selectedTitle,
   type AspectRatio,
   type Scene,
@@ -67,25 +69,23 @@ function PreviewPlayer({
 
   const clipUrls = useClipUrls(
     scenes
+      .filter((scene) => scene.visuals.uploadedClipKind === "video" && !scene.visuals.uploadedClipUrl)
       .map((scene) => scene.visuals.uploadedClipId)
       .filter((id): id is string => Boolean(id)),
   );
 
   const activeSceneId = active?.scene.id ?? null;
   const activeStart = active?.start ?? 0;
-  const activeVolume = Math.max(
-    0,
-    Math.min(1, (active?.scene.editing.volume ?? 100) / 100),
-  );
+  const clipMuted = active ? sceneClipMuted(active.scene) : true;
+  const activeVolume = clipMuted
+    ? 0
+    : Math.max(0, Math.min(1, (active?.scene.editing.volume ?? 100) / 100));
   const activeSpeed =
     active?.scene.editing.speed && active.scene.editing.speed > 0
       ? active.scene.editing.speed
       : 1;
   const activeTrimStart = active?.scene.editing.trimStartSeconds ?? 0;
-  const activeClipUrl =
-    active?.scene.visuals.uploadedClipKind === "video" && active.scene.visuals.uploadedClipId
-      ? (clipUrls[active.scene.visuals.uploadedClipId] ?? null)
-      : null;
+  const activeClipUrl = active ? sceneUploadedVideoUrl(active.scene, clipUrls) : null;
 
   const hasVoiceover =
     Boolean(active?.scene.finalScript.trim()) ||
@@ -94,6 +94,7 @@ function PreviewPlayer({
   const audioUnlockedRef = useRef(false);
   const [audioMuted, setAudioMuted] = useState(false);
   const [voiceUnlocked, setVoiceUnlocked] = useState(false);
+  const [speechBlocked, setSpeechBlocked] = useState(false);
   const [voiceSyncKey, setVoiceSyncKey] = useState(0);
   const sceneLocalSeconds = Math.max(0, elapsed - activeStart);
 
@@ -101,10 +102,17 @@ function PreviewPlayer({
   useSyncedSceneVoiceover({
     scene: active?.scene ?? null,
     playing: playing && voiceUnlocked,
-    enabled: Boolean(hasVoiceover),
+    enabled: Boolean(active?.scene.finalScript.trim()),
     sceneLocalSeconds,
     syncKey: voiceSyncKey,
+    browserVoice: true,
+    onError: () => setSpeechBlocked(true),
   });
+
+  function applyClipAudio(node: HTMLVideoElement) {
+    node.muted = clipMuted;
+    node.volume = clipMuted ? 0 : hasVoiceover ? Math.min(activeVolume, 0.2) : activeVolume;
+  }
 
   function unlockAudio() {
     audioUnlockedRef.current = true;
@@ -112,19 +120,21 @@ function PreviewPlayer({
     setVoiceUnlocked(true);
     const node = videoRef.current;
     if (!node) return;
-    node.muted = false;
-    // Duck the clip under narration when this beat has a script.
-    node.volume = hasVoiceover ? Math.min(activeVolume, 0.2) : activeVolume;
+    applyClipAudio(node);
   }
 
   function bumpVoiceSync() {
     setVoiceSyncKey((value) => value + 1);
   }
 
+  const autoStartedRef = useRef(false);
   useEffect(() => {
-    // Autoplay is usually muted by the browser. Skip it for single-clip opens so
-    // the user's Play click can start with sound.
-    if (autoPlay && total > 0) setPlaying(true);
+    // The dock Play click opened this preview. Start the cut and the spoken script
+    // together. A blocked voice stays on Play voice instead of looking like Pause.
+    if (!autoPlay || total <= 0 || autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    setPlaying(true);
+    setVoiceUnlocked(true);
   }, [total, setPlaying, autoPlay]);
 
   useEffect(() => {
@@ -149,11 +159,9 @@ function PreviewPlayer({
   useEffect(() => {
     const node = videoRef.current;
     if (!node || !activeClipUrl) return;
-    // Keep ambient clip audio quiet under the spoken script.
-    node.volume = hasVoiceover ? Math.min(activeVolume, 0.2) : activeVolume;
+    applyClipAudio(node);
     node.playbackRate = activeSpeed;
-    if (audioUnlockedRef.current) {
-      node.muted = false;
+    if (audioUnlockedRef.current && !clipMuted) {
       setAudioMuted(false);
     }
     if (!playing) {
@@ -171,7 +179,7 @@ function PreviewPlayer({
     return () => {
       cancelled = true;
     };
-  }, [playing, activeClipUrl, activeVolume, activeSpeed, hasVoiceover]);
+  }, [playing, activeClipUrl, activeVolume, activeSpeed, hasVoiceover, clipMuted]);
 
   function seekTo(seconds: number) {
     unlockAudio();
@@ -181,24 +189,33 @@ function PreviewPlayer({
   }
 
   function onToggle() {
-    // Autoplay often starts muted. A Play click while already playing should
-    // unlock sound instead of pausing — otherwise it feels like "no audio".
-    if (playing && (audioMuted || videoRef.current?.muted)) {
+    const voiceWaiting = hasVoiceover && (!voiceUnlocked || speechBlocked);
+    // The cut can already be moving with no narration. That click should start
+    // the script, not pause the preview.
+    if (playing && (voiceWaiting || (!clipMuted && (audioMuted || videoRef.current?.muted)))) {
+      setSpeechBlocked(false);
       unlockAudio();
       bumpVoiceSync();
+      window.speechSynthesis?.resume();
       void videoRef.current?.play().catch(() => undefined);
       return;
     }
+    setSpeechBlocked(false);
     unlockAudio();
-    if (!playing) bumpVoiceSync();
+    if (!playing) {
+      bumpVoiceSync();
+      window.speechSynthesis?.resume();
+    }
     toggle();
   }
 
   function onRestart() {
+    setSpeechBlocked(false);
     unlockAudio();
     restart();
     setSeekTick((value) => value + 1);
     bumpVoiceSync();
+    window.speechSynthesis?.resume();
   }
 
   useEffect(() => {
@@ -280,10 +297,9 @@ function PreviewPlayer({
                 syncClipTime();
                 const node = videoRef.current;
                 if (!node) return;
-                node.volume = hasVoiceover ? Math.min(activeVolume, 0.2) : activeVolume;
+                applyClipAudio(node);
                 node.playbackRate = activeSpeed;
-                if (audioUnlockedRef.current) {
-                  node.muted = false;
+                if (audioUnlockedRef.current && !clipMuted) {
                   setAudioMuted(false);
                 }
                 if (playing) {
@@ -360,7 +376,9 @@ function PreviewPlayer({
           {playing
             ? audioMuted
               ? "Unmute"
-              : "Pause"
+              : hasVoiceover && (!voiceUnlocked || speechBlocked)
+                ? "Play voice"
+                : "Pause"
             : elapsed >= total && total > 0
               ? "Replay"
               : "Play"}
@@ -370,10 +388,12 @@ function PreviewPlayer({
         </ActionButton>
         {audioMuted && playing ? (
           <p className="text-xs text-muted">Browser blocked autoplay sound — click Unmute</p>
+        ) : hasVoiceover && speechBlocked ? (
+          <p className="text-xs text-muted">Click Play voice to hear this scene’s script</p>
         ) : hasVoiceover && voiceUnlocked && playing ? (
-          <p className="text-xs text-muted">Speaking this beat’s script with the clip</p>
+          <p className="text-xs text-muted">Speaking this beat’s script</p>
         ) : hasVoiceover && !playing ? (
-          <p className="text-xs text-muted">Play to hear this beat’s script with the clip</p>
+          <p className="text-xs text-muted">Play to hear this beat’s script</p>
         ) : null}
         <ExportButton size="sm" className="ml-auto" />
         <ActionButton size="sm" variant="secondary" onClick={toggleFullscreen}>

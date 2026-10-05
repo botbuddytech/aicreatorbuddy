@@ -12,8 +12,14 @@ function createClient() {
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-export const prisma: PrismaClient = globalForPrisma.prisma ?? createClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+function getPrisma(): PrismaClient {
+  const existing = globalForPrisma.prisma;
+  // A regenerated client is a new class. Drop the previous instance so new columns are visible.
+  if (existing instanceof PrismaClient) return existing;
+  if (existing) void existing.$disconnect().catch(() => undefined);
+  const client = createClient();
+  if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = client;
+  return client;
 }
+
+export const prisma: PrismaClient = getPrisma();

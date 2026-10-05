@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { agentModelLabel } from "@/lib/agent/types";
 import { activeThread, useAgentStore } from "@/components/agent/store";
 
 function Menu({
@@ -62,13 +61,11 @@ function Menu({
 }
 
 export function AgentHeader({ onClose }: { onClose: () => void }) {
-  const modelId = useAgentStore((state) => state.modelId);
   const threads = useAgentStore((state) => state.threads);
   const activeId = useAgentStore((state) => state.activeThreadId);
   const thread = useAgentStore(activeThread);
   const newThread = useAgentStore((state) => state.newThread);
   const selectThread = useAgentStore((state) => state.selectThread);
-  const modelLabel = agentModelLabel(modelId);
 
   return (
     <header
@@ -76,14 +73,11 @@ export function AgentHeader({ onClose }: { onClose: () => void }) {
       style={{ height: "var(--dashboard-nav-height, 4.5rem)" }}
     >
       <h2 className="px-1 text-[13px] font-semibold text-foreground">Agent</h2>
-      <span className="truncate px-2 text-[12px] text-muted" title={modelLabel}>
-        {modelLabel}
-      </span>
-      <div className="ml-auto flex items-center">
+      <div className="ml-auto flex items-center gap-1">
         <button
           type="button"
           onClick={newThread}
-          className="rounded-lg px-2 py-1 text-[12px] font-medium text-muted hover:bg-white/5 hover:text-foreground"
+          className="inline-flex items-center rounded-lg border border-border bg-surface px-2.5 py-1 text-[12px] font-semibold text-foreground hover:bg-white/5"
         >
           New chat
         </button>

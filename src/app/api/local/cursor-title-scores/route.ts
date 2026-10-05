@@ -1,6 +1,7 @@
 import { parseCursorTitleScoreRequest } from "@/features/cursor-title-generator/contract";
 import { getEffectiveCursorPrompts } from "@/features/cursor-title-generator/repo";
 import {
+  CURSOR_CLI_MISSING_MESSAGE,
   CursorRunnerError,
   scoreTitlesWithCursor,
 } from "@/features/cursor-title-generator/server/runCursorAgent";
@@ -33,7 +34,7 @@ function runnerErrorResponse(error: CursorRunnerError) {
       return json({ error: "Cursor title scoring was cancelled." }, 408);
     case "missing-cli":
       return json(
-        { error: "Cursor Agent CLI was not found. Install it or set CURSOR_AGENT_PATH." },
+        { error: CURSOR_CLI_MISSING_MESSAGE },
         503,
       );
     case "not-authenticated":

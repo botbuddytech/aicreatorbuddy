@@ -2,17 +2,25 @@
 
 import { suggestionsFor } from "@/lib/agent/suggestions";
 import { sendAgentMessage } from "@/components/agent/run";
-import { useVideoProject } from "@/components/create/VideoProjectProvider";
+import { useOptionalVideoProject } from "@/components/create/VideoProjectProvider";
+
+const CREATE_PAGE_SUGGESTIONS = [
+  "How does the create pipeline work?",
+  "What should I fill in before generating titles?",
+  "How do I start a new video draft?",
+];
 
 export function EmptyState() {
-  const { activeStep } = useVideoProject();
-  const suggestions = suggestionsFor(activeStep);
+  const projectState = useOptionalVideoProject();
+  const suggestions = projectState
+    ? suggestionsFor(projectState.activeStep)
+    : CREATE_PAGE_SUGGESTIONS;
 
   return (
     <div className="flex h-full flex-col justify-end px-3 py-4">
       <p className="text-[13px] font-medium text-foreground">Ask the agent about this step</p>
       <p className="mt-1 text-[12px] leading-relaxed text-muted">
-        Agent mode can propose edits. Nothing is written until you accept it.
+        It can update this video. Attach title, script, thumbnail, brief, or timeline with @.
       </p>
       <div className="mt-3 flex flex-col items-start gap-1.5">
         {suggestions.map((suggestion) => (

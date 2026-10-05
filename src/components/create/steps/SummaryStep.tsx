@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { ActionButton } from "@/components/ui/ActionButton";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Field } from "@/components/ui/Field";
 import { FieldFlash } from "@/components/agent/FieldFlash";
 import { Input } from "@/components/ui/Input";
@@ -45,8 +47,8 @@ function looksLikeYouTube(url: string): boolean {
 }
 
 export function SummaryStep() {
-  const { project, dispatch } = useVideoProject();
-  const { fetchTranscript, removeReference, pending, errors } =
+  const { project, dispatch, deleteSummaryReference } = useVideoProject();
+  const { fetchTranscript, pending, errors } =
     useReferenceTranscript(project.id);
   const { summary } = project;
   const lengthBounds = durationBoundsForFormat(summary.format);
@@ -161,17 +163,7 @@ export function SummaryStep() {
                 index={index}
                 pending={Boolean(pending[reference.id])}
                 error={errors[reference.id] ?? null}
-                onRemove={() => {
-                  removeReference(reference.id);
-                  dispatch({
-                    type: "UPDATE_SUMMARY",
-                    patch: {
-                      references: summary.references.filter(
-                        (item) => item.id !== reference.id,
-                      ),
-                    },
-                  });
-                }}
+                onRemove={() => deleteSummaryReference(reference.id)}
                 onChange={(next) =>
                   dispatch({
                     type: "UPDATE_SUMMARY",
@@ -208,9 +200,10 @@ export function SummaryStep() {
             ))}
           </div>
           {canAddReference ? (
-            <button
-              type="button"
-              className="mt-3 text-sm font-semibold text-accent hover:text-accent-dark"
+            <ActionButton
+              size="sm"
+              variant="secondary"
+              className="mt-3"
               onClick={() =>
                 dispatch({
                   type: "UPDATE_SUMMARY",
@@ -221,7 +214,7 @@ export function SummaryStep() {
               }
             >
               + Add reference
-            </button>
+            </ActionButton>
           ) : (
             <p className="mt-3 text-xs text-muted">Up to {MAX_REFERENCES} references.</p>
           )}
@@ -248,7 +241,10 @@ function ReferenceCard({
   onChange: (reference: ReferenceVideo) => void;
   onFetch: () => Promise<void>;
 }) {
+  const [expanded, setExpanded] = useState(() => !reference.title.trim());
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const url = reference.url.trim();
+  const title = reference.title.trim();
   const parseable = looksLikeYouTube(url);
   const stale = Boolean(reference.fetchedUrl && reference.fetchedUrl !== url);
   const wordCount = reference.transcript.trim()
@@ -263,15 +259,50 @@ function ReferenceCard({
     url && !parseable
       ? "Enter a YouTube video link to fetch its transcript."
       : undefined;
+  const heading = title ? `Reference ${index + 1} (${title})` : `Reference ${index + 1}`;
 
   return (
     <div className="rounded-xl border border-border bg-surface-soft p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-foreground">Reference {index + 1}</p>
-        <ActionButton size="sm" variant="ghost" disabled={pending} onClick={onRemove}>
-          Remove
-        </ActionButton>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={`reference-panel-${reference.id}`}
+          onClick={() => setExpanded((open) => !open)}
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+        >
+          <svg
+            viewBox="0 0 16 16"
+            className={`h-4 w-4 shrink-0 text-muted transition-transform ${expanded ? "rotate-90" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden
+          >
+            <path d="M6 3l5 5-5 5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <span className="truncate text-sm font-semibold text-foreground">
+            Reference {index + 1}
+            {title ? <span className="text-accent"> ({title})</span> : null}
+          </span>
+        </button>
+        <button
+          type="button"
+          aria-label={`Delete ${heading}`}
+          disabled={pending}
+          onClick={() => setConfirmDelete(true)}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-accent hover:bg-accent/10 hover:text-accent-dark disabled:opacity-40"
+        >
+          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <path d="M4 7h16" strokeLinecap="round" />
+            <path d="M9 7V5h6v2" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M7 7l1 12h8l1-12" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M10 11v5M14 11v5" strokeLinecap="round" />
+          </svg>
+        </button>
       </div>
+      {expanded ? (
+        <div id={`reference-panel-${reference.id}`} className="mt-3">
       <Field
         label="Video link"
         htmlFor={`reference-url-${reference.id}`}
@@ -360,6 +391,19 @@ function ReferenceCard({
           {reference.transcript ? "Refetch transcript" : "Fetch transcript"}
         </ActionButton>
       </div>
+        </div>
+      ) : null}
+      <ConfirmModal
+        open={confirmDelete}
+        title="Delete this reference?"
+        description="This removes the video link, title, and transcript from this video."
+        confirmLabel="Delete"
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={() => {
+          setConfirmDelete(false);
+          onRemove();
+        }}
+      />
     </div>
   );
 }

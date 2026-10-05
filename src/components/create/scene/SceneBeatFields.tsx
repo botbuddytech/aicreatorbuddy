@@ -2,21 +2,54 @@
 
 import { useRef, useState, type SyntheticEvent } from "react";
 import { ActionButton } from "@/components/ui/ActionButton";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Textarea } from "@/components/ui/Textarea";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { VoicePicker } from "@/components/create/scene/VoicePicker";
+import { ElevenLabsListenButton } from "@/features/elevenlabs/ElevenLabsListenButton";
 import { buildClipPoster, clipKindFor } from "@/lib/clipPoster";
 import { deleteClip, putClip } from "@/lib/clipStore";
+import { deleteSceneClipFile, uploadSceneClipFile } from "@/lib/storage/sceneClipUpload";
 import { trackSessionEvent } from "@/lib/session/telemetry";
-import type { Scene } from "@/lib/videoProject";
+import { sceneDuration, type Scene } from "@/lib/videoProject";
 
-const MAX_SCRIPT_BYTES = 1024 * 1024;
 const MAX_CLIP_BYTES = 100 * 1024 * 1024;
-const SCRIPT_ACCEPT = ".txt,.md,text/plain";
 const CLIP_ACCEPT = "image/*,video/*";
 
 function halt(event: SyntheticEvent) {
   event.stopPropagation();
+}
+
+function ClipUploadProgress({ percent }: { percent: number }) {
+  const radius = 16;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (Math.max(0, Math.min(100, percent)) / 100) * circumference;
+  return (
+    <span
+      className="relative inline-flex h-10 w-10 shrink-0 items-center justify-center text-accent"
+      role="progressbar"
+      aria-valuenow={percent}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label={`Uploading clip, ${percent} percent`}
+    >
+      <svg viewBox="0 0 40 40" className="h-10 w-10 -rotate-90" aria-hidden="true">
+        <circle cx="20" cy="20" r={radius} fill="none" className="text-border" stroke="currentColor" strokeWidth="3" />
+        <circle
+          cx="20"
+          cy="20"
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+        />
+      </svg>
+      <span className="absolute text-[9px] font-semibold tabular-nums text-foreground">{percent}</span>
+    </span>
+  );
 }
 
 function FieldLabel({ children }: { children: string }) {
@@ -29,58 +62,60 @@ export function SceneBeatFields({
   scene,
   column,
   labeled = false,
-  generating,
+  hideActions = false,
+  generating = false,
   generateDisabled,
   previewing = false,
   previewDisabled = false,
-  onGenerate,
-  onPreview,
+  elevenLabsPlaying = false,
+  elevenLabsLoading = false,
+  elevenLabsDisabled = false,
+  elevenLabsVoiceSeconds = null,
+  onElevenLabsPreview,
+  onGenerate = () => {},
+  onPreview = () => {},
 }: {
   scene: Scene;
   column: "script" | "visuals";
   labeled?: boolean;
-  generating: boolean;
+  /** Show the script or visuals text without generate, upload, or preview controls. */
+  hideActions?: boolean;
+  generating?: boolean;
   generateDisabled?: boolean;
   previewing?: boolean;
   previewDisabled?: boolean;
-  onGenerate: () => void;
-  onPreview: () => void;
+  elevenLabsPlaying?: boolean;
+  elevenLabsLoading?: boolean;
+  elevenLabsDisabled?: boolean;
+  elevenLabsVoiceSeconds?: number | null;
+  onElevenLabsPreview?: () => void;
+  onGenerate?: () => void;
+  onPreview?: () => void;
 }) {
   const { project, dispatch } = useVideoProject();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const generateLabel = column === "script" ? "Generate script" : "Generate visuals";
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [clipConfirm, setClipConfirm] = useState<"delete" | "replace" | null>(null);
+  const [deletingClip, setDeletingClip] = useState(false);
+  const generateLabel = "Generate visuals";
   const clipName = scene.visuals.uploadedClipName;
 
-  function onUploadScript(file: File) {
-    setUploadError(null);
-    if (file.size > MAX_SCRIPT_BYTES) {
-      setUploadError("Script must be under 1MB.");
-      return;
+  async function copyPrompt() {
+    const prompt = scene.visuals.description.trim();
+    if (!prompt) return;
+    try {
+      await navigator.clipboard.writeText(scene.visuals.description);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setUploadError("Could not copy that prompt.");
     }
+  }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = typeof reader.result === "string" ? reader.result : "";
-      if (!text.trim()) {
-        setUploadError("That file was empty.");
-        return;
-      }
-      if (
-        scene.finalScript.trim() &&
-        !window.confirm("Replace this beat's script with the file?")
-      ) {
-        return;
-      }
-      dispatch({
-        type: "PATCH_SCENE",
-        id: scene.id,
-        patch: { finalScript: text, status: "draft" },
-      });
-    };
-    reader.onerror = () => setUploadError("Could not read that file.");
-    reader.readAsText(file);
+  function saveScenes(next: Scene[]) {
+    dispatch({ type: "SET_SCENES", scenes: next, generated: true, keepStatus: true });
   }
 
   async function onUploadClip(file: File) {
@@ -90,76 +125,108 @@ export function SceneBeatFields({
       return;
     }
 
-    setUploading(true);
+    const previousPath = scene.visuals.uploadedClipStoragePath;
+    const previousLocalId = scene.visuals.uploadedClipId;
+    setUploadPercent(0);
     try {
-      const clipId = await putClip(file);
-      if (!clipId) {
-        setUploadError("Could not store that clip on this device.");
-        return;
+      const stored = await uploadSceneClipFile(
+        project.id,
+        scene.id,
+        file,
+        previousPath,
+        setUploadPercent,
+      );
+      let localClipId: string | null = null;
+      let poster: string | null = null;
+      let durationSeconds: number | null = null;
+      try {
+        localClipId = await putClip(file);
+        const preview = await buildClipPoster(file);
+        poster = preview.poster;
+        durationSeconds = preview.durationSeconds;
+      } catch {
+        /* The stored file can still play if this browser cannot keep a local copy. */
       }
-      const { poster, durationSeconds } = await buildClipPoster(file);
-      const previous = scene.visuals.uploadedClipId;
-      dispatch({
-        type: "PATCH_SCENE",
-        id: scene.id,
-        patch: {
-          visuals: {
-            uploadedClipId: clipId,
-            uploadedClipName: file.name,
-            uploadedClipKind: clipKindFor(file),
-            uploadedClipDurationSeconds: durationSeconds,
-            thumbnailUrl: poster,
-            description: scene.visuals.description.trim() || file.name,
-            needsCustomFootage: true,
-          },
-          // Swapping footage invalidates any trim aimed at the old clip.
-          editing: {
-            trimStartSeconds: 0,
-            durationSeconds: durationSeconds
-              ? Math.max(1, Math.floor(durationSeconds * 10) / 10)
-              : scene.editing.durationSeconds,
-          },
-          status: "draft",
-        },
-      });
+      saveScenes(
+        project.scenes.map((item) =>
+          item.id === scene.id
+            ? {
+                ...item,
+                visuals: {
+                  ...item.visuals,
+                  uploadedClipId: localClipId ?? stored.clipId,
+                  uploadedClipName: file.name,
+                  uploadedClipStoragePath: stored.storagePath,
+                  uploadedClipUrl: stored.url,
+                  uploadedClipKind: clipKindFor(file),
+                  uploadedClipDurationSeconds: durationSeconds,
+                  thumbnailUrl: poster ?? item.visuals.thumbnailUrl,
+                  description: item.visuals.description.trim() || file.name,
+                  needsCustomFootage: true,
+                },
+                editing: {
+                  ...item.editing,
+                  trimStartSeconds: 0,
+                  clipMuted: item.editing.clipMuted !== false,
+                },
+              }
+            : item,
+        ),
+      );
       trackSessionEvent(project.id, {
         type: "asset.clip_added",
         step: "timeline",
         payload: {
           sceneKey: scene.id,
-          localClipId: clipId,
+          localClipId: localClipId ?? stored.clipId,
+          storagePath: stored.storagePath,
           fileName: file.name,
           mimeType: file.type || null,
           sizeBytes: file.size,
           durationSec: durationSeconds,
         },
       });
-      if (previous) await deleteClip(previous);
+      if (previousLocalId && previousLocalId !== localClipId) await deleteClip(previousLocalId);
+    } catch (cause) {
+      setUploadError(cause instanceof Error ? cause.message : "Could not upload that clip.");
     } finally {
-      setUploading(false);
+      setUploadPercent(null);
     }
   }
 
   async function onRemoveClip() {
     const clipId = scene.visuals.uploadedClipId;
+    const storagePath = scene.visuals.uploadedClipStoragePath;
     setUploadError(null);
-    dispatch({
-      type: "PATCH_SCENE",
-      id: scene.id,
-      patch: {
-        visuals: {
-          uploadedClipId: null,
-          uploadedClipName: null,
-          uploadedClipKind: null,
-          uploadedClipDurationSeconds: null,
-          thumbnailUrl: null,
-          needsCustomFootage: false,
-        },
-        editing: { trimStartSeconds: 0 },
-        status: "draft",
-      },
-    });
-    if (clipId) await deleteClip(clipId);
+    setDeletingClip(true);
+    try {
+      if (storagePath) await deleteSceneClipFile(project.id, scene.id, storagePath);
+      saveScenes(
+        project.scenes.map((item) =>
+          item.id === scene.id
+            ? {
+                ...item,
+                visuals: {
+                  ...item.visuals,
+                  uploadedClipId: null,
+                  uploadedClipName: null,
+                  uploadedClipStoragePath: null,
+                  uploadedClipUrl: null,
+                  uploadedClipKind: null,
+                  uploadedClipDurationSeconds: null,
+                  thumbnailUrl: null,
+                  needsCustomFootage: false,
+                },
+                editing: { ...item.editing, trimStartSeconds: 0 },
+              }
+            : item,
+        ),
+      );
+      if (clipId) await deleteClip(clipId);
+    } catch (cause) {
+      setUploadError(cause instanceof Error ? cause.message : "Could not delete that clip.");
+      setDeletingClip(false);
+    }
   }
 
   return (
@@ -172,13 +239,7 @@ export function SceneBeatFields({
             className="min-h-[7.5rem] text-xs"
             placeholder="Spoken script for this beat…"
             value={scene.finalScript}
-            onChange={(event) =>
-              dispatch({
-                type: "PATCH_SCENE",
-                id: scene.id,
-                patch: { finalScript: event.target.value, status: "draft" },
-              })
-            }
+            readOnly
           />
         </>
       ) : (
@@ -187,7 +248,7 @@ export function SceneBeatFields({
           <Textarea
             aria-label="Visuals"
             className="min-h-[6rem] text-xs"
-            placeholder="What should appear on screen…"
+            placeholder="Visual prompt for this clip…"
             value={scene.visuals.description}
             onChange={(event) =>
               dispatch({
@@ -197,63 +258,100 @@ export function SceneBeatFields({
               })
             }
           />
-          {clipName && scene.visuals.thumbnailUrl ? (
-            <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-soft p-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={scene.visuals.thumbnailUrl}
-                alt=""
-                className="h-10 w-16 shrink-0 rounded object-cover"
-              />
-              <p className="min-w-0 flex-1 truncate text-[11px] text-muted" title={clipName}>
-                {clipName}
+          {clipName || scene.visuals.uploadedClipStoragePath || scene.visuals.uploadedClipUrl ? (
+            <div className="flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-border bg-surface-soft p-2">
+              {scene.visuals.thumbnailUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={scene.visuals.thumbnailUrl}
+                  alt=""
+                  className="h-10 w-16 shrink-0 rounded object-cover"
+                />
+              ) : null}
+              <p
+                className="w-28 max-w-full shrink truncate text-[11px] text-muted"
+                title={clipName ?? undefined}
+              >
+                {clipName || "Uploaded clip"}
               </p>
               <button
                 type="button"
-                onClick={onRemoveClip}
-                className="shrink-0 text-[11px] font-semibold text-accent hover:text-accent-dark"
+                aria-label={deletingClip ? "Deleting clip" : "Delete clip"}
+                aria-busy={deletingClip}
+                title={deletingClip ? "Deleting clip" : "Delete clip"}
+                disabled={uploadPercent !== null || deletingClip}
+                onClick={() => setClipConfirm("delete")}
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-accent hover:bg-accent/10 ${deletingClip ? "" : "disabled:opacity-40"}`}
               >
-                Remove
+                {deletingClip ? <ClipDeleteSpinner /> : <TrashIcon />}
               </button>
             </div>
           ) : null}
         </>
       )}
 
+      {hideActions || column === "script" ? null : (
       <input
         ref={fileRef}
         type="file"
-        accept={column === "script" ? SCRIPT_ACCEPT : CLIP_ACCEPT}
+        accept={CLIP_ACCEPT}
         className="hidden"
         onChange={(event) => {
           const file = event.target.files?.[0];
-          if (file) {
-            if (column === "script") onUploadScript(file);
-            else void onUploadClip(file);
-          }
+          if (file) void onUploadClip(file);
           event.target.value = "";
         }}
       />
+      )}
 
+      {hideActions ? null : (
       <div className="flex flex-wrap gap-2">
-        <ActionButton
-          size="sm"
-          loading={generating}
-          loadingLabel="Generating…"
-          disabled={generateDisabled}
-          onClick={onGenerate}
-        >
-          {labeled ? generateLabel : "Generate"}
-        </ActionButton>
-        <ActionButton
-          size="sm"
-          variant="secondary"
-          loading={uploading}
-          loadingLabel="Uploading…"
-          onClick={() => fileRef.current?.click()}
-        >
-          {column === "script" ? "Upload script" : clipName ? "Replace clip" : "Upload clip"}
-        </ActionButton>
+        {column === "script" ? null : (
+          <>
+            <button
+              type="button"
+              aria-label={scene.editing.clipMuted === false ? "Mute clip audio" : "Unmute clip audio"}
+              title={scene.editing.clipMuted === false ? "Clip audio is on" : "Clip audio is muted"}
+              onClick={() => {
+                const clipMuted = scene.editing.clipMuted === false;
+                saveScenes(
+                  project.scenes.map((item) =>
+                    item.id === scene.id
+                      ? { ...item, editing: { ...item.editing, clipMuted } }
+                      : item,
+                  ),
+                );
+              }}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-foreground hover:bg-white/5"
+            >
+              {scene.editing.clipMuted === false ? <SpeakerIcon /> : <SpeakerMutedIcon />}
+            </button>
+            <ActionButton
+              size="sm"
+              loading={generating}
+              loadingLabel="Generating…"
+              disabled={generateDisabled}
+              onClick={onGenerate}
+            >
+              {labeled ? generateLabel : "Generate"}
+            </ActionButton>
+            <ActionButton
+              size="sm"
+              variant="secondary"
+              disabled={uploadPercent !== null}
+              onClick={() => {
+                if (clipName || scene.visuals.uploadedClipStoragePath || scene.visuals.uploadedClipUrl) {
+                  setClipConfirm("replace");
+                  return;
+                }
+                fileRef.current?.click();
+              }}
+            >
+              {clipName || scene.visuals.uploadedClipUrl ? "Replace clip" : "Upload clip"}
+            </ActionButton>
+            {uploadPercent !== null ? <ClipUploadProgress percent={uploadPercent} /> : null}
+          </>
+        )}
         <ActionButton
           size="sm"
           variant="secondary"
@@ -266,6 +364,16 @@ export function SceneBeatFields({
               : "Listen"
             : "Preview"}
         </ActionButton>
+        {column === "script" ? null : (
+          <ActionButton
+            size="sm"
+            variant="secondary"
+            disabled={!scene.visuals.description.trim()}
+            onClick={() => void copyPrompt()}
+          >
+            {copied ? "Copied" : "Copy"}
+          </ActionButton>
+        )}
         {column === "script" ? (
           <VoicePicker
             scene={scene}
@@ -274,9 +382,102 @@ export function SceneBeatFields({
             }}
           />
         ) : null}
+        {column === "script" && onElevenLabsPreview ? (
+          <>
+            <ElevenLabsListenButton
+              playing={elevenLabsPlaying}
+              loading={elevenLabsLoading}
+              disabled={elevenLabsDisabled && !elevenLabsPlaying}
+              onClick={onElevenLabsPreview}
+            />
+            <VoiceSyncReadout
+              sceneSeconds={Math.round(sceneDuration(scene))}
+              voiceSeconds={elevenLabsVoiceSeconds}
+            />
+          </>
+        ) : null}
       </div>
+      )}
 
-      {uploadError ? <p className="text-[11px] text-accent">{uploadError}</p> : null}
+      {hideActions || !uploadError ? null : (
+        <p className="text-[11px] text-accent">{uploadError}</p>
+      )}
+      {column === "script" ? null : (
+        <ConfirmModal
+          open={clipConfirm !== null}
+          title={clipConfirm === "replace" ? "Replace this clip?" : "Delete this clip?"}
+          description={
+            clipConfirm === "replace"
+              ? "The current video will be permanently deleted from storage and from this scene, then replaced with the new file. The old clip cannot be retrieved."
+              : "This permanently deletes the video from this scene, from storage, and from the database. It cannot be retrieved."
+          }
+          confirmLabel={clipConfirm === "replace" ? "Replace clip" : "Delete clip"}
+          onClose={() => setClipConfirm(null)}
+          onConfirm={() => {
+            const action = clipConfirm;
+            setClipConfirm(null);
+            if (action === "delete") void onRemoveClip();
+            if (action === "replace") fileRef.current?.click();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function VoiceSyncReadout({
+  sceneSeconds,
+  voiceSeconds,
+}: {
+  sceneSeconds: number;
+  voiceSeconds: number | null;
+}) {
+  const voiceLabel = voiceSeconds == null ? "—" : `${voiceSeconds.toFixed(1)}s`;
+  const apart = voiceSeconds != null && Math.abs(voiceSeconds - sceneSeconds) > 0.8;
+  return (
+    <span className="inline-flex min-w-[11.5rem] items-center justify-center gap-2 rounded-xl border border-border bg-surface-soft px-3.5 py-2 text-sm tabular-nums">
+      <span className="text-muted">Scene</span>
+      <span className="font-bold text-red-500">{sceneSeconds}s</span>
+      <span className="text-muted">·</span>
+      <span className="text-muted">Voice</span>
+      <span className={`font-bold ${apart ? "text-red-500" : "text-foreground"}`}>{voiceLabel}</span>
+    </span>
+  );
+}
+
+function SpeakerMutedIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M11 5L6 9H3v6h3l5 4V5z" strokeLinejoin="round" />
+      <path d="M16 9l5 6M21 9l-5 6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function SpeakerIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M11 5L6 9H3v6h3l5 4V5z" strokeLinejoin="round" />
+      <path d="M16 9a4 4 0 010 6M18.5 6.5a7.5 7.5 0 010 11" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function ClipDeleteSpinner() {
+  return (
+    <span
+      className="h-5 w-5 animate-spin rounded-full border-2 border-current border-r-transparent"
+      aria-hidden="true"
+    />
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M4 7h16" strokeLinecap="round" />
+      <path d="M9 7V5h6v2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 7l1 12h6l1-12" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

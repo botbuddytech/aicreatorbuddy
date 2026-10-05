@@ -20,7 +20,8 @@ export function StepDock({
   onBack: () => void;
   onNext: () => void;
 }) {
-  const { project, dispatch, previewOpen, setPreviewOpen } = useVideoProject();
+  const { project, dispatch, previewOpen, setPreviewOpen, needsSaveByStep, summarySaving } =
+    useVideoProject();
   const rendered = Boolean(project.renderedAt);
   const canPreview =
     rendered || project.scenes.length > 0 || Boolean(project.selectedThumbnailId);
@@ -49,7 +50,10 @@ export function StepDock({
             : "Generate a script and timeline (or pick a thumbnail) to preview"
       }
       disabled={!canPreview}
-      onClick={() => setPreviewOpen(true)}
+      onClick={() => {
+        window.speechSynthesis?.resume();
+        setPreviewOpen(true);
+      }}
       className={`flex h-11 w-11 items-center justify-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
         pop ? "preview-pop" : ""
       } ${
@@ -67,11 +71,13 @@ export function StepDock({
   const approveControl =
     step === "editor" ? (
       <ActionButton
-        variant={project.editor.confirmedAt ? "secondary" : "primary"}
+        variant={needsSaveByStep.editor || !project.editor.confirmedAt ? "primary" : "secondary"}
+        loading={summarySaving}
+        loadingLabel="Saving…"
         onClick={() => dispatch({ type: "CONFIRM_EDIT" })}
         className="w-full sm:w-auto"
       >
-        {project.editor.confirmedAt ? "Confirmed" : "Confirm edit"}
+        {needsSaveByStep.editor || !project.editor.confirmedAt ? "Confirm edit" : "Confirmed"}
       </ActionButton>
     ) : (
       <StepApprove step={step} className="w-full sm:w-auto" />

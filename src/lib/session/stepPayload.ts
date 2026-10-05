@@ -1,7 +1,9 @@
 import type {
   AiProvider,
+  ApiCostEntry,
   AspectRatio,
   EditorSettings,
+  ElevenLabsVoice,
   Scene,
   ScriptScore,
   StepId,
@@ -16,8 +18,11 @@ import type {
 } from "@/lib/videoProject";
 import {
   createEmptyProject,
+  isStepId,
   referenceTitleFromMetadata,
+  normalizeApiCosts,
   normalizeEditorSettings,
+  normalizeElevenLabsVoice,
   normalizeScenes,
   normalizeScriptScore,
   normalizeStepStatus,
@@ -46,6 +51,7 @@ export type TitleStepPayload = {
     score?: TitleScore;
   }>;
   selectedTitleId: string | null;
+  cursorTitlePrompt?: string | null;
 };
 
 export type ThumbnailStepPayload = {
@@ -57,15 +63,18 @@ export type ThumbnailStepPayload = {
     vidiq?: Record<string, unknown>;
   }>;
   selectedThumbnailId: string | null;
+  cursorThumbnailPrompt?: string | null;
 };
 
 export type ScriptStepPayload = {
   fullScript: string;
   scriptScore: ScriptScore | null;
+  cursorScriptPrompt?: string | null;
 };
 
 export type TimelineStepPayload = {
   scenes: Scene[];
+  elevenLabsVoice?: ElevenLabsVoice | null;
 };
 
 export type DescriptionStepPayload = {
@@ -154,7 +163,9 @@ export function parseStepPayload<T extends StepId>(
             typeof item.text === "string" &&
             typeof item.provider === "string",
         ) ||
-        !isNullableString(raw.selectedTitleId)
+        !isNullableString(raw.selectedTitleId) ||
+        (raw.cursorTitlePrompt != null &&
+          (typeof raw.cursorTitlePrompt !== "string" || raw.cursorTitlePrompt.length > 1_200_000))
       ) {
         return null;
       }
@@ -170,7 +181,10 @@ export function parseStepPayload<T extends StepId>(
             typeof item.concept === "string" &&
             typeof item.provider === "string",
         ) ||
-        !isNullableString(raw.selectedThumbnailId)
+        !isNullableString(raw.selectedThumbnailId) ||
+        (raw.cursorThumbnailPrompt != null &&
+          (typeof raw.cursorThumbnailPrompt !== "string" ||
+            raw.cursorThumbnailPrompt.length > 20_000))
       ) {
         return null;
       }
@@ -179,6 +193,12 @@ export function parseStepPayload<T extends StepId>(
     case "script": {
       if (typeof raw.fullScript !== "string") return null;
       if (raw.scriptScore !== null && !isObject(raw.scriptScore)) return null;
+      if (
+        raw.cursorScriptPrompt != null &&
+        (typeof raw.cursorScriptPrompt !== "string" || raw.cursorScriptPrompt.length > 1_200_000)
+      ) {
+        return null;
+      }
       return raw as StepPayloadById[T] & Record<string, unknown>;
     }
     case "timeline": {
@@ -237,6 +257,7 @@ export function buildStepPayloads(project: VideoProject): {
         ...(title.score ? { score: title.score } : {}),
       })),
       selectedTitleId: project.selectedTitleId,
+      cursorTitlePrompt: project.cursorTitlePrompt,
     },
     thumbnail: {
       thumbnails: project.thumbnails.map((item) => ({
@@ -247,13 +268,16 @@ export function buildStepPayloads(project: VideoProject): {
         ...(item.vidiq ? { vidiq: { ...item.vidiq } } : {}),
       })),
       selectedThumbnailId: project.selectedThumbnailId,
+      cursorThumbnailPrompt: project.cursorThumbnailPrompt,
     },
     script: {
       fullScript: project.fullScript,
       scriptScore: project.scriptScore ? { ...project.scriptScore } : null,
+      cursorScriptPrompt: project.cursorScriptPrompt,
     },
     timeline: {
       scenes: project.scenes,
+      elevenLabsVoice: project.elevenLabsVoice,
     },
     description: {
       description: project.description,
@@ -296,6 +320,15 @@ export type SessionStepDocument = {
   payload: Record<string, unknown>;
 };
 
+export type SessionApiCallDocument = {
+  clientCallId: string;
+  step: StepId;
+  tool: string;
+  kind: string;
+  estimatedUsd: number;
+  at: string;
+};
+
 export type SessionDocuments = {
   id: string;
   name: string;
@@ -303,6 +336,7 @@ export type SessionDocuments = {
   lastActiveAt: string;
   steps: SessionStepDocument[];
   references: SessionReferenceDocument[];
+  apiCalls: SessionApiCallDocument[];
 };
 
 function asAiProvider(value: string | null | undefined): AiProvider | undefined {
@@ -393,6 +427,8 @@ export function projectFromSessionDocuments(docs: SessionDocuments): VideoProjec
       base.titles = normalizeTitles(payload.titles as TitleOption[]);
       base.selectedTitleId =
         typeof payload.selectedTitleId === "string" ? payload.selectedTitleId : null;
+      base.cursorTitlePrompt =
+        typeof payload.cursorTitlePrompt === "string" ? payload.cursorTitlePrompt : null;
     }
   }
 
@@ -404,7 +440,12 @@ export function projectFromSessionDocuments(docs: SessionDocuments): VideoProjec
         id: item.id,
         concept: item.concept,
         provider:
-          item.provider === "chatgpt" || item.provider === "gemini"
+          item.provider === "chatgpt" ||
+          item.provider === "gemini" ||
+          item.provider === "elevenlabs" ||
+          item.provider === "cursor" ||
+          item.provider === "vidiq" ||
+          item.provider === "manual"
             ? item.provider
             : "chatgpt",
         ...(item.customUrl ? { customUrl: item.customUrl } : {}),
@@ -414,6 +455,8 @@ export function projectFromSessionDocuments(docs: SessionDocuments): VideoProjec
         typeof payload.selectedThumbnailId === "string"
           ? payload.selectedThumbnailId
           : null;
+      base.cursorThumbnailPrompt =
+        typeof payload.cursorThumbnailPrompt === "string" ? payload.cursorThumbnailPrompt : null;
     }
   }
 
@@ -422,6 +465,8 @@ export function projectFromSessionDocuments(docs: SessionDocuments): VideoProjec
     const payload = parseStepPayload("script", scriptDoc.payload);
     if (payload) {
       base.fullScript = payload.fullScript;
+      base.cursorScriptPrompt =
+        typeof payload.cursorScriptPrompt === "string" ? payload.cursorScriptPrompt : null;
       base.scriptScore = normalizeScriptScore(payload.scriptScore ?? undefined);
     }
   }
@@ -431,6 +476,7 @@ export function projectFromSessionDocuments(docs: SessionDocuments): VideoProjec
     const payload = parseStepPayload("timeline", timelineDoc.payload);
     if (payload) {
       base.scenes = normalizeScenes(payload.scenes);
+      base.elevenLabsVoice = normalizeElevenLabsVoice(payload.elevenLabsVoice);
     }
   }
 
@@ -466,7 +512,40 @@ export function projectFromSessionDocuments(docs: SessionDocuments): VideoProjec
     }
   }
 
+  base.apiCosts = apiCostsFromDocuments(docs.apiCalls ?? []);
   return base;
+}
+
+export function apiCostsFromDocuments(calls: readonly SessionApiCallDocument[]): ApiCostEntry[] {
+  return normalizeApiCosts(
+    calls.flatMap((call) => {
+      if (!isStepId(call.step) || typeof call.clientCallId !== "string") return [];
+      const usd = Number(call.estimatedUsd);
+      return [
+        {
+          id: call.clientCallId,
+          at: call.at,
+          step: call.step,
+          provider: call.tool,
+          kind: call.kind,
+          usd: Number.isFinite(usd) ? usd : 0,
+        },
+      ];
+    }),
+  );
+}
+
+/** Keep every fire from both copies. Server rows win when the same id exists in both. */
+export function mergeApiCosts(
+  local: readonly ApiCostEntry[] | undefined,
+  server: readonly ApiCostEntry[],
+): ApiCostEntry[] {
+  const byId = new Map<string, ApiCostEntry>();
+  for (const entry of server) byId.set(entry.id, entry);
+  for (const entry of local ?? []) {
+    if (!byId.has(entry.id)) byId.set(entry.id, entry);
+  }
+  return [...byId.values()];
 }
 
 export function shouldPreferServerDocuments(

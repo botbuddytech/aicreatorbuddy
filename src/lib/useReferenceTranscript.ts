@@ -58,6 +58,7 @@ export function useReferenceTranscript(sessionId: string) {
             url: reference.url,
             order,
             lang,
+            persist: false,
           }),
         },
       );
@@ -109,19 +110,5 @@ export function useReferenceTranscript(sessionId: string) {
     }
   }, [sessionId]);
 
-  const removeReference = useCallback((referenceKey: string): void => {
-    void fetch(
-      `/api/create/sessions/${encodeURIComponent(sessionId)}/references?referenceKey=${encodeURIComponent(referenceKey)}`,
-      { method: "DELETE", keepalive: true },
-    ).then((response) => {
-      if (!response.ok && response.status !== 404) {
-        throw new Error(`reference removal returned ${response.status}`);
-      }
-    }).catch((error) => {
-      // Snapshot sync also performs the hard delete, so a transient failure here self-heals.
-      console.error("[video-session] immediate reference removal failed", error);
-    });
-  }, [sessionId]);
-
-  return { fetchTranscript, removeReference, pending, errors };
+  return { fetchTranscript, pending, errors };
 }

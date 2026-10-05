@@ -1,7 +1,7 @@
 import "server-only";
 
-import { spawn } from "node:child_process";
-import { existsSync, readdirSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -13,10 +13,69 @@ import {
   type CursorTitleRequest,
   type CursorTitleResponse,
 } from "@/features/cursor-title-generator/contract";
+import { applyScriptPromptVariables, applyThumbnailPromptVariables, applyTitlePromptVariables, applyVisualPromptVariables } from "@/features/cursor-title-generator/prompt";
+import {
+  normalizeCursorScript,
+  type CursorScriptRequest,
+  type CursorScriptResponse,
+} from "@/features/cursor-script-generator/contract";
+import { formatScriptSections } from "@/lib/scriptSections";
+import { formatSceneTiming } from "@/lib/sceneTiming";
+import {
+  normalizeThumbnailPrompts,
+  type CursorThumbnailPromptRequest,
+  type CursorThumbnailPromptResponse,
+} from "@/features/cursor-thumbnail-prompts/contract";
+import {
+  normalizeVisualPrompts,
+  type CursorVisualPromptRequest,
+  type CursorVisualPromptResponse,
+} from "@/features/cursor-visual-prompts/contract";
 
 const TIMEOUT_MS = 90_000;
+const SCRIPT_TIMEOUT_MS = 180_000;
 const MAX_OUTPUT_BYTES = 1_000_000;
+/** Per-machine Cursor CLI settings. See config/README.md. This file is gitignored. */
+export const CURSOR_CLI_CONFIG_FILE = "config/cursor-cli.local.json";
+export const CURSOR_CLI_MISSING_MESSAGE = `Cursor Agent CLI was not found. Install it or set "path" in ${CURSOR_CLI_CONFIG_FILE}.`;
 let generationInProgress = false;
+
+type LocalCliConfig = {
+  path: string;
+  model: string;
+};
+
+function readLocalCliConfig(): LocalCliConfig {
+  const empty: LocalCliConfig = { path: "", model: "" };
+  const filePath = join(process.cwd(), CURSOR_CLI_CONFIG_FILE);
+  if (!existsSync(filePath)) return empty;
+  try {
+    const parsed = JSON.parse(readFileSync(filePath, "utf8")) as unknown;
+    if (!parsed || typeof parsed !== "object") return empty;
+    const record = parsed as Record<string, unknown>;
+    const path = typeof record.path === "string" ? record.path.trim() : "";
+    const model = typeof record.model === "string" ? record.model.trim() : "";
+    return {
+      path: path.length <= 500 ? path : "",
+      model: model.length <= 100 ? model : "",
+    };
+  } catch {
+    return empty;
+  }
+}
+
+function configuredCliPath(): string {
+  return readLocalCliConfig().path || process.env.CURSOR_AGENT_PATH?.trim() || "";
+}
+
+function cursorAgentModel(): string {
+  const model = readLocalCliConfig().model || process.env.CURSOR_AGENT_MODEL?.trim() || "";
+  if (!model) return "";
+  if (!/^[a-zA-Z0-9._:/-]{1,100}$/.test(model)) {
+    throw new CursorRunnerError("failed", `Invalid model in ${CURSOR_CLI_CONFIG_FILE}.`);
+  }
+  return model;
+}
 
 type AgentInvocation = {
   command: string;
@@ -65,30 +124,61 @@ function resolveWindowsCursorInstall(hint?: string): AgentInvocation | null {
   return null;
 }
 
-function resolveAgentInvocation(): AgentInvocation {
-  const configured = process.env.CURSOR_AGENT_PATH?.trim();
-  if (!configured) {
-    if (process.platform === "win32") {
-      return resolveWindowsCursorInstall() ?? { command: "agent", prefixArgs: [] };
-    }
-    return { command: "agent", prefixArgs: [] };
+/** macOS/Linux install from `curl https://cursor.com/install | bash`. */
+function resolveUnixCursorInstall(): AgentInvocation | null {
+  const home = homedir();
+  const direct = [
+    join(home, ".local", "bin", "agent"),
+    join(home, ".local", "bin", "cursor-agent"),
+  ];
+  for (const candidate of direct) {
+    if (existsSync(candidate)) return { command: candidate, prefixArgs: [] };
   }
 
-  if (/node\.exe$/i.test(configured)) {
-    return nodePlusIndex(configured) ?? { command: configured, prefixArgs: [] };
+  const versionsRoot = join(home, ".local", "share", "cursor-agent", "versions");
+  if (!existsSync(versionsRoot)) return null;
+  let versions: string[] = [];
+  try {
+    versions = readdirSync(versionsRoot, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort()
+      .reverse();
+  } catch {
+    return null;
   }
+  for (const version of versions) {
+    const binary = join(versionsRoot, version, "cursor-agent");
+    if (existsSync(binary)) return { command: binary, prefixArgs: [] };
+  }
+  return null;
+}
+
+function configuredInvocation(configured: string): AgentInvocation | null {
+  if (/node\.exe$/i.test(configured)) return nodePlusIndex(configured);
 
   // `.cmd` / `.ps1` shims cannot be spawned with shell:false on Windows.
-  if (/\.(cmd|bat|ps1)$/i.test(configured) && process.platform === "win32") {
-    return (
-      resolveWindowsCursorInstall(configured) ?? {
-        command: configured,
-        prefixArgs: [],
-      }
-    );
+  if (/\.(cmd|bat|ps1)$/i.test(configured)) {
+    if (process.platform !== "win32") return null;
+    return resolveWindowsCursorInstall(configured);
   }
 
+  // A path for the other computer is ignored when that file is not on this one.
+  if (!existsSync(configured)) return null;
   return { command: configured, prefixArgs: [] };
+}
+
+function resolveAgentInvocation(): AgentInvocation {
+  const configured = configuredCliPath();
+  if (configured) {
+    const fromConfig = configuredInvocation(configured);
+    if (fromConfig) return fromConfig;
+  }
+
+  if (process.platform === "win32") {
+    return resolveWindowsCursorInstall() ?? { command: "agent", prefixArgs: [] };
+  }
+  return resolveUnixCursorInstall() ?? { command: "agent", prefixArgs: [] };
 }
 
 type CursorRunnerErrorCode =
@@ -101,29 +191,83 @@ type CursorRunnerErrorCode =
   | "failed";
 
 export class CursorRunnerError extends Error {
-  constructor(public readonly code: CursorRunnerErrorCode) {
+  constructor(
+    public readonly code: CursorRunnerErrorCode,
+    public readonly detail = "",
+  ) {
     super(code);
     this.name = "CursorRunnerError";
   }
 }
 
+let trustFlagSupported: boolean | null = null;
+
+/** Older Cursor CLIs reject unknown flags, including `--trust`. */
+function agentAcceptsTrustFlag(command: string, prefixArgs: string[]): boolean {
+  if (trustFlagSupported !== null) return trustFlagSupported;
+  try {
+    const help = spawnSync(/* turbopackIgnore: true */ command, [...prefixArgs, "--help"], {
+      encoding: "utf8",
+      timeout: 20_000,
+      windowsHide: true,
+      env: minimalEnvironment(),
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    if (help.status !== 0) return false;
+    const text = `${help.stdout ?? ""}\n${help.stderr ?? ""}`;
+    trustFlagSupported = /(?:^|\s)--trust\b/.test(text);
+    return trustFlagSupported;
+  } catch {
+    return false;
+  }
+}
+
+function cliFailureDetail(stderr: string): string {
+  const line =
+    stderr
+      .replace(/\u001b\[[0-9;]*m/g, "")
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .find((item) => item.length > 0) ?? "";
+  return line.slice(0, 180);
+}
+
 function videoContext(input: CursorTitleRequest | CursorTitleScoreRequest): string {
-  return `Topic: ${input.context.topic}
+  return `Topic: ${input.context.topic.trim() || "Not provided. Score each title on its own wording."}
 Format: ${input.context.format}
 Intent: ${input.context.intent}
 Duration: ${input.context.duration}`;
 }
 
+function referenceTitleExample(titles: readonly string[]): string {
+  const items = titles.map((title) => title.trim()).filter(Boolean);
+  return JSON.stringify({
+    titles: items.length ? items : ["No reference video title was provided"],
+  });
+}
+
 function buildTitlePrompt(instruction: string, input: CursorTitleRequest): string {
-  return `${instruction}
+  const filled = applyTitlePromptVariables(instruction, {
+    topic: input.context.topic,
+    referenceTitles: input.referenceTitles,
+    referenceTranscripts: input.referenceTitles.map((title, index) => ({
+      title,
+      transcript: input.referenceTranscripts[index] ?? "",
+    })),
+  });
+  return `${filled}
 
 Video context:
-${videoContext(input)}
+Format: ${input.context.format}
+Intent: ${input.context.intent}
+Duration: ${input.context.duration}
 
 This is a writing-only task. Do not inspect files, run commands, browse, or call external tools.
 Follow the quantity requested in the editable instruction, up to 20 titles.
-Return only valid JSON in this shape:
-{"titles":["Title one","Title two"]}`;
+Reference video titles for this video:
+${referenceTitleExample(input.referenceTitles)}
+Return only valid JSON in this shape, with the new titles you write:
+{"titles":["your first new title","your second new title"]}`;
 }
 
 function buildScoringPrompt(instruction: string, input: CursorTitleScoreRequest): string {
@@ -173,8 +317,12 @@ function minimalEnvironment(): NodeJS.ProcessEnv {
 }
 
 export function cursorAgentModelLabel(): string {
-  const model = process.env.CURSOR_AGENT_MODEL?.trim();
-  if (model && /^[a-zA-Z0-9._:/-]{1,100}$/.test(model)) return `Cursor CLI · ${model}`;
+  try {
+    const model = cursorAgentModel();
+    if (model) return `Cursor CLI · ${model}`;
+  } catch {
+    /* An invalid model still has a label; invokeAgent reports the error. */
+  }
   return "Cursor CLI";
 }
 
@@ -214,12 +362,10 @@ async function invokeAgent(
   workspace: string,
   prompt: string,
   signal?: AbortSignal,
+  timeoutMs = TIMEOUT_MS,
 ): Promise<string> {
   const { command, prefixArgs } = resolveAgentInvocation();
-  const model = process.env.CURSOR_AGENT_MODEL?.trim();
-  if (model && !/^[a-zA-Z0-9._:/-]{1,100}$/.test(model)) {
-    throw new CursorRunnerError("failed");
-  }
+  const model = cursorAgentModel();
 
   // Cursor sandbox is macOS/Linux-only; Windows requires allowlist mode.
   const sandboxMode = process.platform === "win32" ? "disabled" : "enabled";
@@ -233,7 +379,7 @@ async function invokeAgent(
     "json",
     "--sandbox",
     sandboxMode,
-    "--trust",
+    ...(agentAcceptsTrustFlag(command, prefixArgs) ? ["--trust"] : []),
     "--workspace",
     workspace,
     ...(model ? ["--model", model] : []),
@@ -266,7 +412,7 @@ async function invokeAgent(
       finish(new CursorRunnerError(code));
     };
     const onAbort = () => stop("cancelled");
-    const timeout = setTimeout(() => stop("timeout"), TIMEOUT_MS);
+    const timeout = setTimeout(() => stop("timeout"), timeoutMs);
 
     signal?.addEventListener("abort", onAbort, { once: true });
     if (signal?.aborted) return onAbort();
@@ -297,7 +443,7 @@ async function invokeAgent(
       if (detail.includes("login") || detail.includes("auth")) {
         return finish(new CursorRunnerError("not-authenticated"));
       }
-      finish(new CursorRunnerError("failed"));
+      finish(new CursorRunnerError("failed", cliFailureDetail(stderr)));
     });
   });
 }
@@ -337,9 +483,10 @@ async function withCursorWorkspace<T>(run: (workspace: string) => Promise<T>): P
 export async function runCursorPrompt(
   prompt: string,
   signal?: AbortSignal,
+  timeoutMs = TIMEOUT_MS,
 ): Promise<unknown> {
   return withCursorWorkspace(async (workspace) => {
-    const stdout = await invokeAgent(workspace, prompt, signal);
+    const stdout = await invokeAgent(workspace, prompt, signal, timeoutMs);
     return parseAgentEnvelope(stdout);
   });
 }
@@ -356,10 +503,133 @@ export async function generateTitlesWithCursor(
   input: CursorTitleRequest,
   signal?: AbortSignal,
 ): Promise<CursorTitleResponse> {
-  const payload = await runCursorPrompt(buildTitlePrompt(instruction, input), signal);
+  const promptUsed = buildTitlePrompt(instruction, input);
+  const payload = await runCursorPrompt(promptUsed, signal);
   const titles = normalizeCursorTitles(payload);
   if (!titles) throw new CursorRunnerError("invalid-output");
-  return { titles };
+  return { titles, promptUsed };
+}
+
+function buildThumbnailPrompt(instruction: string, input: CursorThumbnailPromptRequest): string {
+  const filled = applyThumbnailPromptVariables(instruction, input.title);
+  return `${filled}
+
+Video context:
+Format: ${input.format}
+Intent: ${input.intent}
+
+This is a writing-only task. Do not create images, inspect files, run commands, browse, or call external tools.
+Follow the quantity requested in the editable instruction, up to 8 prompts.
+Each item must be a visual brief for an image generator.
+Return only valid JSON in this shape:
+{"prompts":["Prompt one","Prompt two"]}`;
+}
+
+export async function generateThumbnailPromptsWithCursor(
+  instruction: string,
+  input: CursorThumbnailPromptRequest,
+  signal?: AbortSignal,
+): Promise<CursorThumbnailPromptResponse> {
+  const promptUsed = buildThumbnailPrompt(instruction, input);
+  const payload = await runCursorPrompt(promptUsed, signal);
+  const prompts = normalizeThumbnailPrompts(payload);
+  if (!prompts) throw new CursorRunnerError("invalid-output");
+  return { prompts, promptUsed };
+}
+
+function buildScriptPrompt(instruction: string, input: CursorScriptRequest): string {
+  const filled = applyScriptPromptVariables(instruction, input);
+  return `${filled}
+
+This is a writing-only task. Do not inspect files, run commands, browse, or call external tools.
+Return 4 to 8 sections. The first label must be HOOK and the last label must be OUTRO.
+Allowed labels: HOOK, INTRO, POINT 1, POINT 2, POINT 3, PROOF, CTA, OUTRO.
+A label may add a short beat name after an em dash, such as "POINT 1 — The real bottleneck".
+Total runtime: ${input.durationSeconds} seconds.
+Give every section an integer durationSeconds. Those integers must add up to ${input.durationSeconds}.
+Pace the spoken words at about 2.3 words per second, roughly 140 words per minute: a natural pace, not rushed and not drawn out.
+Write about durationSeconds times 2.3 words in each section. HOOK, CTA, and OUTRO are usually shorter than a POINT.
+Each script is spoken words only. Do not repeat the label or the duration inside the script, and do not leave a blank line inside a section.
+Reference videos show the kind of idea to explore. Do not copy their sentences, claims, or order of points.
+Return only valid JSON in this shape:
+{"sections":[{"label":"HOOK","durationSeconds":6,"script":"spoken words"},{"label":"OUTRO","durationSeconds":4,"script":"spoken words"}]}`;
+}
+
+function buildVisualPrompt(instruction: string, input: CursorVisualPromptRequest): string {
+  const film = [...input.sequence].sort((a, b) => a.order - b.order);
+  const writeIds = new Set(input.scenes.map((scene) => scene.id));
+  const blocks = film.map((scene, index) => {
+    const previous = index > 0 ? film[index - 1] : null;
+    const filled = applyVisualPromptVariables(instruction, {
+      section: scene.section,
+      script: scene.script,
+      duration: String(scene.durationSeconds),
+      aspectRatio: input.aspectRatio,
+      topic: input.topic,
+      title: input.title,
+    });
+    const next = film[index + 1];
+    const handoff = previous
+      ? `Previous scene: ${previous.order}. ${previous.section}. Open this clip on that scene's last frame.\n${
+          previous.existingPrompt
+            ? `Previous scene's picture, match this look exactly:\n${previous.existingPrompt}`
+            : `Previous spoken line:\n${previous.script}`
+        }`
+      : "This is the first frame of the film. Establish a look with no people that every later scene must keep.";
+    const forward = next
+      ? `\nNext scene: ${next.order}. ${next.section}. End this clip on a frame that scene can continue.\n${
+          next.existingPrompt ? `Next scene's picture:\n${next.existingPrompt}` : `Next spoken line:\n${next.script}`
+        }`
+      : "";
+    const timing = formatSceneTiming(scene.script, scene.durationSeconds);
+    return `Scene ${scene.order} of ${film.length}
+Scene id: ${scene.id}
+Write a new prompt: ${writeIds.has(scene.id) ? "yes" : "no, context only"}
+${handoff}${forward}
+Voice timing for this scene. The picture must follow these holds. When the voice holds, the frame holds:
+${timing}
+
+${filled}`;
+  });
+  return `${blocks.join("\n\n---\n\n")}
+
+This is a writing-only task. Do not create video, inspect files, run commands, browse, or call external tools.
+The scenes above are one continuous film in that order. They must not look like unrelated clips joined together.
+When only some scenes are marked "yes", treat every other scene's existing picture as locked reference. Copy its objects, palette, light, lens, and framing. Do not invent a new visual style for that one scene.
+No people in any prompt. No faces, eyes, hands, bodies, silhouettes, presenters, crowds, or characters. The spoken script is voiceover only and must not appear as a person on screen. Use objects, places, diagrams, machines, nature, light, or abstract motion.
+Lock one visual world and repeat it in every prompt you write: the same color grade, light, lens, time of day, and environment.
+Each prompt must be specific: the opening frame, what is in the frame, where the camera is, how it moves, and the exact closing frame.
+From the second scene on, the opening frame is the closing frame of the previous scene. Name that handoff. Keep the same objects in the same place in the frame, then continue the motion.
+Inside a scene, follow its voice timing. A HOLD is a pause in the voice: do not cut, do not introduce a new action, and hold the current frame for that many seconds.
+Write a new prompt only for the scene ids marked "yes".
+Each of those prompts must say the clip is exactly that scene's duration in seconds and the aspect ratio is exactly ${input.aspectRatio}.
+Return only valid JSON in this shape:
+{"prompts":[{"id":"scene id","prompt":"visual prompt"}]}`;
+}
+
+export async function generateVisualPromptsWithCursor(
+  instruction: string,
+  input: CursorVisualPromptRequest,
+  signal?: AbortSignal,
+): Promise<CursorVisualPromptResponse> {
+  const promptUsed = buildVisualPrompt(instruction, input);
+  const timeoutMs = input.scenes.length > 1 ? SCRIPT_TIMEOUT_MS : TIMEOUT_MS;
+  const payload = await runCursorPrompt(promptUsed, signal, timeoutMs);
+  const prompts = normalizeVisualPrompts(payload, input.scenes, input.aspectRatio);
+  if (!prompts) throw new CursorRunnerError("invalid-output");
+  return { prompts, promptUsed };
+}
+
+export async function generateScriptWithCursor(
+  instruction: string,
+  input: CursorScriptRequest,
+  signal?: AbortSignal,
+): Promise<CursorScriptResponse> {
+  const promptUsed = buildScriptPrompt(instruction, input);
+  const payload = await runCursorPrompt(promptUsed, signal, SCRIPT_TIMEOUT_MS);
+  const sections = normalizeCursorScript(payload, input.durationSeconds);
+  if (!sections) throw new CursorRunnerError("invalid-output");
+  return { sections, script: formatScriptSections(sections), promptUsed };
 }
 
 export async function scoreTitlesWithCursor(

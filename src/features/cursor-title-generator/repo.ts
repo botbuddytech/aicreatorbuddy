@@ -11,6 +11,9 @@ export type EffectiveCursorPrompts = {
   titleScoring: string;
   scriptScoring: string;
   scriptLowEffort: string;
+  thumbnailPromptGeneration: string;
+  scriptGeneration: string;
+  visualPromptGeneration: string;
   customized: Record<CursorPromptKind, boolean>;
 };
 
@@ -19,12 +22,37 @@ const PROMPT_FIELDS = {
   titleScoring: "titleScoringPrompt",
   scriptScoring: "scriptScoringPrompt",
   scriptLowEffort: "scriptLowEffortPrompt",
+  thumbnailPromptGeneration: "thumbnailPromptGenerationPrompt",
+  scriptGeneration: "scriptGenerationPrompt",
+  visualPromptGeneration: "visualPromptGenerationPrompt",
 } as const satisfies Record<
   CursorPromptKind,
   | "titleGenerationPrompt"
   | "titleScoringPrompt"
   | "scriptScoringPrompt"
   | "scriptLowEffortPrompt"
+  | "thumbnailPromptGenerationPrompt"
+  | "scriptGenerationPrompt"
+  | "visualPromptGenerationPrompt"
+>;
+
+const DEFAULT_FIELDS = {
+  titleGeneration: "titleGenerationDefault",
+  titleScoring: "titleScoringDefault",
+  scriptScoring: "scriptScoringDefault",
+  scriptLowEffort: "scriptLowEffortDefault",
+  thumbnailPromptGeneration: "thumbnailPromptGenerationDefault",
+  scriptGeneration: "scriptGenerationDefault",
+  visualPromptGeneration: "visualPromptGenerationDefault",
+} as const satisfies Record<
+  CursorPromptKind,
+  | "titleGenerationDefault"
+  | "titleScoringDefault"
+  | "scriptScoringDefault"
+  | "scriptLowEffortDefault"
+  | "thumbnailPromptGenerationDefault"
+  | "scriptGenerationDefault"
+  | "visualPromptGenerationDefault"
 >;
 
 export async function getEffectiveCursorPrompts(
@@ -37,23 +65,57 @@ export async function getEffectiveCursorPrompts(
       titleScoringPrompt: true,
       scriptScoringPrompt: true,
       scriptLowEffortPrompt: true,
+      thumbnailPromptGenerationPrompt: true,
+      scriptGenerationPrompt: true,
+      visualPromptGenerationPrompt: true,
+      titleGenerationDefault: true,
+      titleScoringDefault: true,
+      scriptScoringDefault: true,
+      scriptLowEffortDefault: true,
+      thumbnailPromptGenerationDefault: true,
+      scriptGenerationDefault: true,
+      visualPromptGenerationDefault: true,
     },
   });
 
+  const resolve = (kind: CursorPromptKind) =>
+    settings?.[PROMPT_FIELDS[kind]] ??
+    settings?.[DEFAULT_FIELDS[kind]] ??
+    CURSOR_PROMPT_DEFAULTS[kind];
+
   return {
-    titleGeneration:
-      settings?.titleGenerationPrompt ?? CURSOR_PROMPT_DEFAULTS.titleGeneration,
-    titleScoring: settings?.titleScoringPrompt ?? CURSOR_PROMPT_DEFAULTS.titleScoring,
-    scriptScoring: settings?.scriptScoringPrompt ?? CURSOR_PROMPT_DEFAULTS.scriptScoring,
-    scriptLowEffort:
-      settings?.scriptLowEffortPrompt ?? CURSOR_PROMPT_DEFAULTS.scriptLowEffort,
+    titleGeneration: resolve("titleGeneration"),
+    titleScoring: resolve("titleScoring"),
+    scriptScoring: resolve("scriptScoring"),
+    scriptLowEffort: resolve("scriptLowEffort"),
+    thumbnailPromptGeneration: resolve("thumbnailPromptGeneration"),
+    scriptGeneration: resolve("scriptGeneration"),
+    visualPromptGeneration: resolve("visualPromptGeneration"),
     customized: {
       titleGeneration: settings?.titleGenerationPrompt != null,
       titleScoring: settings?.titleScoringPrompt != null,
       scriptScoring: settings?.scriptScoringPrompt != null,
       scriptLowEffort: settings?.scriptLowEffortPrompt != null,
+      thumbnailPromptGeneration: settings?.thumbnailPromptGenerationPrompt != null,
+      scriptGeneration: settings?.scriptGenerationPrompt != null,
+      visualPromptGeneration: settings?.visualPromptGenerationPrompt != null,
     },
   };
+}
+
+export async function saveCursorPromptDefault(
+  userId: string,
+  kind: CursorPromptKind,
+  prompt: string,
+): Promise<EffectiveCursorPrompts> {
+  const active = PROMPT_FIELDS[kind];
+  const fallback = DEFAULT_FIELDS[kind];
+  await prisma.cursorPromptSettings.upsert({
+    where: { userId },
+    create: { userId, [active]: prompt, [fallback]: prompt },
+    update: { [active]: prompt, [fallback]: prompt },
+  });
+  return getEffectiveCursorPrompts(userId);
 }
 
 export async function saveCursorPrompt(

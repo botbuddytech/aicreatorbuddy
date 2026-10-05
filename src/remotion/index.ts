@@ -42,7 +42,8 @@ export function buildInputProps(
     captions: project.editor.captions,
     scenes: project.scenes.map((scene, index) => {
       const clipId = scene.visuals.uploadedClipId;
-      const clipUrl = clipId ? (clipUrls[clipId] ?? null) : null;
+      const clipUrl =
+        scene.visuals.uploadedClipUrl || (clipId ? (clipUrls[clipId] ?? null) : null);
       const rawPoster =
         scene.visuals.thumbnailUrl || (index === 0 ? (thumb?.customUrl ?? null) : null);
       // Remotion's <Img> awaits img.decode(), which Chrome rejects on SVG data URLs.
@@ -56,7 +57,7 @@ export function buildInputProps(
         trimStartSeconds: scene.editing.trimStartSeconds,
         finalScript: scene.finalScript,
         filter: scene.editing.filter,
-        volume: scene.editing.volume,
+        volume: scene.editing.clipMuted === false ? scene.editing.volume : 0,
         speed: scene.editing.speed,
         textOverlay: scene.editing.textOverlay,
         clipUrl,

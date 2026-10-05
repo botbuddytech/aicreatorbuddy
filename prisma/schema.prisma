@@ -117,14 +117,24 @@ model User {
 }
 
 model CursorPromptSettings {
-  userId                String   @id
-  titleGenerationPrompt String?  @db.Text
-  titleScoringPrompt    String?  @db.Text
-  scriptScoringPrompt   String?  @db.Text
-  scriptLowEffortPrompt String?  @db.Text
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
-  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId                 String   @id
+  titleGenerationPrompt  String?  @db.Text
+  titleScoringPrompt     String?  @db.Text
+  scriptScoringPrompt    String?  @db.Text
+  scriptLowEffortPrompt  String?  @db.Text
+  thumbnailPromptGenerationPrompt  String?  @db.Text
+  scriptGenerationPrompt String?  @db.Text
+  visualPromptGenerationPrompt String?  @db.Text
+  titleGenerationDefault String?  @db.Text
+  titleScoringDefault    String?  @db.Text
+  scriptScoringDefault   String?  @db.Text
+  scriptLowEffortDefault String?  @db.Text
+  thumbnailPromptGenerationDefault String?  @db.Text
+  scriptGenerationDefault String?  @db.Text
+  visualPromptGenerationDefault String?  @db.Text
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+  user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model UserIntegration {

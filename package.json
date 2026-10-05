@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=22.13.0"
   },
   "scripts": {
     "dev": "next dev",
@@ -11,7 +11,7 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --import tsx --test src/features/predictive-text/engine.test.ts src/features/suggestions/suggestions.test.ts",
+    "test": "node --import tsx --test src/features/predictive-text/engine.test.ts src/features/suggestions/suggestions.test.ts src/lib/youtube/transcript.test.ts src/lib/session/summaryCommit.test.ts src/lib/session/laterStepCommit.test.ts src/features/cursor-thumbnail-prompts/contract.test.ts src/features/cursor-script-generator/contract.test.ts src/lib/scenesFromScript.test.ts src/features/cursor-visual-prompts/contract.test.ts src/lib/storage/sceneClipPath.test.ts src/lib/sceneTiming.test.ts src/features/cursor-sdk-agent/server/changes.test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
@@ -21,12 +21,15 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
+    "@cursor/sdk": "^1.0.35",
+    "@elevenlabs/elevenlabs-js": "^2.70.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "@remotion/media": "^4.0.524",
     "@remotion/player": "^4.0.524",
     "@remotion/web-renderer": "^4.0.524",
+    "@supabase/supabase-js": "^2.81.1",
     "bcryptjs": "^3.0.3",
     "dotenv": "^17.4.2",
     "framer-motion": "^13.1.1",

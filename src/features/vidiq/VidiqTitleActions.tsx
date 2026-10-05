@@ -1,30 +1,34 @@
 "use client";
 
 import { useState } from "react";
+import { StepFixModal } from "@/components/create/StepFixModal";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import type { CursorTitleContext } from "@/features/cursor-title-generator/contract";
 import type { VideoFormat } from "@/lib/videoProject";
 
-export function VidiqTitleActions({
-  context,
-  format,
-  sessionId,
-  onTitles,
-}: {
+type VidiqTitleActionsProps = {
   context: CursorTitleContext;
   format: VideoFormat;
   sessionId: string;
   onTitles: (titles: string[]) => void;
-}) {
+};
+
+export function useVidiqTitleGeneration({
+  context,
+  format,
+  sessionId,
+  onTitles,
+}: VidiqTitleActionsProps) {
   const [generating, setGenerating] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fixOpen, setFixOpen] = useState(false);
 
   function requestGeneration() {
     if (generating) return;
     if (!context.topic.trim()) {
-      setError("Add a topic in Video Introduction before generating titles.");
+      setFixOpen(true);
       return;
     }
     setConfirmOpen(true);
@@ -65,6 +69,21 @@ export function VidiqTitleActions({
     }
   }
 
+  return { requestGeneration, generating, error, confirmOpen, setConfirmOpen, generate, fixOpen, setFixOpen };
+}
+
+export function VidiqTitleActions(props: VidiqTitleActionsProps) {
+  const {
+    requestGeneration,
+    generating,
+    error,
+    confirmOpen,
+    setConfirmOpen,
+    generate,
+    fixOpen,
+    setFixOpen,
+  } = useVidiqTitleGeneration(props);
+
   return (
     <>
       <ActionButton
@@ -92,6 +111,13 @@ export function VidiqTitleActions({
         confirmLabel="Generate titles"
         onClose={() => setConfirmOpen(false)}
         onConfirm={() => void generate()}
+      />
+      <StepFixModal
+        open={fixOpen}
+        step="summary"
+        title="No topic or idea selected"
+        message="Add a topic or idea there, then generate titles."
+        onClose={() => setFixOpen(false)}
       />
     </>
   );

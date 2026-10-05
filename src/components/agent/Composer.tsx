@@ -10,10 +10,6 @@ import type { MentionId } from "@/lib/agent/types";
 const MAX_HEIGHT = 8 * 22 + 16;
 
 export function Composer() {
-  const mode = useAgentStore((state) => state.mode);
-  const setMode = useAgentStore((state) => state.setMode);
-  const autoApply = useAgentStore((state) => state.autoApply);
-  const setAutoApply = useAgentStore((state) => state.setAutoApply);
   const streaming = useAgentStore((state) => state.streamingStatus !== "idle");
   const addMention = useAgentStore((state) => state.addMention);
   const setMentionOpen = useAgentStore((state) => state.setMentionOpen);
@@ -116,7 +112,7 @@ export function Composer() {
       {menu ? (
         <MentionMenu query={menu.query} activeIndex={menu.index} onPick={pick} />
       ) : null}
-      <div className="rounded-xl border border-border bg-surface-soft">
+      <div className="overflow-hidden rounded-2xl border border-border bg-surface-soft">
         <label htmlFor="agent-composer" className="sr-only">
           Message the agent
         </label>
@@ -125,21 +121,21 @@ export function Composer() {
           ref={boxRef}
           rows={1}
           value={draft}
-          placeholder="Ask about this step… @ to add context"
+          placeholder="Message the agent… @ to attach title, script, or brief"
           onChange={(event) => {
             setDraft(event.target.value);
             syncMenu(event.target.value, event.target.selectionStart ?? event.target.value.length);
           }}
           onKeyDown={onKeyDown}
           onClick={(event) => syncMenu(draft, event.currentTarget.selectionStart ?? draft.length)}
-          className="max-h-48 w-full resize-none bg-transparent px-3 py-2.5 text-[13px] leading-5 text-foreground outline-none placeholder:text-muted/70"
+          className="max-h-48 w-full resize-none rounded-t-2xl bg-transparent px-3 py-2.5 text-[13px] leading-5 text-foreground outline-none placeholder:text-muted/70"
         />
         <div className="flex items-center gap-1.5 px-2 pb-2">
           <button
             type="button"
             onClick={insertAt}
-            aria-label="Add context mention"
-            title="Mention context"
+            aria-label="Attach title, script, thumbnail, brief, or timeline"
+            title="Attach title, script, thumbnail, brief, or timeline"
             className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-white/5 hover:text-foreground"
           >
             <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -150,30 +146,6 @@ export function Composer() {
               />
             </svg>
           </button>
-          <div className="flex rounded-lg border border-border p-0.5" role="group" aria-label="Agent mode">
-            {(["agent", "ask"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={mode === value}
-                onClick={() => setMode(value)}
-                className={`rounded-md px-2 py-1 text-[11px] font-semibold capitalize ${
-                  mode === value ? "bg-white/10 text-foreground" : "text-muted hover:text-foreground"
-                }`}
-              >
-                {value}
-              </button>
-            ))}
-          </div>
-          <label className="ml-1 inline-flex items-center gap-1.5 text-[11px] text-muted">
-            <input
-              type="checkbox"
-              checked={autoApply}
-              onChange={(event) => setAutoApply(event.target.checked)}
-              className="accent-accent"
-            />
-            Auto-apply
-          </label>
           <div className="ml-auto">
             {streaming ? (
               <ActionButton size="sm" variant="danger" onClick={stopAgent} aria-label="Stop generating">

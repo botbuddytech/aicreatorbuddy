@@ -23,7 +23,8 @@ const ChatPanel = dynamic(() => import("@/components/chat/ChatPanel").then((mod)
 export function ChatWidget() {
   const panelId = useId();
   const pathname = usePathname() ?? "";
-  const hideLauncher = /^\/dashboard\/create\/[^/]+/.test(pathname);
+  const hideLauncher =
+    pathname === "/dashboard/create" || pathname.startsWith("/dashboard/create/");
   const isClient = useSyncExternalStore(subscribeNever, () => true, () => false);
   const [open, setOpen] = useState(false);
   const [hasOpenedOnce, setHasOpenedOnce] = useState(false);

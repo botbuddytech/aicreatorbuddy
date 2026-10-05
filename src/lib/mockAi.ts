@@ -1,4 +1,5 @@
 import { sceneVisualImageUrl } from "@/lib/sceneVisualImage";
+import { sectionDurations, timelineSectionsFromScript, type ScriptSection } from "@/lib/scriptSections";
 import {
   createEmptyScene,
   FORMAT_LABELS,
@@ -7,7 +8,6 @@ import {
   newId,
   type AiProvider,
   type Scene,
-  type ThumbnailOption,
   type TitleOption,
   type VideoSummary,
   type VidIqScriptInsight,
@@ -57,7 +57,6 @@ export const mockMusicTracks: MusicTrack[] = [
 
 export type GenerationType =
   | "titles"
-  | "thumbnails"
   | "script"
   | "scenes"
   | "sceneScript"
@@ -69,9 +68,8 @@ export type GenerationType =
 
 export type GenerationInput = {
   titles: { prompt: string; count?: number };
-  thumbnails: { prompt: string; count?: number };
   script: { prompt: string; durationSeconds: number; intent?: string };
-  scenes: { fullScript: string; prompt: string; style?: "blocks" | "chart" };
+  scenes: { fullScript: string; prompt: string; style?: "blocks" | "chart"; durationSeconds?: number };
   sceneScript: { prompt: string };
   sceneVisuals: { prompt: string };
   description: { prompt: string; title?: string };
@@ -82,7 +80,6 @@ export type GenerationInput = {
 
 export type GenerationOutput = {
   titles: TitleOption[];
-  thumbnails: ThumbnailOption[];
   script: string;
   scenes: Scene[];
   sceneScript: string;
@@ -133,15 +130,6 @@ const TITLE_TEMPLATES = [
   "What {topic} Looks Like at 10x Scale",
 ];
 
-const THUMB_CONCEPTS = [
-  "Split screen: overwhelmed creator vs. clean dashboard, bold yellow caption top-left",
-  "Face-forward thumbnail with red arrow pointing at a giant view-count number",
-  "Dark desk overhead, laptop glowing, 3-word hook in extra-bold white type",
-  "Before/after bar chart exploding off the right edge, circle crop of the host",
-  "Cinematic studio lights, red accent, title stacked in two lines over bokeh",
-  "Phone mockup of a viral comment, shocked emoji, high-contrast background",
-];
-
 const SECTION_LABELS = ["Hook", "Intro", "Point 1", "Point 2", "Point 3", "Proof", "CTA", "Outro"];
 
 const VISUAL_BEATS = [
@@ -166,18 +154,6 @@ function makeTitles(prompt: string, provider: AiProvider, count: number): TitleO
     const template = TITLE_TEMPLATES[(seed + index) % TITLE_TEMPLATES.length] ?? TITLE_TEMPLATES[0];
     const text = `${template.replace("{topic}", topic)} [${providerTag(provider)}]`;
     return { id: newId(), text, provider };
-  });
-}
-
-function makeThumbnails(prompt: string, provider: AiProvider, count: number): ThumbnailOption[] {
-  const seed = hash(`${provider}:thumb:${prompt}`);
-  return Array.from({ length: count }, (_, index) => {
-    const concept = THUMB_CONCEPTS[(seed + index) % THUMB_CONCEPTS.length] ?? THUMB_CONCEPTS[0];
-    return {
-      id: newId(),
-      concept: `${concept} · ${providerTag(provider)} take`,
-      provider,
-    };
   });
 }
 
@@ -222,12 +198,51 @@ function makeScript(
   ].join("\n");
 }
 
+function scenesFromLabeledSections(
+  sections: ScriptSection[],
+  prompt: string,
+  durationSeconds?: number,
+  chart = false,
+): Scene[] {
+  const scriptDurations = sections.every(
+    (section) => section.durationSeconds != null && section.durationSeconds > 0,
+  )
+    ? sections.map((section) => section.durationSeconds ?? 1)
+    : sectionDurations(sections.length, durationSeconds);
+  return sections.map((section, index) => {
+    const originalPrompt = [
+      prompt.trim(),
+      `Section: ${section.label}`,
+      `Source beat:\n${section.body}`,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+    const scene = createEmptyScene(index, {
+      sectionLabel: section.label,
+      originalPrompt,
+      finalScript: section.body,
+    });
+    scene.status = "generated";
+    scene.visuals.description = VISUAL_BEATS[index % VISUAL_BEATS.length] ?? VISUAL_BEATS[0];
+    scene.visuals.thumbnailUrl = sceneVisualImageUrl(scene.visuals.description);
+    scene.editing.durationSeconds = scriptDurations[index] ?? 12;
+    if (chart) {
+      scene.editing.notes = `Keep this beat inside ${scene.editing.durationSeconds}s. Cut on the arrows.`;
+    }
+    return scene;
+  });
+}
+
 function splitIntoScenes(
   fullScript: string,
   prompt: string,
   style: "blocks" | "chart" = "blocks",
+  durationSeconds?: number,
 ): Scene[] {
-  if (style === "chart") return splitIntoChart(fullScript, prompt);
+  if (style === "chart") return splitIntoChart(fullScript, prompt, durationSeconds);
+
+  const labeled = timelineSectionsFromScript(fullScript);
+  if (labeled) return scenesFromLabeledSections(labeled, prompt, durationSeconds);
 
   const blocks = fullScript
     .split(/\n{2,}/)
@@ -378,7 +393,10 @@ const CHART_BEATS: ChartBeat[] = [
   },
 ];
 
-function splitIntoChart(fullScript: string, prompt: string): Scene[] {
+function splitIntoChart(fullScript: string, prompt: string, durationSeconds?: number): Scene[] {
+  const labeled = timelineSectionsFromScript(fullScript);
+  if (labeled) return scenesFromLabeledSections(labeled, prompt, durationSeconds, true);
+
   const topic = topicFromPrompt(prompt);
   const scriptBlocks = fullScript
     .split(/\n{2,}/)
@@ -611,11 +629,6 @@ export async function mockGenerate<T extends GenerationType>(
       const { prompt, count = 5 } = input as GenerationInput["titles"];
       return makeTitles(prompt, provider, Math.min(Math.max(count, 4), 6)) as GenerationOutput[T];
     }
-    case "thumbnails": {
-      // TODO: replace with real API call
-      const { prompt, count = 4 } = input as GenerationInput["thumbnails"];
-      return makeThumbnails(prompt, provider, Math.min(Math.max(count, 4), 6)) as GenerationOutput[T];
-    }
     case "script": {
       // TODO: replace with real API call
       const { prompt, durationSeconds, intent } = input as GenerationInput["script"];
@@ -623,8 +636,8 @@ export async function mockGenerate<T extends GenerationType>(
     }
     case "scenes": {
       // TODO: replace with real API call
-      const { fullScript, prompt, style } = input as GenerationInput["scenes"];
-      return splitIntoScenes(fullScript, prompt, style) as GenerationOutput[T];
+      const { fullScript, prompt, style, durationSeconds } = input as GenerationInput["scenes"];
+      return splitIntoScenes(fullScript, prompt, style, durationSeconds) as GenerationOutput[T];
     }
     case "sceneScript": {
       // TODO: replace with real API call

@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { sceneVisualPreviewSrc } from "@/lib/sceneVisualImage";
 import { useClipUrl } from "@/lib/useClipUrl";
-import type { Scene } from "@/lib/videoProject";
+import { sceneClipMuted, sceneDuration, sceneUploadedVideoUrl, type Scene } from "@/lib/videoProject";
 
 export function SceneVisualPreviewModal({
   open,
@@ -19,12 +19,21 @@ export function SceneVisualPreviewModal({
 }) {
   const src = scene ? sceneVisualPreviewSrc(scene.visuals) : null;
   const caption = scene?.visuals.description.trim() || scene?.sectionLabel || "Scene visual";
-  const clipUrl = useClipUrl(scene?.visuals.uploadedClipId ?? null);
-  const isVideo = scene?.visuals.uploadedClipKind === "video" && Boolean(clipUrl);
+  const localClipUrl = useClipUrl(
+    scene?.visuals.uploadedClipUrl ? null : (scene?.visuals.uploadedClipId ?? null),
+  );
+  const clipUrl = scene
+    ? sceneUploadedVideoUrl(scene, localClipUrl && scene.visuals.uploadedClipId
+        ? { [scene.visuals.uploadedClipId]: localClipUrl }
+        : undefined)
+    : null;
+  const isVideo = Boolean(clipUrl);
   const videoRef = useRef<HTMLVideoElement>(null);
   const [audioMuted, setAudioMuted] = useState(false);
-  const volume = Math.max(0, Math.min(1, (scene?.editing.volume ?? 100) / 100));
+  const clipMuted = scene ? sceneClipMuted(scene) : true;
+  const volume = clipMuted ? 0 : Math.max(0, Math.min(1, (scene?.editing.volume ?? 100) / 100));
   const trimStart = scene?.editing.trimStartSeconds ?? 0;
+  const sceneSeconds = scene ? sceneDuration(scene) : 0;
 
   useEffect(() => {
     if (!open) {
@@ -34,7 +43,7 @@ export function SceneVisualPreviewModal({
     if (!isVideo) return;
     const node = videoRef.current;
     if (!node) return;
-    node.muted = false;
+    node.muted = clipMuted;
     node.volume = volume;
     const seek = () => {
       if (trimStart > 0 && Number.isFinite(node.duration)) {
@@ -49,11 +58,11 @@ export function SceneVisualPreviewModal({
       setAudioMuted(true);
       void node.play().catch(() => undefined);
     });
-  }, [open, isVideo, clipUrl, volume, trimStart]);
+  }, [open, isVideo, clipUrl, volume, trimStart, clipMuted]);
 
   function unmuteAndPlay() {
     const node = videoRef.current;
-    if (!node) return;
+    if (!node || clipMuted) return;
     node.muted = false;
     node.volume = volume;
     setAudioMuted(false);
@@ -83,15 +92,24 @@ export function SceneVisualPreviewModal({
                 onVolumeChange={(event) => {
                   setAudioMuted(event.currentTarget.muted);
                 }}
+                onTimeUpdate={(event) => {
+                  const node = event.currentTarget;
+                  const end = trimStart + sceneSeconds;
+                  if (sceneSeconds > 0 && node.currentTime >= end) {
+                    node.pause();
+                    node.currentTime = trimStart;
+                  }
+                }}
                 onLoadedMetadata={(event) => {
                   const node = event.currentTarget;
+                  node.muted = clipMuted;
                   node.volume = volume;
-                  if (trimStart > 0 && Number.isFinite(node.duration)) {
+                  if (Number.isFinite(node.duration)) {
                     node.currentTime = Math.min(trimStart, Math.max(0, node.duration - 0.05));
                   }
                 }}
               />
-              {audioMuted ? (
+              {audioMuted && !clipMuted ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <ActionButton size="sm" onClick={unmuteAndPlay}>
                     Unmute

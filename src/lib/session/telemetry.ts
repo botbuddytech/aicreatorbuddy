@@ -8,6 +8,7 @@ const SNAPSHOT_SYNC_MS = 4_000;
 const queues = new Map<string, SessionEventInput[]>();
 const eventTimers = new Map<string, number>();
 const snapshotTimers = new Map<string, number>();
+const snapshotRequests = new Map<string, AbortController>();
 const inFlight = new Map<string, Set<AbortController>>();
 const deletedSessions = new Set<string>();
 let sequence = 0;
@@ -44,6 +45,8 @@ export function cancelSessionTelemetry(sessionId: string): void {
   const snapshotTimer = snapshotTimers.get(sessionId);
   if (snapshotTimer) window.clearTimeout(snapshotTimer);
   snapshotTimers.delete(sessionId);
+  snapshotRequests.get(sessionId)?.abort();
+  snapshotRequests.delete(sessionId);
   for (const controller of inFlight.get(sessionId) ?? []) controller.abort();
   inFlight.delete(sessionId);
 }
@@ -76,6 +79,10 @@ export function trackSessionEvent(sessionId: string, input: PendingSessionEvent)
     payload: input.payload ?? {},
   };
   queues.set(sessionId, [...(queues.get(sessionId) ?? []), item]);
+  if (input.type === "api.call") {
+    flushSessionEvents(sessionId);
+    return;
+  }
   const previous = eventTimers.get(sessionId);
   if (previous) window.clearTimeout(previous);
   eventTimers.set(
@@ -124,6 +131,40 @@ export function flushSessionEvents(sessionId: string, beacon = false): void {
   });
 }
 
+export type SnapshotSyncResult = "ok" | "aborted" | "busy" | "failed";
+
+function sendSnapshot(
+  snapshot: SessionSnapshot,
+  preempt: boolean,
+): Promise<SnapshotSyncResult> {
+  if (deletedSessions.has(snapshot.id)) return Promise.resolve("failed");
+  const current = snapshotRequests.get(snapshot.id);
+  if (current && !preempt) return Promise.resolve("busy");
+  current?.abort();
+  const controller = new AbortController();
+  snapshotRequests.set(snapshot.id, controller);
+  return fetch(endpoint(snapshot.id, "sync"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(snapshot),
+    keepalive: true,
+    signal: controller.signal,
+  }).then((response) => {
+    if (snapshotRequests.get(snapshot.id) === controller) snapshotRequests.delete(snapshot.id);
+    if (response.status === 410 || response.status === 404) {
+      deletedSessions.add(snapshot.id);
+      return "failed";
+    }
+    if (!response.ok) throw new Error(`snapshot sync returned ${response.status}`);
+    return "ok" as const;
+  }).catch((error: unknown) => {
+    if (snapshotRequests.get(snapshot.id) === controller) snapshotRequests.delete(snapshot.id);
+    if (controller.signal.aborted || deletedSessions.has(snapshot.id)) return "aborted";
+    console.error("[video-session] snapshot sync failed", error);
+    return "failed";
+  });
+}
+
 export function scheduleSnapshotSync(snapshot: SessionSnapshot): void {
   if (typeof window === "undefined" || deletedSessions.has(snapshot.id)) return;
   const previous = snapshotTimers.get(snapshot.id);
@@ -133,25 +174,19 @@ export function scheduleSnapshotSync(snapshot: SessionSnapshot): void {
     window.setTimeout(() => {
       snapshotTimers.delete(snapshot.id);
       if (deletedSessions.has(snapshot.id)) return;
-      const controller = controllerFor(snapshot.id);
-      void fetch(endpoint(snapshot.id, "sync"), {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(snapshot),
-        keepalive: true,
-        signal: controller.signal,
-      }).then((response) => {
-        if (response.status === 410 || response.status === 404) {
-          deletedSessions.add(snapshot.id);
-          return;
-        }
-        if (!response.ok) throw new Error(`snapshot sync returned ${response.status}`);
-      }).catch((error) => {
-        if (controller.signal.aborted || deletedSessions.has(snapshot.id)) return;
-        console.error("[video-session] snapshot sync failed", error);
-      }).finally(() => {
-        releaseController(snapshot.id, controller);
+      void sendSnapshot(snapshot, false).then((result) => {
+        if (result === "busy") scheduleSnapshotSync(snapshot);
       });
     }, SNAPSHOT_SYNC_MS),
   );
+}
+
+export function flushSnapshotSync(snapshot: SessionSnapshot): Promise<SnapshotSyncResult> {
+  if (typeof window === "undefined" || deletedSessions.has(snapshot.id)) {
+    return Promise.resolve("failed");
+  }
+  const pending = snapshotTimers.get(snapshot.id);
+  if (pending) window.clearTimeout(pending);
+  snapshotTimers.delete(snapshot.id);
+  return sendSnapshot(snapshot, true);
 }
