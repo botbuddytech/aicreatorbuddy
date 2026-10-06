@@ -58,16 +58,63 @@ async function fetchQwenSpeech(text: string, voiceId: string, signal?: AbortSign
   return response.blob();
 }
 
+const inflight = new Map<string, Promise<string>>();
+
+function audioKey(text: string, voiceId: string) {
+  return `${voiceId}\0en-locked\0${text}`;
+}
+
+/** True when this line was already spoken in this browser session. */
+export function qwenAudioReady(text: string, voiceId: string) {
+  return readyUrls.has(audioKey(text, voiceId));
+}
+
+/** Scene ids whose voice is already saved on disk. */
+export async function qwenCachedSceneIds(
+  voiceId: string,
+  lines: { id: string; text: string }[],
+): Promise<string[]> {
+  if (lines.length === 0) return [];
+  let response: Response;
+  try {
+    response = await fetch("/api/qwen/cached", {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify({ voiceId, lines }),
+    });
+  } catch {
+    return [];
+  }
+  if (!response.ok) return [];
+  const body = (await response.json()) as { ready?: unknown };
+  if (!Array.isArray(body.ready)) return [];
+  return body.ready.filter((id): id is string => typeof id === "string");
+}
+
 /** Object URL for a line. Repeat plays of the same text and voice reuse it. */
 export async function qwenAudioUrl(text: string, voiceId: string, signal?: AbortSignal) {
-  const key = `${voiceId}\0${text}`;
+  const key = audioKey(text, voiceId);
   const cached = readyUrls.get(key);
-  if (cached) return cached;
-  const blob = await fetchQwenSpeech(text, voiceId, signal);
-  const url = URL.createObjectURL(blob);
-  readyUrls.set(key, url);
-  if (signal?.aborted) {
-    throw new DOMException("The operation was aborted.", "AbortError");
+  if (cached) {
+    if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
+    return cached;
   }
+  let pending = inflight.get(key);
+  if (!pending) {
+    pending = fetchQwenSpeech(text, voiceId)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        readyUrls.set(key, url);
+        inflight.delete(key);
+        return url;
+      })
+      .catch((error: unknown) => {
+        inflight.delete(key);
+        throw error;
+      });
+    inflight.set(key, pending);
+  }
+  const url = await pending;
+  if (signal?.aborted) throw new DOMException("The operation was aborted.", "AbortError");
   return url;
 }

@@ -102,6 +102,19 @@ describe("cursor script contract", () => {
       )?.map((section) => section.durationSeconds),
       [7, 10, 5, 8],
     );
+    const capped = normalizeCursorScript(
+      {
+        sections: [
+          { label: "HOOK", durationSeconds: 45, script: "Open." },
+          { label: "POINT 1", durationSeconds: 75, script: "Middle." },
+          { label: "CTA", durationSeconds: 20, script: "Ask." },
+          { label: "OUTRO", durationSeconds: 15, script: "Close." },
+        ],
+      },
+      480,
+    );
+    assert.ok(capped);
+    assert.ok(capped.every((section) => section.durationSeconds <= 25));
   });
 
   it("fills every script token and appends any the template dropped", () => {

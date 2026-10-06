@@ -2,7 +2,7 @@
 
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
-import { ListenButton } from "@/components/create/scene/ListenButton";
+import { ListenButton, VoiceBuildClock } from "@/components/create/scene/ListenButton";
 import { useVoiceoverPreview } from "@/components/create/useVoiceoverPreview";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { mockMusicTracks, mockStockClips } from "@/lib/mockAi";
@@ -211,7 +211,7 @@ export function EditorLeftRail({
               {voiceover.loadingId ? (
                 <p className="mt-1 text-xs text-muted">
                   Building this clip’s voice. Nothing plays until it’s ready.
-                  <span className="ml-1 tabular-nums">{voiceover.loadingSeconds}s</span>
+                  <VoiceBuildClock />
                 </p>
               ) : null}
               {voiceover.error ? (

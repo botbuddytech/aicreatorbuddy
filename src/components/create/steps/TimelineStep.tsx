@@ -28,6 +28,7 @@ import {
   VISUAL_PROMPT_TOPIC,
 } from "@/features/cursor-title-generator/prompt";
 import { VideoPreviewModal } from "@/components/create/VideoPreviewModal";
+import { VoiceBuildClock } from "@/components/create/scene/ListenButton";
 import { useVoiceoverPreview } from "@/components/create/useVoiceoverPreview";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { buildClipPoster, clipKindFor } from "@/lib/clipPoster";
@@ -164,6 +165,21 @@ const SCRIPT_NOTICE: Record<ScriptNotice, { title: string; message: string }> = 
   },
 };
 
+function VoiceBuildNote() {
+  return (
+    <p className="flex min-h-10 items-center gap-2 rounded-xl bg-accent/10 px-3 py-2 text-sm text-foreground">
+      <span
+        className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent text-accent"
+        aria-hidden
+      />
+      <span>
+        Building this scene’s voice from the script. Nothing plays until it’s ready.
+        <VoiceBuildClock />
+      </span>
+    </p>
+  );
+}
+
 function SparkIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
@@ -221,6 +237,13 @@ export function TimelineStep() {
         ? `visuals:${visualGeneration.generatingId}`
         : null;
 
+  const durationLock = project.scenes
+    .map(
+      (scene) =>
+        `${scene.id}:${scene.sectionLabel}:${scene.editing.scriptDurationSeconds ?? ""}:${scene.editing.durationSeconds ?? ""}`,
+    )
+    .join("|");
+
   // A clip upload must not stretch the scene. Put the script's length back if it was replaced.
   useEffect(() => {
     const sections = timelineSectionsFromScript(project.fullScript);
@@ -247,8 +270,11 @@ export function TimelineStep() {
       };
     });
     if (!changed) return;
-    dispatch({ type: "SET_SCENES", scenes: next, generated: true, keepStatus: true });
-  }, [project.fullScript, project.scenes, dispatch]);
+    dispatch({ type: "SET_SCENES", scenes: next, keepStatus: true });
+    // durationLock is the only scene signal. Depending on the scenes array
+    // would replace every row whenever the project object is refreshed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.fullScript, durationLock]);
 
   // Drop blobs left behind by deleted scenes or drafts.
   useEffect(() => {
@@ -662,18 +688,7 @@ export function TimelineStep() {
             </div>
           </div>
 
-          {voiceover.loadingId ? (
-            <p className="flex items-center gap-2 rounded-xl bg-accent/10 px-3 py-2 text-sm text-foreground">
-              <span
-                className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent text-accent"
-                aria-hidden
-              />
-              <span>
-                Building this scene’s voice from the script. Nothing plays until it’s ready.
-                <span className="ml-1 tabular-nums text-muted">{voiceover.loadingSeconds}s</span>
-              </span>
-            </p>
-          ) : null}
+          {voiceover.loadingId ? <VoiceBuildNote key={voiceover.loadingId} /> : null}
           {voiceover.error ? (
             <p className="text-sm text-accent">{voiceover.error}</p>
           ) : null}

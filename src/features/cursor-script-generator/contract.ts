@@ -2,6 +2,7 @@ import {
   canonicalSectionLabel,
   fitSectionDurations,
   formatScriptSections,
+  MAX_SCENE_SECONDS,
 } from "@/lib/scriptSections";
 
 export const CURSOR_SCRIPT_LIMITS = {
@@ -14,7 +15,7 @@ export const CURSOR_SCRIPT_LIMITS = {
   minDurationSeconds: 1,
   maxDurationSeconds: 4 * 60 * 60,
   minSections: 4,
-  maxSections: 8,
+  maxSections: 48,
   maxReferences: 5,
   referenceTitle: 200,
   referenceTranscript: 200_000,
@@ -229,7 +230,11 @@ export function normalizeCursorScript(
     ) {
       return null;
     }
-    sections.push({ label, script, durationSeconds });
+    sections.push({
+      label,
+      script,
+      durationSeconds: Math.min(MAX_SCENE_SECONDS, durationSeconds),
+    });
   }
 
   if (sectionBase(sections[0]?.label ?? "") !== "HOOK") return null;

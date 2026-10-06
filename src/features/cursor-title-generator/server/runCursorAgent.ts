@@ -16,10 +16,11 @@ import {
 import { applyScriptPromptVariables, applyThumbnailPromptVariables, applyTitlePromptVariables, applyVisualPromptVariables } from "@/features/cursor-title-generator/prompt";
 import {
   normalizeCursorScript,
+  CURSOR_SCRIPT_LIMITS,
   type CursorScriptRequest,
   type CursorScriptResponse,
 } from "@/features/cursor-script-generator/contract";
-import { formatScriptSections } from "@/lib/scriptSections";
+import { formatScriptSections, MAX_SCENE_SECONDS } from "@/lib/scriptSections";
 import { formatSceneTiming } from "@/lib/sceneTiming";
 import {
   normalizeThumbnailPrompts,
@@ -539,14 +540,20 @@ export async function generateThumbnailPromptsWithCursor(
 
 function buildScriptPrompt(instruction: string, input: CursorScriptRequest): string {
   const filled = applyScriptPromptVariables(instruction, input);
+  const needed = Math.ceil(input.durationSeconds / MAX_SCENE_SECONDS);
+  const minCount = Math.min(
+    CURSOR_SCRIPT_LIMITS.maxSections,
+    Math.max(CURSOR_SCRIPT_LIMITS.minSections, needed),
+  );
+  const maxCount = Math.min(CURSOR_SCRIPT_LIMITS.maxSections, minCount + 4);
   return `${filled}
 
 This is a writing-only task. Do not inspect files, run commands, browse, or call external tools.
-Return 4 to 8 sections. The first label must be HOOK and the last label must be OUTRO.
-Allowed labels: HOOK, INTRO, POINT 1, POINT 2, POINT 3, PROOF, CTA, OUTRO.
+Return ${minCount} to ${maxCount} sections. The first label must be HOOK and the last label must be OUTRO.
+Allowed labels: HOOK, INTRO, POINT 1, POINT 2, POINT 3, further POINT numbers, PROOF, CTA, OUTRO.
 A label may add a short beat name after an em dash, such as "POINT 1 — The real bottleneck".
-Total runtime: ${input.durationSeconds} seconds.
-Give every section an integer durationSeconds. Those integers must add up to ${input.durationSeconds}.
+Each section is one scene. durationSeconds is an integer from 1 to ${MAX_SCENE_SECONDS}. A scene can be shorter than ${MAX_SCENE_SECONDS} seconds and must never be longer.
+Total runtime: ${input.durationSeconds} seconds. The durationSeconds integers must add up to that runtime. Add another POINT scene instead of making one scene longer than ${MAX_SCENE_SECONDS} seconds.
 Pace the spoken words at about 2.3 words per second, roughly 140 words per minute: a natural pace, not rushed and not drawn out.
 Write about durationSeconds times 2.3 words in each section. HOOK, CTA, and OUTRO are usually shorter than a POINT.
 Each script is spoken words only. Do not repeat the label or the duration inside the script, and do not leave a blank line inside a section.

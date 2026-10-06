@@ -8,7 +8,8 @@ const SECTION_HEADING =
   /^(HOOK|INTRO|POINT\s+\d+|PROOF|CTA|OUTRO)(?:\s+[—–-]\s+\S.*)?$/i;
 
 /** Timeline scene splitter reads at most this many labeled sections. */
-export const MAX_TIMELINE_SECTIONS = 12;
+export const MAX_SCENE_SECONDS = 25;
+export const MAX_TIMELINE_SECTIONS = 48;
 export const MIN_TIMELINE_SECTIONS = 4;
 
 function baseLabel(label: string): string {
@@ -39,7 +40,7 @@ export function parseDurationSeconds(raw: string): number | null {
   return plain ? Number(plain[1]) : null;
 }
 
-/** Keeps each section's share of the video, and makes the seconds add up to the full runtime. */
+/** Keeps each section's share of the video, and never makes a scene longer than 25 seconds. */
 export function fitSectionDurations(raw: readonly number[], target: number): number[] {
   const count = raw.length;
   if (count === 0) return [];
@@ -47,14 +48,15 @@ export function fitSectionDurations(raw: readonly number[], target: number): num
   const weights = raw.map((value) => (value > 0 ? value : 1));
   const weightSum = weights.reduce((total, value) => total + value, 0);
   const exact = weights.map((value) => (value / weightSum) * safeTarget);
-  const durations = exact.map((value) => Math.floor(value));
+  const durations = exact.map((value) => Math.min(MAX_SCENE_SECONDS, Math.floor(value)));
   let leftover = safeTarget - durations.reduce((total, value) => total + value, 0);
   const order = exact
     .map((value, index) => ({ index, fraction: value - Math.floor(value) }))
     .sort((a, b) => b.fraction - a.fraction || a.index - b.index);
-  for (const item of order) {
-    if (leftover <= 0) break;
-    durations[item.index] = (durations[item.index] ?? 0) + 1;
+  while (leftover > 0) {
+    const room = order.find((item) => (durations[item.index] ?? 0) < MAX_SCENE_SECONDS);
+    if (!room) break;
+    durations[room.index] = (durations[room.index] ?? 0) + 1;
     leftover -= 1;
   }
   while (durations.some((value) => value < 1)) {
@@ -133,6 +135,6 @@ export function sectionDurations(count: number, totalSeconds?: number): number[]
   return Array.from({ length: safeCount }, () => {
     const extra = remainder > 0 ? 1 : 0;
     remainder -= extra;
-    return base + extra;
+    return Math.min(MAX_SCENE_SECONDS, base + extra);
   });
 }

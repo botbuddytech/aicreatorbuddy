@@ -9,7 +9,6 @@ export { spokenVoiceoverText };
 export function useVoiceoverPreview(onMeasured?: (sceneId: string, seconds: number) => void) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
-  const [loadingSeconds, setLoadingSeconds] = useState(0);
   const [durations, setDurations] = useState<Record<string, number>>({});
   const [lastMeasured, setLastMeasured] = useState<{ sceneId: string; seconds: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,14 +27,6 @@ export function useVoiceoverPreview(onMeasured?: (sceneId: string, seconds: numb
 
   useEffect(() => () => stop(), [stop]);
 
-  useEffect(() => {
-    if (!loadingId) return;
-    const timer = window.setInterval(() => {
-      setLoadingSeconds((seconds) => seconds + 1);
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, [loadingId]);
-
   const preview = useCallback(
     (scene: Pick<Scene, "id" | "finalScript" | "voiceover" | "editing">, voiceId?: string | null) => {
       setError(null);
@@ -53,7 +44,6 @@ export function useVoiceoverPreview(onMeasured?: (sceneId: string, seconds: numb
 
       loadingIdRef.current = scene.id;
       setLoadingId(scene.id);
-      setLoadingSeconds(0);
 
       const handle = startSceneVoiceover(scene, {
         browserVoice: true,
@@ -89,5 +79,5 @@ export function useVoiceoverPreview(onMeasured?: (sceneId: string, seconds: numb
     [stop, onMeasured],
   );
 
-  return { playingId, loadingId, loadingSeconds, durations, lastMeasured, error, preview, stop };
+  return { playingId, loadingId, durations, lastMeasured, error, preview, stop };
 }

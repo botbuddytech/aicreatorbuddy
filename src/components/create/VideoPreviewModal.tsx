@@ -1,26 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { ActionButton } from "@/components/ui/ActionButton";
-import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Modal } from "@/components/ui/Modal";
 import { PlaceholderImage } from "@/components/create/PlaceholderImage";
 import { ExportButton } from "@/components/create/ExportButton";
-import { useTimelinePlayback } from "@/components/create/useTimelinePlayback";
+import { activeSceneAt, useTimelinePlayback } from "@/components/create/useTimelinePlayback";
+import { usePreviewVoiceQueue } from "@/components/create/usePreviewVoiceQueue";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { mockStockClips } from "@/lib/mockAi";
 import { sceneVisualPreviewSrc } from "@/lib/sceneVisualImage";
 import { useClipUrls } from "@/lib/useClipUrl";
 import { useSyncedSceneVoiceover } from "@/lib/sceneVoiceover";
 import {
+  aspectClassName,
+  aspectForFormat,
   FILTER_CSS,
   formatTimecode,
   sceneRuntimeSeconds,
   sceneTimeRange,
   sceneClipMuted,
   sceneUploadedVideoUrl,
-  selectedTitle,
   type AspectRatio,
   type Scene,
 } from "@/lib/videoProject";
@@ -33,6 +34,22 @@ function visualLabel(scene: Scene): string {
   const clip = clipFor(scene);
   const description = scene.visuals.description.trim();
   return clip?.title || description || scene.sectionLabel;
+}
+
+function AudioReadyMark() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-3.5 w-3.5 shrink-0" aria-hidden="true">
+      <circle cx="8" cy="8" r="8" className="fill-success" />
+      <path
+        d="M4.6 8.2 6.9 10.4 11.4 5.7"
+        fill="none"
+        stroke="white"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }
 
 function FullscreenIcon({ exit }: { exit: boolean }) {
@@ -60,10 +77,21 @@ function PreviewPlayer({
   autoPlay?: boolean;
   voiceId: string;
 }) {
-  const { playing, elapsed, total, active, progress, seek, toggle, restart, setPlaying } =
-    useTimelinePlayback(scenes);
+  const holdRef = useRef(false);
+  const { playing, elapsed, total, active, seek, toggle, restart, setPlaying } =
+    useTimelinePlayback(scenes, holdRef);
+  const { statusFor, readyFor } = usePreviewVoiceQueue(scenes, active?.index ?? 0, voiceId, true);
+  const bufferingVoice = Boolean(active && !readyFor(active.scene));
+  const waitingForVoice = Boolean(playing && bufferingVoice);
+  const scrubbingRef = useRef(false);
+  useEffect(() => {
+    if (scrubbingRef.current) return;
+    holdRef.current = waitingForVoice;
+  }, [waitingForVoice, holdRef]);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const seekBarRef = useRef<HTMLButtonElement>(null);
+  const seekBarRef = useRef<HTMLDivElement>(null);
+  const [hoverScrub, setHoverScrub] = useState<{ ratio: number; time: number } | null>(null);
+  const [dragTime, setDragTime] = useState<number | null>(null);
   const playerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const elapsedRef = useRef(0);
@@ -132,6 +160,12 @@ function PreviewPlayer({
 
   const autoStartedRef = useRef(false);
   useEffect(() => {
+    if (!waitingForVoice || !active) return;
+    if (elapsedRef.current > active.start + 0.05) seek(active.start);
+    // Snap back to the scene boundary once, then the clock stays held.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waitingForVoice, active?.scene.id, active?.start]);
+  useEffect(() => {
     // The dock Play click opened this preview. Start the cut and the spoken script
     // together. A blocked voice stays on Play voice instead of looking like Pause.
     if (!autoPlay || total <= 0 || autoStartedRef.current) return;
@@ -167,7 +201,7 @@ function PreviewPlayer({
     if (audioUnlockedRef.current && !clipMuted) {
       setAudioMuted(false);
     }
-    if (!playing) {
+    if (!playing || waitingForVoice || dragTime !== null) {
       node.pause();
       return;
     }
@@ -182,9 +216,11 @@ function PreviewPlayer({
     return () => {
       cancelled = true;
     };
-  }, [playing, activeClipUrl, activeVolume, activeSpeed, hasVoiceover, clipMuted]);
+  }, [playing, waitingForVoice, dragTime, activeClipUrl, activeVolume, activeSpeed, hasVoiceover, clipMuted]);
 
   function seekTo(seconds: number) {
+    const clip = activeSceneAt(scenes, seconds);
+    holdRef.current = Boolean(clip && !readyFor(clip.scene));
     unlockAudio();
     seek(seconds);
     setSeekTick((value) => value + 1);
@@ -235,12 +271,62 @@ function PreviewPlayer({
     };
   }, []);
 
-  function seekFromClientX(clientX: number) {
+  function movePlayhead(seconds: number) {
+    seek(seconds);
+    setSeekTick((value) => value + 1);
+  }
+
+  function timeAt(clientX: number) {
     const node = seekBarRef.current;
-    if (!node || total <= 0) return;
+    if (!node || total <= 0) return { ratio: 0, time: 0 };
     const rect = node.getBoundingClientRect();
-    const ratio = rect.width <= 0 ? 0 : (clientX - rect.left) / rect.width;
-    seekTo(ratio * total);
+    const ratio = rect.width <= 0 ? 0 : Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    return { ratio, time: ratio * total };
+  }
+
+  function onScrubDown(event: PointerEvent<HTMLDivElement>) {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    scrubbingRef.current = true;
+    holdRef.current = true;
+    const next = timeAt(event.clientX);
+    setHoverScrub(next);
+    setDragTime(next.time);
+    movePlayhead(next.time);
+  }
+
+  function onScrubMove(event: PointerEvent<HTMLDivElement>) {
+    const next = timeAt(event.clientX);
+    setHoverScrub(next);
+    if (!scrubbingRef.current) return;
+    setDragTime(next.time);
+    movePlayhead(next.time);
+  }
+
+  function onScrubUp(event: PointerEvent<HTMLDivElement>) {
+    if (!scrubbingRef.current) return;
+    scrubbingRef.current = false;
+    const next = timeAt(event.clientX);
+    setDragTime(null);
+    setHoverScrub(null);
+    seekTo(next.time);
+  }
+
+  function onScrubKey(event: KeyboardEvent<HTMLDivElement>) {
+    if (total <= 0) return;
+    const step = event.shiftKey ? 1 : 5;
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      seekTo(Math.min(total, elapsed + step));
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      seekTo(Math.max(0, elapsed - step));
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      seekTo(0);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      seekTo(total);
+    }
   }
 
   async function toggleFullscreen() {
@@ -258,35 +344,28 @@ function PreviewPlayer({
   }
 
   const isVertical = aspectRatio === "9:16";
-  const frameWidth = isVertical
+  const frameClass = isVertical
     ? isFullscreen
-      ? "mx-auto w-full max-w-sm"
-      : "mx-auto w-full max-w-[220px]"
+      ? "h-[calc(100vh-8rem)] w-auto max-w-full"
+      : "h-[min(62vh,560px)] w-auto max-w-full"
     : isFullscreen
-      ? "mx-auto w-full max-w-5xl"
-      : "mx-auto w-full max-w-md";
-  const overlay = active?.scene.editing.textOverlay;
-  const overlayClass =
-    overlay?.position === "top"
-      ? "top-10"
-      : overlay?.position === "center"
-        ? "top-1/2 -translate-y-1/2"
-        : "bottom-16";
+      ? "w-full max-w-5xl"
+      : "w-full";
   const sceneVisualSrc = active ? sceneVisualPreviewSrc(active.scene.visuals) : null;
   // An uploaded clip outranks the project thumbnail so beat one still plays.
   const showThumb = Boolean(active?.index === 0 && thumbUrl && !activeClipUrl);
   const frameSrc = showThumb ? thumbUrl : sceneVisualSrc;
+  const shownTime = dragTime ?? elapsed;
+  const hoverBeat = hoverScrub ? activeSceneAt(scenes, hoverScrub.time) : null;
 
   return (
     <div
       ref={playerRef}
       className={isFullscreen ? "flex h-screen w-screen flex-col justify-center gap-4 bg-black p-6" : "space-y-4"}
     >
-      <div className={frameWidth}>
+      <div className={isVertical ? "flex justify-center" : "w-full"}>
         <div
-          className={`relative overflow-hidden rounded-xl border border-border bg-black ${
-            isVertical ? "aspect-[9/16]" : "aspect-video"
-          }`}
+          className={`relative overflow-hidden rounded-xl border border-border bg-black ${aspectClassName(aspectRatio)} ${frameClass}`}
           style={{ filter: FILTER_CSS[active?.scene.editing.filter ?? "none"] }}
         >
           {activeClipUrl ? (
@@ -327,6 +406,7 @@ function PreviewPlayer({
             <div className="absolute inset-0">
               <PlaceholderImage
                 label={visualLabel(active.scene)}
+                hideLabel
                 className="h-full w-full rounded-none"
               />
             </div>
@@ -334,30 +414,17 @@ function PreviewPlayer({
 
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40" />
 
-          {overlay?.text.trim() ? (
-            <p
-              className={`pointer-events-none absolute inset-x-4 text-center text-lg font-semibold text-white drop-shadow ${overlayClass}`}
-            >
-              {overlay.text}
-            </p>
+          {bufferingVoice ? (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/65">
+              <span
+                className="h-8 w-8 animate-spin rounded-full border-2 border-white border-r-transparent"
+                aria-hidden="true"
+              />
+              <p className="text-sm font-medium text-white">Buffering audio</p>
+            </div>
           ) : null}
 
-          {active ? (
-            <>
-              <div className="absolute left-3 top-3 flex flex-wrap items-center gap-2">
-                <Badge tone="muted">
-                  {String(active.scene.order + 1).padStart(2, "0")} · {active.scene.sectionLabel}
-                </Badge>
-              </div>
-              {active.scene.finalScript.trim() ? (
-                <p className="absolute inset-x-4 bottom-10 line-clamp-3 text-sm font-medium leading-snug text-white">
-                  {active.scene.finalScript}
-                </p>
-              ) : null}
-            </>
-          ) : null}
-
-          <div className="absolute bottom-2 right-2 flex items-center gap-2">
+          <div className="absolute bottom-2 right-2 z-20 flex items-center gap-2">
             <p className="text-xs tabular-nums text-white/80">
               {formatTimecode(elapsed)} / {formatTimecode(total)}
             </p>
@@ -393,6 +460,8 @@ function PreviewPlayer({
           <p className="text-xs text-muted">Browser blocked autoplay sound — click Unmute</p>
         ) : hasVoiceover && speechBlocked ? (
           <p className="text-xs text-muted">Click Play voice to hear this scene’s script</p>
+        ) : bufferingVoice ? (
+          <p className="text-xs text-muted">Buffering this scene’s audio</p>
         ) : hasVoiceover && voiceUnlocked && playing ? (
           <p className="text-xs text-muted">Speaking this beat’s script</p>
         ) : hasVoiceover && !playing ? (
@@ -405,35 +474,108 @@ function PreviewPlayer({
         </ActionButton>
       </div>
 
-      <button
-        ref={seekBarRef}
-        type="button"
-        aria-label="Seek preview"
-        className="relative block h-2 w-full overflow-hidden rounded-full bg-white/10"
-        onClick={(event) => seekFromClientX(event.clientX)}
-      >
-        <span
-          className="absolute inset-y-0 left-0 bg-accent"
-          style={{ width: `${progress * 100}%` }}
-        />
-      </button>
+      <div className="space-y-1">
+        <div
+          ref={seekBarRef}
+          role="slider"
+          tabIndex={0}
+          aria-label="Seek preview"
+          aria-valuemin={0}
+          aria-valuemax={Math.round(total)}
+          aria-valuenow={Math.round(shownTime)}
+          aria-valuetext={`${formatTimecode(shownTime)} of ${formatTimecode(total)}`}
+          className="group relative flex h-6 cursor-pointer items-center touch-none"
+          onPointerDown={onScrubDown}
+          onPointerMove={onScrubMove}
+          onPointerUp={onScrubUp}
+          onPointerCancel={onScrubUp}
+          onPointerLeave={() => {
+            if (!scrubbingRef.current) setHoverScrub(null);
+          }}
+          onKeyDown={onScrubKey}
+        >
+          <div className="relative h-1 w-full rounded-full bg-white/15 group-hover:h-1.5">
+            {scenes.map((scene, index) => {
+              if (index === 0 || total <= 0) return null;
+              const range = sceneTimeRange(scenes, index);
+              return (
+                <span
+                  key={scene.id}
+                  className="absolute inset-y-0 w-px bg-black/50"
+                  style={{ left: `${(range.start / total) * 100}%` }}
+                />
+              );
+            })}
+            <span
+              className="absolute inset-y-0 left-0 rounded-full bg-accent"
+              style={{ width: `${(shownTime / Math.max(total, 0.001)) * 100}%` }}
+            />
+            <span
+              className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent shadow"
+              style={{ left: `${(shownTime / Math.max(total, 0.001)) * 100}%` }}
+            />
+          </div>
+          {hoverScrub ? (
+            <span
+              className="pointer-events-none absolute bottom-full mb-1 rounded bg-black/85 px-1.5 py-0.5 text-[11px] font-medium tabular-nums text-white"
+              style={{
+                left: `${hoverScrub.ratio * 100}%`,
+                transform:
+                  hoverScrub.ratio < 0.08
+                    ? "translateX(0)"
+                    : hoverScrub.ratio > 0.92
+                      ? "translateX(-100%)"
+                      : "translateX(-50%)",
+              }}
+            >
+              {formatTimecode(hoverScrub.time)}
+              {hoverBeat ? ` · ${String(hoverBeat.scene.order + 1).padStart(2, "0")}` : ""}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex items-center justify-between text-[11px] tabular-nums text-muted">
+          <span>{formatTimecode(shownTime)}</span>
+          <span>{formatTimecode(total)}</span>
+        </div>
+      </div>
 
       <div className="flex h-9 overflow-hidden rounded-lg border border-border">
         {scenes.map((scene, index) => {
           const duration = sceneRuntimeSeconds(scene);
           const range = sceneTimeRange(scenes, index);
           const isActive = active?.index === index;
+          const audioStatus = statusFor(scene.id);
+          const generatingAudio =
+            audioStatus === "generating" || (isActive && !readyFor(scene));
+          const audioReady = !generatingAudio && audioStatus === "ready";
           return (
             <button
               key={scene.id}
               type="button"
-              title={`${scene.sectionLabel} · ${range.label}`}
-              aria-label={`Jump to ${scene.sectionLabel}`}
+              title={
+                generatingAudio
+                  ? `${scene.sectionLabel} · generating audio`
+                  : audioReady
+                    ? `${scene.sectionLabel} · audio ready`
+                    : `${scene.sectionLabel} · ${range.label}`
+              }
+              aria-label={
+                generatingAudio
+                  ? `Scene ${scene.order + 1}, generating audio`
+                  : audioReady
+                    ? `Scene ${scene.order + 1}, audio ready`
+                    : `Jump to ${scene.sectionLabel}`
+              }
               aria-current={isActive ? "true" : undefined}
-              className={`min-w-0 border-r border-border text-left last:border-r-0 ${
-                isActive
-                  ? "bg-accent/20 text-accent"
-                  : "bg-surface-soft text-muted hover:bg-white/5"
+              aria-busy={generatingAudio || undefined}
+              className={`relative min-w-0 border-r border-border text-left last:border-r-0 ${
+                audioReady
+                  ? isActive
+                    ? "bg-success/25 text-success"
+                    : "bg-success/15 text-success hover:bg-success/20"
+                  : isActive
+                    ? "bg-accent/20 text-accent"
+                    : "bg-surface-soft text-muted hover:bg-white/5"
               }`}
               style={{ flexGrow: duration, flexBasis: 0 }}
               onClick={() => {
@@ -441,9 +583,22 @@ function PreviewPlayer({
                 setPlaying(true);
               }}
             >
-              <span className="block truncate px-2 py-2 text-[11px] font-semibold">
-                {String(scene.order + 1).padStart(2, "0")}
+              <span className="flex items-center justify-center gap-1 px-1.5 py-2 text-[11px] font-semibold">
+                <span className="truncate">{String(scene.order + 1).padStart(2, "0")}</span>
+                {generatingAudio ? (
+                  <span
+                    className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent"
+                    aria-hidden="true"
+                  />
+                ) : audioReady ? (
+                  <AudioReadyMark />
+                ) : null}
               </span>
+              {generatingAudio ? (
+                <span className="absolute inset-x-0 bottom-0 h-0.5 animate-pulse bg-accent" />
+              ) : audioReady ? (
+                <span className="absolute inset-x-0 bottom-0 h-1 bg-success" />
+              ) : null}
             </button>
           );
         })}
@@ -465,18 +620,17 @@ export function VideoPreviewModal({
   autoPlay?: boolean;
 }) {
   const { project } = useVideoProject();
-  const title = selectedTitle(project)?.text ?? (project.summary.topic || "Untitled video");
+  const aspectRatio = aspectForFormat(project.summary.format);
   const thumb = project.thumbnails.find((item) => item.id === project.selectedThumbnailId);
   const previewScenes = sceneId
     ? project.scenes.filter((scene) => scene.id === sceneId)
     : project.scenes;
   const single = sceneId ? previewScenes[0] : undefined;
   const heading = single ? "Scene preview" : "Video preview";
-  const subtitle = single ? `${title} · ${single.sectionLabel}` : title;
   const shouldAutoPlay = autoPlay ?? !sceneId;
 
   return (
-    <Modal open={open} title={heading} subtitle={subtitle} size="lg" onClose={onClose}>
+    <Modal open={open} title={heading} size={aspectRatio === "9:16" ? "sm" : "lg"} onClose={onClose}>
       {previewScenes.length === 0 ? (
         <EmptyState
           title={sceneId ? "Scene not found" : "Break into scenes first"}
@@ -487,7 +641,7 @@ export function VideoPreviewModal({
           key={sceneId ?? "all"}
           scenes={previewScenes}
           thumbUrl={sceneId ? undefined : thumb?.customUrl}
-          aspectRatio={project.summary.aspectRatio}
+          aspectRatio={aspectRatio}
           voiceId={project.qwenVoice.voiceId}
           autoPlay={shouldAutoPlay}
         />

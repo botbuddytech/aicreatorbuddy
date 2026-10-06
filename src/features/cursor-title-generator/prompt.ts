@@ -154,20 +154,14 @@ Reference videos:
 
 Write for the ear. Use short sentences, a concrete opening, and a clear line from the selected title back to the topic.
 Match the length: about 140 spoken words per minute, or about two and a half words per second. That is a natural pace, not rushed and not drawn out.
-Time every section in seconds at that pace. The hook, call to action, and outro are shorter than a main point. The section times must add up to the video length.
+Time every section in whole seconds at that pace. Each section is one scene. A scene can be shorter than 25 seconds. It must never be longer than 25 seconds.
+The hook, call to action, and outro are shorter than a main point. The section times must add up to the video length. Do not lengthen a scene to fill time. Add another POINT scene instead.
 Match the video type. A short is one tight idea. A longer video can open a loop, prove it, and close it.
 Use the reference videos as a glimpse of the kind of idea, angle, and shape that fits this topic. Do not copy their wording, examples, or sequence.
 Do not add camera directions, markdown, hashtags, or a title card.
 
-Use only these scene headings, in this order. Skip INTRO, POINT 2, POINT 3, or PROOF when the video is too short to need them. Always start with HOOK and end with OUTRO. A video under one minute uses exactly HOOK, POINT 1, CTA, and OUTRO.
-HOOK
-INTRO
-POINT 1
-POINT 2
-POINT 3
-PROOF
-CTA
-OUTRO
+Always start with HOOK and end with OUTRO. Use INTRO, PROOF, and CTA only when they earn their own scene. A video under one minute uses exactly HOOK, POINT 1, CTA, and OUTRO.
+When the video is longer, add POINT 2, POINT 3, POINT 4, and further POINT numbers until every scene is 25 seconds or shorter and the times add up.
 You may add a short beat name after an em dash, for example POINT 1 — The real bottleneck.`;
 
 export type ScriptPromptValues = {

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 function PlayMark() {
   return (
     <svg viewBox="0 0 16 16" className="h-4 w-4 shrink-0" aria-hidden="true">
@@ -56,4 +58,15 @@ export function ListenButton({
       {label}
     </button>
   );
+}
+
+export function VoiceBuildClock() {
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setSeconds((value) => value + 1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return <span className="ml-1 tabular-nums text-muted">{seconds}s</span>;
 }

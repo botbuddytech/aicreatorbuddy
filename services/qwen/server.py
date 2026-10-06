@@ -39,6 +39,19 @@ SPEAKERS = [
 ]
 SPEAKER_IDS = {item["id"] for item in SPEAKERS}
 DEFAULT_SPEAKER = "Ryan"
+# Fixed per speaker. "Auto" re-detects language on every line, so a short hook
+# can shift accent while the longer scenes stay in the speaker's language.
+SPEAKER_LANGUAGE = {
+    "Ryan": "English",
+    "Aiden": "English",
+    "Vivian": "Chinese",
+    "Serena": "Chinese",
+    "Uncle_Fu": "Chinese",
+    "Dylan": "Chinese",
+    "Eric": "Chinese",
+    "Ono_Anna": "Japanese",
+    "Sohee": "Korean",
+}
 
 LOADING_MESSAGE = "Qwen is still loading. The first run downloads the model weights."
 FAILED_MESSAGE = "Qwen failed to load. Check the voice server log."
@@ -122,7 +135,8 @@ def list_voices() -> list[dict[str, str]]:
 
 
 def cache_path(text: str, voice_id: str) -> Path:
-    digest = hashlib.sha256(f"{voice_id}\0{text}".encode()).hexdigest()
+    language = SPEAKER_LANGUAGE[voice_id]
+    digest = hashlib.sha256(f"{voice_id}\0{language}\0{text}".encode()).hexdigest()
     return CACHE_DIR / f"{digest}.wav"
 
 
@@ -168,9 +182,14 @@ def synthesize(text: str, voice_id: str) -> bytes:
         if status != "ready" or model is None:
             raise RequestError(503, LOADING_MESSAGE if status == "loading" else model_failure_message())
 
+        import torch
+
+        torch.manual_seed(0)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(0)
         wavs, sample_rate = model.generate_custom_voice(
             text=text,
-            language="Auto",
+            language=SPEAKER_LANGUAGE[voice_id],
             speaker=voice_id,
         )
         data = wav_bytes(wavs[0], sample_rate)

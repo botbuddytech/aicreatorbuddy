@@ -8,7 +8,7 @@ export const VISUAL_PROMPT_LIMITS = {
   minDurationSeconds: 1,
   maxDurationSeconds: 4 * 60 * 60,
   minScenes: 1,
-  maxScenes: 12,
+  maxScenes: 48,
 } as const;
 
 export type VisualPromptScene = {

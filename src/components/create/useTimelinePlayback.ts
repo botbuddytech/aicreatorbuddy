@@ -31,7 +31,7 @@ export function activeSceneAt(scenes: Scene[], elapsed: number): ActiveClip | nu
   return null;
 }
 
-export function useTimelinePlayback(scenes: Scene[]) {
+export function useTimelinePlayback(scenes: Scene[], holdRef?: { current: boolean }) {
   const total = Math.max(totalTimelineSeconds(scenes), 0);
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -48,6 +48,11 @@ export function useTimelinePlayback(scenes: Scene[]) {
     let frame = 0;
 
     const tick = (now: number) => {
+      if (holdRef?.current) {
+        last = now;
+        frame = requestAnimationFrame(tick);
+        return;
+      }
       const next = Math.min(total, elapsedRef.current + (now - last) / 1000);
       last = now;
       elapsedRef.current = next;
