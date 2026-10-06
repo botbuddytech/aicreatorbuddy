@@ -137,6 +137,13 @@ model CursorPromptSettings {
   user                   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+/// One shared prompt per visual style. A video may keep its own copy outside this table.
+model VisualStyle {
+  id        String   @id
+  prompt    String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
 model UserIntegration {
   id               String                      @id @default(cuid())
   userId           String

@@ -33,6 +33,8 @@ function isSvgDataUrl(src: string): boolean {
 export function buildInputProps(
   project: VideoProject,
   clipUrls: Record<string, string>,
+  voiceoverUrls: Record<string, string> = {},
+  voiceoverSeconds: Record<string, number> = {},
 ): FacelessVideoProps {
   const thumb = project.thumbnails.find((item) => item.id === project.selectedThumbnailId);
   const title = selectedTitle(project)?.text;
@@ -53,7 +55,10 @@ export function buildInputProps(
         id: scene.id,
         sectionLabel: scene.sectionLabel || title || `Scene ${index + 1}`,
         description: scene.visuals.description,
-        durationSeconds: sceneRuntimeSeconds(scene),
+        durationSeconds:
+          voiceoverSeconds[scene.id] && voiceoverSeconds[scene.id] > 0
+            ? voiceoverSeconds[scene.id]
+            : sceneRuntimeSeconds(scene),
         trimStartSeconds: scene.editing.trimStartSeconds,
         finalScript: scene.finalScript,
         filter: scene.editing.filter,
@@ -63,6 +68,7 @@ export function buildInputProps(
         clipUrl,
         posterUrl,
         clipKind: scene.visuals.uploadedClipKind,
+        voiceoverUrl: voiceoverUrls[scene.id] ?? null,
       };
     }),
   };

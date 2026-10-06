@@ -66,6 +66,8 @@ function contextFrom(value: unknown): AgentContextPayload {
     thumbnails: thumbnailPromptsFrom(source.thumbnails),
     scenes: scenesFrom(source.scenes),
     references: referenceList(source.references),
+    visualStyle: text(source.visualStyle, 40) || null,
+    visualStylePrompt: text(source.visualStylePrompt, 2_000),
   };
 }
 
@@ -120,6 +122,7 @@ function scenesFrom(value: unknown): AgentContextPayload["scenes"] {
       durationSeconds: typeof record.durationSeconds === "number" ? record.durationSeconds : 1,
       order: typeof record.order === "number" ? record.order : scenes.length,
       existingPrompt: text(record.existingPrompt, 6000),
+      clipSource: record.clipSource === "still" ? "still" : "direct",
     });
     if (scenes.length >= 12) break;
   }

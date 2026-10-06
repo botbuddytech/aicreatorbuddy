@@ -5,12 +5,17 @@ import { ActionButton } from "@/components/ui/ActionButton";
 import { Badge } from "@/components/ui/Badge";
 import { LowEffortCheck } from "@/components/create/LowEffortCheck";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
+import { ExportVoiceModal } from "@/components/create/ExportVoiceModal";
 import { exportProjectWithRemotion } from "@/lib/exportRemotion";
+import { buildSceneVoiceovers, type ExportVoiceProvider } from "@/lib/exportVoiceover";
 import { deriveReadiness, newId } from "@/lib/videoProject";
+import { buildVideoMarkdown, videoMarkdownFileName } from "@/lib/videoMarkdown";
 
 export function RenderPanel() {
   const { project, dispatch, setPreviewOpen, setActiveStep } = useVideoProject();
   const [busy, setBusy] = useState(false);
+  const [chooseOpen, setChooseOpen] = useState(false);
+  const [voiceNote, setVoiceNote] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -20,8 +25,9 @@ export function RenderPanel() {
   const hasTimeline = project.scenes.length > 0;
   const rendered = Boolean(project.renderedAt);
 
-  async function render() {
+  async function render(provider: ExportVoiceProvider) {
     if (busy || !hasTimeline) return;
+    setChooseOpen(false);
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -31,9 +37,26 @@ export function RenderPanel() {
     setError(null);
     setProgress(0);
 
+    let voiceovers: Awaited<ReturnType<typeof buildSceneVoiceovers>> | null = null;
     try {
+      voiceovers = await buildSceneVoiceovers(project, provider, {
+        signal: controller.signal,
+        onScene: (done, total, label) => setVoiceNote(`Speaking ${done} of ${total} · ${label}`),
+      });
+      setVoiceNote(null);
+      dispatch({
+        type: "SET_SCENES",
+        scenes: project.scenes.map((scene) => {
+          const length = voiceovers?.seconds[scene.id];
+          if (!length) return scene;
+          return { ...scene, editing: { ...scene.editing, voiceSeconds: length } };
+        }),
+        keepStatus: true,
+      });
       await exportProjectWithRemotion(project, {
         signal: controller.signal,
+        voiceoverUrls: voiceovers.bySceneId,
+        voiceoverSeconds: voiceovers.seconds,
         onProgress: ({ progress: next }) => setProgress(next),
       });
       dispatch({ type: "MARK_RENDERED" });
@@ -62,10 +85,27 @@ export function RenderPanel() {
           : "Render failed. Use Chrome or Firefox with WebCodecs.",
       );
     } finally {
+      voiceovers?.revoke();
+      setVoiceNote(null);
       if (abortRef.current === controller) abortRef.current = null;
       setBusy(false);
       setProgress(0);
     }
+  }
+
+  function downloadVideoMarkdown() {
+    const markdown = buildVideoMarkdown(project);
+    dispatch({ type: "SET_VIDEO_MARKDOWN", markdown });
+    const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = videoMarkdownFileName(project);
+    anchor.rel = "noopener";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
   }
 
   function onCancel() {
@@ -103,14 +143,18 @@ export function RenderPanel() {
       </div>
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <ActionButton
-          onClick={render}
           disabled={!hasTimeline || busy}
           loading={busy}
           loadingLabel={
-            progress > 0 ? `Rendering ${Math.round(progress * 100)}%…` : "Rendering…"
+            voiceNote ??
+            (progress > 0 ? `Rendering ${Math.round(progress * 100)}%…` : "Rendering…")
           }
+          onClick={() => setChooseOpen(true)}
         >
           {rendered ? "Re-render with Remotion" : "Render with Remotion"}
+        </ActionButton>
+        <ActionButton variant="secondary" onClick={downloadVideoMarkdown}>
+          {project.videoMarkdown ? "Download video.md" : "Generate video.md"}
         </ActionButton>
         {busy ? (
           <button
@@ -131,6 +175,13 @@ export function RenderPanel() {
         ) : null}
       </div>
       {error ? <p className="mt-3 text-sm text-accent">{error}</p> : null}
+      <ExportVoiceModal
+        open={chooseOpen}
+        qwenName={project.qwenVoice.name}
+        elevenName={project.elevenLabsVoice?.name ?? null}
+        onClose={() => setChooseOpen(false)}
+        onChoose={(provider) => void render(provider)}
+      />
       <div className="mt-4">
         <LowEffortCheck scope="render" variant="report" />
       </div>

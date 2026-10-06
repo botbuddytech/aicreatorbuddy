@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   isOwnedSceneClipPath,
+  isOwnedStartFramePath,
   sceneClipObjectPath,
+  startFrameObjectPath,
 } from "./sceneClipPath";
 
 const sessionId = "05d5f122-3f7c-4cb7-9509-1745010e680a";
@@ -14,5 +16,13 @@ describe("scene clip paths", () => {
     assert.equal(isOwnedSceneClipPath(sessionId, sceneId, path), true);
     assert.equal(isOwnedSceneClipPath(sessionId, "22222222-2222-4222-8222-222222222222", path), false);
     assert.equal(isOwnedSceneClipPath(sessionId, sceneId, `${sessionId}/${sceneId}/../secret.mp4`), false);
+  });
+
+  it("keeps a start still out of the clip path", () => {
+    const path = startFrameObjectPath(sessionId, sceneId, "frame_abc12345", "png");
+    assert.equal(isOwnedStartFramePath(sessionId, sceneId, path), true);
+    assert.equal(isOwnedSceneClipPath(sessionId, sceneId, path), false);
+    assert.equal(isOwnedStartFramePath(sessionId, sceneId, `${sessionId}/${sceneId}/frame/../secret.png`), false);
+    assert.equal(isOwnedStartFramePath(sessionId, sceneId, sceneClipObjectPath(sessionId, sceneId, "clip_abc12345", "jpg")), false);
   });
 });

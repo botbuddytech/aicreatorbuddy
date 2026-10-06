@@ -75,6 +75,12 @@ import {
   type VideoProject,
   type VidIqThumbInsight,
 } from "@/lib/videoProject";
+import {
+  normalizeVisualStyle,
+  normalizeVisualStylePrompts,
+  type VisualStyleId,
+  type VisualStylePromptMap,
+} from "@/lib/visualStyles";
 
 type ScenePatch = Partial<Omit<Scene, "voiceover" | "visuals" | "editing">> & {
   voiceover?: Partial<Scene["voiceover"]>;
@@ -117,7 +123,13 @@ export type ProjectAction =
   | { type: "CONFIRM_EDIT" }
   | { type: "SET_LOW_EFFORT_REPORT"; report: LowEffortReport }
   | { type: "SET_ELEVENLABS_VOICE"; voice: ElevenLabsVoice | null }
-  | { type: "SET_QWEN_VOICE"; voice: QwenVoice };
+  | { type: "SET_QWEN_VOICE"; voice: QwenVoice }
+  | { type: "SET_VIDEO_MARKDOWN"; markdown: string }
+  | {
+      type: "SET_VISUAL_STYLE_STATE";
+      visualStyle: VisualStyleId | null;
+      visualStylePrompts: VisualStylePromptMap;
+    };
 
 function applyScenePatch(scene: Scene, patch: ScenePatch): Scene {
   return {
@@ -365,6 +377,14 @@ function reduceProject(
       return {
         ...state,
         qwenVoice: normalizeQwenVoice(action.voice) ?? state.qwenVoice,
+      };
+    case "SET_VIDEO_MARKDOWN":
+      return { ...state, videoMarkdown: action.markdown };
+    case "SET_VISUAL_STYLE_STATE":
+      return {
+        ...state,
+        visualStyle: normalizeVisualStyle(action.visualStyle),
+        visualStylePrompts: normalizeVisualStylePrompts(action.visualStylePrompts),
       };
     default: {
       const exhaustive: never = action;
@@ -968,6 +988,63 @@ export function VideoProjectProvider({
     })();
   }, [project, channels, activeStep]);
 
+  const persistVisualStyle = useCallback(
+    (visualStyle: VisualStyleId | null, visualStylePrompts: VisualStylePromptMap) => {
+      const current = project;
+      if (!current) return;
+      const nextStyle = normalizeVisualStyle(visualStyle);
+      const nextPrompts = normalizeVisualStylePrompts(visualStylePrompts);
+      const summary = summaryCommitRef.current ?? captureSummaryCommit(current);
+      const title = titleCommitRef.current ?? captureTitleCommit(current);
+      const previousLater = laterCommitRef.current ?? captureLaterStepsCommit(current);
+      const nextLater: LaterStepsCommit = {
+        ...previousLater,
+        timeline: {
+          ...previousLater.timeline,
+          visualStyle: nextStyle,
+          visualStylePrompts: nextPrompts,
+        },
+      };
+      const token = commitTokenRef.current + 1;
+      commitTokenRef.current = token;
+      laterCommitRef.current = nextLater;
+      setLaterCommit(nextLater);
+      rawDispatch({
+        type: "SET_VISUAL_STYLE_STATE",
+        visualStyle: nextStyle,
+        visualStylePrompts: nextPrompts,
+      });
+
+      const channelTitle = channels.find((channel) => channel.id === summary.channelId)?.title ?? null;
+      const stored = projectSavedToDatabase(
+        {
+          ...current,
+          visualStyle: nextStyle,
+          visualStylePrompts: nextPrompts,
+          lastUpdated: new Date().toISOString(),
+        },
+        summary,
+        title,
+        nextLater,
+      );
+      void (async () => {
+        const result = await flushSnapshotSync(buildSnapshot(stored, activeStep, channelTitle));
+        if (commitTokenRef.current !== token) return;
+        if (result !== "ok") {
+          laterCommitRef.current = previousLater;
+          setLaterCommit(previousLater);
+          rawDispatch({
+            type: "SET_VISUAL_STYLE_STATE",
+            visualStyle: current.visualStyle ?? null,
+            visualStylePrompts: current.visualStylePrompts ?? {},
+          });
+          setSummarySaveError("Could not save the visual style.");
+        }
+      })();
+    },
+    [project, channels, activeStep],
+  );
+
   const commitTitleStatus = useCallback((status: StepStatus) => {
     const current = project;
     if (!current || summarySavingRef.current) return;
@@ -1236,6 +1313,10 @@ export function VideoProjectProvider({
       persistQwenVoice(action.voice);
       return;
     }
+    if (action.type === "SET_VISUAL_STYLE_STATE") {
+      persistVisualStyle(action.visualStyle, action.visualStylePrompts);
+      return;
+    }
     if (action.type === "SET_NAME" && project) {
       const name = action.name.trim().slice(0, 120) || DEFAULT_PROJECT_NAME;
       const next = { ...project, name, lastUpdated: new Date().toISOString() };
@@ -1252,7 +1333,7 @@ export function VideoProjectProvider({
       }
     }
     rawDispatch(action);
-  }, [project, channels, activeStep, commitSummaryStatus, commitTitleStatus, persistGeneratedTitles, persistGeneratedThumbnails, persistGeneratedScript, persistGeneratedScenes, persistStoredThumbnail, persistElevenLabsVoice, persistQwenVoice, commitLaterStatus, commitEditor]);
+  }, [project, channels, activeStep, commitSummaryStatus, commitTitleStatus, persistGeneratedTitles, persistGeneratedThumbnails, persistGeneratedScript, persistGeneratedScenes, persistStoredThumbnail, persistElevenLabsVoice, persistQwenVoice, persistVisualStyle, commitLaterStatus, commitEditor]);
 
   if (hydrated && loadedId !== projectId) {
     setLoadedId(projectId);

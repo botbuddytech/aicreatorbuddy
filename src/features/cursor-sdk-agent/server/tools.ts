@@ -30,6 +30,8 @@ import {
   aspectForFormat,
   formatDurationLabel,
 } from "@/lib/videoProject";
+import type { VisualPromptScene } from "@/features/cursor-visual-prompts/contract";
+import { isVisualStyleId } from "@/lib/visualStyles";
 import {
   fetchReferenceTranscript,
   fetchYoutubeVideoTitle,
@@ -639,7 +641,7 @@ export function createProjectTools(slot: ProposalSlot): Record<string, SDKCustom
     },
     generateVisualPrompts: {
       description:
-        "Generate scene visual prompts with Cursor. Do not write the prompts yourself. Pass provider only if the user explicitly named another provider.",
+        "Generate scene visual prompts with Cursor. A direct scene gets one clip prompt. A scene set to image-then-clip also gets an opening-frame prompt. Do not write the prompts yourself. Do not change a scene's clip source. Pass provider only if the user explicitly named another provider.",
       inputSchema: objectSchema(
         { provider: { type: "string", description: "Omit unless the user named another provider." } },
         [],
@@ -663,20 +665,26 @@ export function createProjectTools(slot: ProposalSlot): Record<string, SDKCustom
         }
         try {
           const prompts = await getEffectiveCursorPrompts(slot.userId);
-          const sequence = scenes.map((scene) => ({
+          const sequence: VisualPromptScene[] = scenes.map((scene) => ({
             id: scene.id,
             section: scene.section,
             script: scene.script,
             durationSeconds: scene.durationSeconds,
             order: scene.order,
             existingPrompt: scene.existingPrompt || null,
+            clipSource: scene.clipSource === "still" ? "still" : "direct",
           }));
+          const rawStyle = slot.context.visualStyle ?? "";
+          const styleId = isVisualStyleId(rawStyle) ? rawStyle : null;
+          const sessionPrompt = (slot.context.visualStylePrompt ?? "").trim();
           const result = await generateVisualPromptsWithCursor(prompts.visualPromptGeneration, {
             topic: slot.context.brief.trim().slice(0, 2000),
             title: slot.context.selectedTitle.trim().slice(0, 500),
             aspectRatio: aspectForFormat(slot.context.format),
             scenes: sequence,
             sequence,
+            styleId,
+            stylePrompt: sessionPrompt || null,
           });
           return proposeGenerated(
             slot,

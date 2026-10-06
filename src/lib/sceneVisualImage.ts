@@ -36,8 +36,12 @@ export function sceneVisualImageUrl(label: string): string {
 export function sceneVisualPreviewSrc(visuals: {
   thumbnailUrl: string | null;
   description: string;
+  startFrameUrl?: string | null;
+  imagePrompt?: string;
 }): string | null {
   if (visuals.thumbnailUrl) return visuals.thumbnailUrl;
+  if (visuals.startFrameUrl) return visuals.startFrameUrl;
   if (visuals.description.trim()) return sceneVisualImageUrl(visuals.description);
+  if (visuals.imagePrompt?.trim()) return sceneVisualImageUrl(visuals.imagePrompt);
   return null;
 }

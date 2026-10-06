@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { Video } from "@remotion/media";
+import { Audio, Video } from "@remotion/media";
 import { AbsoluteFill, Img, Sequence } from "remotion";
 import { FILTER_CSS } from "@/lib/videoProject";
 import {
@@ -73,8 +73,8 @@ function SceneLayer({
             objectFit="cover"
             // When a beat has a script, keep clip audio nearly silent so VO leads.
             volume={
-              scene.finalScript.trim()
-                ? Math.min(Math.max(0, scene.volume / 100), 0.08)
+              scene.voiceoverUrl
+                ? 0
                 : Math.max(0, Math.min(1, scene.volume / 100))
             }
             playbackRate={scene.speed > 0 ? scene.speed : 1}
@@ -88,6 +88,10 @@ function SceneLayer({
       ) : (
         <PlaceholderFill label={scene.description || scene.sectionLabel || "Scene"} />
       )}
+
+      {scene.voiceoverUrl ? (
+        <Audio src={scene.voiceoverUrl} disallowFallbackToHtml5Audio />
+      ) : null}
 
       <AbsoluteFill
         style={{

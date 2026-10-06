@@ -101,7 +101,7 @@ export async function qwenAudioUrl(text: string, voiceId: string, signal?: Abort
   }
   let pending = inflight.get(key);
   if (!pending) {
-    pending = fetchQwenSpeech(text, voiceId)
+    pending = fetchQwenSpeech(text, voiceId, signal)
       .then((blob) => {
         const url = URL.createObjectURL(blob);
         readyUrls.set(key, url);

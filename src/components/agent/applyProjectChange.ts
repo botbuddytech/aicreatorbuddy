@@ -9,6 +9,7 @@ import { upsertProjectInStore } from "@/lib/useVideoProjectDraft";
 import {
   createEmptyProject,
   createEmptyReference,
+  applyGeneratedVisualPrompts,
   createEmptyScene,
   DEFAULT_PROJECT_NAME,
   MAX_REFERENCES,
@@ -137,12 +138,7 @@ export function applyProjectChange(change: ProjectChange): boolean {
       });
       return true;
     case "visualPrompts": {
-      const prompts = new Map(payload.prompts.map((item) => [item.id, item.prompt]));
-      const scenes = bridge.getProject().scenes.map((scene) => {
-        const prompt = prompts.get(scene.id);
-        if (!prompt) return scene;
-        return { ...scene, status: "generated" as const, visuals: { ...scene.visuals, description: prompt } };
-      });
+      const scenes = applyGeneratedVisualPrompts(bridge.getProject().scenes, payload.prompts);
       dispatch({ type: "SET_SCENES", scenes, generated: true, keepStatus: true });
       return true;
     }
@@ -388,18 +384,12 @@ function applyOnto(project: VideoProject, change: ProjectChange): VideoProject {
           return insight ? { ...thumb, vidiq: insight } : thumb;
         }),
       };
-    case "visualPrompts": {
-      const prompts = new Map(payload.prompts.map((item) => [item.id, item.prompt]));
+    case "visualPrompts":
       return {
         ...project,
         lastUpdated: now,
-        scenes: project.scenes.map((scene) => {
-          const prompt = prompts.get(scene.id);
-          if (!prompt) return scene;
-          return { ...scene, status: "generated" as const, visuals: { ...scene.visuals, description: prompt } };
-        }),
+        scenes: applyGeneratedVisualPrompts(project.scenes, payload.prompts),
       };
-    }
     case "thumbnail": {
       const thumbnail = { id: newId(), concept: payload.concept, provider: "manual" as const };
       return {

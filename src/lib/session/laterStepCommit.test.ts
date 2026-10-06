@@ -150,6 +150,24 @@ describe("laterStepCommit", () => {
     assert.equal(laterStepMatches(project, saved, "timeline"), false);
   });
 
+  it("stores a session style prompt with the timeline and leaves the shared library alone", () => {
+    const project = createEmptyProject({ name: "Draft" });
+    project.visualStyle = "pixar";
+    project.visualStylePrompts = { pixar: "Softer light and rounder characters." };
+    const saved = withLaterStep(
+      captureLaterStepsCommit(createEmptyProject({ name: "Draft" })),
+      project,
+      "timeline",
+      "generated",
+    );
+    const stored = applyLaterSteps(createEmptyProject({ name: "Draft" }), saved);
+    assert.equal(stored.visualStyle, "pixar");
+    assert.equal(stored.visualStylePrompts.pixar, "Softer light and rounder characters.");
+
+    project.visualStylePrompts = { pixar: "A different session copy." };
+    assert.equal(laterStepMatches(project, saved, "timeline"), false);
+  });
+
   it("stores the selected Qwen demo voice with the timeline", () => {
     const project = createEmptyProject({ name: "Draft" });
     project.qwenVoice = { voiceId: "Aiden", name: "Aiden (English)" };

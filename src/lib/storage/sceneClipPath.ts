@@ -11,6 +11,12 @@ const CLIP_TYPES = new Map<string, string>([
   ["image/gif", "gif"],
 ]);
 
+const FRAME_TYPES = new Map<string, string>([
+  ["image/jpeg", "jpg"],
+  ["image/png", "png"],
+  ["image/webp", "webp"],
+]);
+
 const ID = /^[A-Za-z0-9_-]{8,80}$/;
 
 export function extensionForSceneClip(type: string): string | null {
@@ -30,12 +36,36 @@ export function sceneClipObjectPath(
   return `${sessionId}/${sceneId}/${clipId}.${extension}`;
 }
 
+export function extensionForStartFrame(type: string): string | null {
+  return FRAME_TYPES.get(type) ?? null;
+}
+
+/** A start still lives beside the clip, under frame/, so deleting the video leaves the image. */
+export function startFrameObjectPath(
+  sessionId: string,
+  sceneId: string,
+  frameId: string,
+  extension: string,
+): string {
+  return `${sessionId}/${sceneId}/frame/${frameId}.${extension}`;
+}
+
 /** A storage path may only name a clip that belongs to this session and scene. */
 export function isOwnedSceneClipPath(sessionId: string, sceneId: string, path: string): boolean {
   if (!isSceneClipId(sessionId) || !isSceneClipId(sceneId)) return false;
   if (path.includes("..") || path.includes("\\")) return false;
   const match = path.match(
     /^([A-Za-z0-9_-]{8,80})\/([A-Za-z0-9_-]{8,80})\/([A-Za-z0-9_-]{8,80})\.(mp4|webm|mov|jpg|png|webp|gif)$/,
+  );
+  return Boolean(match && match[1] === sessionId && match[2] === sceneId);
+}
+
+/** A storage path may only name a start still that belongs to this session and scene. */
+export function isOwnedStartFramePath(sessionId: string, sceneId: string, path: string): boolean {
+  if (!isSceneClipId(sessionId) || !isSceneClipId(sceneId)) return false;
+  if (path.includes("..") || path.includes("\\")) return false;
+  const match = path.match(
+    /^([A-Za-z0-9_-]{8,80})\/([A-Za-z0-9_-]{8,80})\/frame\/([A-Za-z0-9_-]{8,80})\.(jpg|png|webp)$/,
   );
   return Boolean(match && match[1] === sessionId && match[2] === sceneId);
 }

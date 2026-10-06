@@ -13,6 +13,12 @@ import {
   type ThumbnailOption,
   type VideoProject,
 } from "@/lib/videoProject";
+import {
+  normalizeVisualStyle,
+  normalizeVisualStylePrompts,
+  type VisualStyleId,
+  type VisualStylePromptMap,
+} from "@/lib/visualStyles";
 
 export const MARK_APPROVE_STEPS: readonly StepId[] = [
   "summary",
@@ -51,6 +57,8 @@ type TimelineCommit = {
   scenes: Scene[];
   elevenLabsVoice: ElevenLabsVoice | null;
   qwenVoice: QwenVoice;
+  visualStyle: VisualStyleId | null;
+  visualStylePrompts: VisualStylePromptMap;
   provider: VideoProject["providerByStep"]["timeline"];
   stepStatus: StepStatus;
   lowEffort: LowEffortReport | undefined;
@@ -161,6 +169,8 @@ export function applyLaterSteps(project: VideoProject, commit: LaterStepsCommit)
     scenes: commit.timeline.scenes,
     elevenLabsVoice: commit.timeline.elevenLabsVoice,
     qwenVoice: commit.timeline.qwenVoice,
+    visualStyle: commit.timeline.visualStyle ?? null,
+    visualStylePrompts: commit.timeline.visualStylePrompts ?? {},
     description: commit.description.description,
     tags: commit.description.tags,
     renderedAt: commit.render.renderedAt,
@@ -218,6 +228,8 @@ function timelineSlice(project: VideoProject, stepStatus: StepStatus): TimelineC
     scenes: structuredClone(project.scenes),
     elevenLabsVoice: normalizeElevenLabsVoice(project.elevenLabsVoice),
     qwenVoice: normalizeQwenVoice(project.qwenVoice) ?? DEFAULT_QWEN_VOICE,
+    visualStyle: normalizeVisualStyle(project.visualStyle),
+    visualStylePrompts: normalizeVisualStylePrompts(project.visualStylePrompts),
     provider: project.providerByStep.timeline,
     stepStatus,
     lowEffort: project.lowEffortByStep.timeline
@@ -283,6 +295,8 @@ function timelineSignature(commit: TimelineCommit): string {
     scenes: commit.scenes,
     elevenLabsVoice: commit.elevenLabsVoice,
     qwenVoice: commit.qwenVoice,
+    visualStyle: commit.visualStyle ?? null,
+    visualStylePrompts: commit.visualStylePrompts ?? {},
     lowEffort: commit.lowEffort ?? null,
   });
 }

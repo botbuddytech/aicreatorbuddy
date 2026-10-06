@@ -1,4 +1,5 @@
 import type { BadgeTone } from "@/components/ui/Badge";
+import type { VisualStyleId, VisualStylePromptMap } from "@/lib/visualStyles";
 
 export type AiProvider = "chatgpt" | "gemini" | "elevenlabs";
 
@@ -92,6 +93,11 @@ export type SceneEditing = {
   volume: number;
   /** Uploaded clip sound. Defaults to muted so the AI voice is what you hear. */
   clipMuted: boolean;
+  /**
+   * Measured spoken length. The scene plays this long: a longer clip is trimmed,
+   * and a shorter clip holds its last frame until the voice ends.
+   */
+  voiceSeconds: number | null;
   textOverlay: TextOverlay | null;
 };
 
@@ -134,6 +140,9 @@ export const OVERLAY_POSITIONS: { id: OverlayPosition; label: string }[] = [
   { id: "bottom", label: "Bottom" },
 ];
 
+/** Direct uses one clip prompt. Still uses an image prompt, a start image, and a clip prompt. */
+export type ClipSource = "direct" | "still";
+
 export interface Scene {
   id: string;
   order: number;
@@ -147,7 +156,16 @@ export interface Scene {
     status: "empty" | "generating" | "ready";
   };
   visuals: {
+    /** Clip prompt. A video tool uses this alone, or together with the start image. */
     description: string;
+    clipSource: ClipSource;
+    /** Opening-frame prompt. Used when clipSource is still. */
+    imagePrompt: string;
+    startFrameId: string | null;
+    startFrameName: string | null;
+    /** Object path in the scene-clips bucket: {sessionId}/{sceneId}/frame/{frameId}.ext */
+    startFrameStoragePath: string | null;
+    startFrameUrl: string | null;
     stockFootageId: string | null;
     thumbnailUrl: string | null;
     needsCustomFootage: boolean;
@@ -342,12 +360,18 @@ export interface VideoProject {
   elevenLabsVoice: ElevenLabsVoice | null;
   /** Qwen voice used by Listen on every scene. Demo voice. */
   qwenVoice: QwenVoice;
+  /** Look applied to every generated scene prompt. Null keeps the faceless object film. */
+  visualStyle: VisualStyleId | null;
+  /** Style prompts saved on this video only. Missing styles use the shared library. */
+  visualStylePrompts: VisualStylePromptMap;
   description: string;
   tags: string[];
   providerByStep: Partial<Record<StepId, AiProvider>>;
   stepStatus: Record<StepId, StepStatus>;
   apiCosts: ApiCostEntry[];
   renderedAt: string | null;
+  /** Latest video.md brief. Null until Generate video.md is clicked. */
+  videoMarkdown: string | null;
   editor: EditorSettings;
   lowEffortByStep: Partial<Record<LowEffortStep, LowEffortReport>>;
   createdAt: string;
@@ -685,6 +709,7 @@ export function emptyEditing(): SceneEditing {
     speed: 1,
     volume: 100,
     clipMuted: true,
+    voiceSeconds: null,
     textOverlay: null,
   };
 }
@@ -764,6 +789,10 @@ export function normalizeEditing(raw: unknown): SceneEditing {
     speed,
     volume,
     clipMuted: source.clipMuted === false ? false : true,
+    voiceSeconds:
+      typeof source.voiceSeconds === "number" && source.voiceSeconds > 0
+        ? source.voiceSeconds
+        : null,
     textOverlay,
   };
 }
@@ -929,6 +958,18 @@ export function normalizeScenes(raw: unknown): Scene[] {
         },
         visuals: {
           description: item.visuals?.description ?? "",
+          clipSource: item.visuals?.clipSource === "still" ? "still" : "direct",
+          imagePrompt: typeof item.visuals?.imagePrompt === "string" ? item.visuals.imagePrompt : "",
+          startFrameId:
+            typeof item.visuals?.startFrameId === "string" ? item.visuals.startFrameId : null,
+          startFrameName:
+            typeof item.visuals?.startFrameName === "string" ? item.visuals.startFrameName : null,
+          startFrameStoragePath:
+            typeof item.visuals?.startFrameStoragePath === "string"
+              ? item.visuals.startFrameStoragePath
+              : null,
+          startFrameUrl:
+            typeof item.visuals?.startFrameUrl === "string" ? item.visuals.startFrameUrl : null,
           stockFootageId: item.visuals?.stockFootageId ?? null,
           thumbnailUrl: item.visuals?.thumbnailUrl ?? null,
           needsCustomFootage: Boolean(item.visuals?.needsCustomFootage),
@@ -999,6 +1040,8 @@ export function createEmptyProject(partial?: {
     scenes: [],
     elevenLabsVoice: null,
     qwenVoice: DEFAULT_QWEN_VOICE,
+    visualStyle: null,
+    visualStylePrompts: {},
     description: "",
     tags: [],
     providerByStep: {
@@ -1011,11 +1054,73 @@ export function createEmptyProject(partial?: {
     stepStatus: { ...EMPTY_STEP_STATUS },
     apiCosts: [],
     renderedAt: null,
+    videoMarkdown: null,
     editor: emptyEditorSettings(),
     lowEffortByStep: emptyLowEffortByStep(),
     createdAt: now,
     lastUpdated: now,
   };
+}
+
+export function emptySceneVisuals(): Scene["visuals"] {
+  return {
+    description: "",
+    clipSource: "direct",
+    imagePrompt: "",
+    startFrameId: null,
+    startFrameName: null,
+    startFrameStoragePath: null,
+    startFrameUrl: null,
+    stockFootageId: null,
+    thumbnailUrl: null,
+    needsCustomFootage: false,
+    uploadedClipId: null,
+    uploadedClipName: null,
+    uploadedClipStoragePath: null,
+    uploadedClipUrl: null,
+    uploadedClipKind: null,
+    uploadedClipDurationSeconds: null,
+  };
+}
+
+/** The picture a neighboring scene should match. A still scene locks its opening frame. */
+export function scenePicturePrompt(scene: Scene): string {
+  if (scene.visuals.clipSource === "still") {
+    return scene.visuals.imagePrompt.trim() || scene.visuals.description.trim();
+  }
+  return scene.visuals.description.trim();
+}
+
+export function applyGeneratedVisualPrompts(
+  scenes: Scene[],
+  prompts: Array<{ id: string; prompt: string; imagePrompt?: string }>,
+  fields: "all" | "clip" | "image" = "all",
+): Scene[] {
+  const byId = new Map(
+    prompts.flatMap((item) => {
+      const prompt = item.prompt.trim();
+      return prompt ? [[item.id, item] as const] : [];
+    }),
+  );
+  return scenes.map((scene) => {
+    const item = byId.get(scene.id);
+    if (!item) return scene;
+    const writeClip = fields !== "image";
+    const nextImage =
+      fields !== "clip" && scene.visuals.clipSource === "still" && item.imagePrompt?.trim()
+        ? item.imagePrompt.trim()
+        : null;
+    if (!writeClip && !nextImage) return scene;
+    return {
+      ...scene,
+      status: "generated",
+      visuals: {
+        ...scene.visuals,
+        description: writeClip ? item.prompt.trim() : scene.visuals.description,
+        imagePrompt: nextImage ?? scene.visuals.imagePrompt,
+      },
+    };
+  });
 }
 
 export function createEmptyScene(
@@ -1034,18 +1139,7 @@ export function createEmptyScene(
       audioUrl: null,
       status: "empty",
     },
-    visuals: {
-      description: "",
-      stockFootageId: null,
-      thumbnailUrl: null,
-      needsCustomFootage: false,
-      uploadedClipId: null,
-      uploadedClipName: null,
-      uploadedClipStoragePath: null,
-      uploadedClipUrl: null,
-      uploadedClipKind: null,
-      uploadedClipDurationSeconds: null,
-    },
+    visuals: emptySceneVisuals(),
     editing: emptyEditing(),
     status: "draft",
   };
@@ -1258,6 +1352,8 @@ export function sceneSourceSeconds(scene: Scene): number | null {
 }
 
 export function sceneRuntimeSeconds(scene: Scene): number {
+  const voice = scene.editing.voiceSeconds;
+  if (typeof voice === "number" && voice > 0) return voice;
   const speed = scene.editing.speed && scene.editing.speed > 0 ? scene.editing.speed : 1;
   return sceneDuration(scene) / speed;
 }

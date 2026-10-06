@@ -89,7 +89,7 @@ export type ChangePayload =
   | { type: "thumbnailPrompts"; concepts: string[]; cursorPrompt: string | null }
   | { type: "thumbnailImages"; images: { id: string; url: string }[] }
   | { type: "thumbnailScores"; insights: Record<string, VidIqThumbInsight> }
-  | { type: "visualPrompts"; prompts: { id: string; prompt: string }[] }
+  | { type: "visualPrompts"; prompts: { id: string; prompt: string; imagePrompt?: string }[] }
   | { type: "thumbnail"; concept: string }
   | { type: "timeline"; scenes: { sectionLabel: string; finalScript: string }[] }
   | { type: "description"; description: string; tags: string[] }
@@ -192,8 +192,20 @@ export type AgentContextPayload = {
   selectedTitle: string;
   titleOptions: { id: string; text: string }[];
   thumbnails: { id: string; concept: string; imageUrl?: string }[];
-  scenes: { id: string; section: string; script: string; durationSeconds: number; order: number; existingPrompt: string }[];
+  scenes: {
+    id: string;
+    section: string;
+    script: string;
+    durationSeconds: number;
+    order: number;
+    existingPrompt: string;
+    clipSource: "direct" | "still";
+  }[];
   references: { url: string; title: string; transcript: string; hasTranscript: boolean }[];
+  /** Selected visual style. Null keeps the faceless object film. */
+  visualStyle: string | null;
+  /** This video's saved copy of the selected style prompt. Empty means use the library. */
+  visualStylePrompt: string;
 };
 
 export type StreamEvent =

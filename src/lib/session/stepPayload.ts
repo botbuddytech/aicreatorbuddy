@@ -32,6 +32,7 @@ import {
   normalizeSummary,
   normalizeTitles,
 } from "@/lib/videoProject";
+import { normalizeVisualStyle, normalizeVisualStylePrompts, type VisualStyleId, type VisualStylePromptMap } from "@/lib/visualStyles";
 
 /** Working-document schema written by the create-video sync path. */
 export const STEP_PAYLOAD_SCHEMA_VERSION = 1;
@@ -79,6 +80,8 @@ export type TimelineStepPayload = {
   scenes: Scene[];
   elevenLabsVoice?: ElevenLabsVoice | null;
   qwenVoice?: QwenVoice | null;
+  visualStyle?: VisualStyleId | null;
+  visualStylePrompts?: VisualStylePromptMap;
 };
 
 export type DescriptionStepPayload = {
@@ -88,6 +91,7 @@ export type DescriptionStepPayload = {
 
 export type RenderStepPayload = {
   renderedAt: string | null;
+  videoMarkdown?: string | null;
 };
 
 export type EditorStepPayload = {
@@ -221,6 +225,7 @@ export function parseStepPayload<T extends StepId>(
     }
     case "render": {
       if (!isNullableString(raw.renderedAt)) return null;
+      if (raw.videoMarkdown != null && typeof raw.videoMarkdown !== "string") return null;
       return raw as StepPayloadById[T] & Record<string, unknown>;
     }
     case "editor": {
@@ -283,6 +288,8 @@ export function buildStepPayloads(project: VideoProject): {
       scenes: project.scenes,
       elevenLabsVoice: project.elevenLabsVoice,
       qwenVoice: project.qwenVoice,
+      visualStyle: normalizeVisualStyle(project.visualStyle),
+      visualStylePrompts: normalizeVisualStylePrompts(project.visualStylePrompts),
     },
     description: {
       description: project.description,
@@ -290,6 +297,7 @@ export function buildStepPayloads(project: VideoProject): {
     },
     render: {
       renderedAt: project.renderedAt,
+      videoMarkdown: project.videoMarkdown,
     },
     editor: {
       musicTrackId: project.editor.musicTrackId,
@@ -483,6 +491,8 @@ export function projectFromSessionDocuments(docs: SessionDocuments): VideoProjec
       base.scenes = normalizeScenes(payload.scenes);
       base.elevenLabsVoice = normalizeElevenLabsVoice(payload.elevenLabsVoice);
       base.qwenVoice = normalizeQwenVoice(payload.qwenVoice) ?? DEFAULT_QWEN_VOICE;
+      base.visualStyle = normalizeVisualStyle(payload.visualStyle);
+      base.visualStylePrompts = normalizeVisualStylePrompts(payload.visualStylePrompts);
     }
   }
 
@@ -500,6 +510,7 @@ export function projectFromSessionDocuments(docs: SessionDocuments): VideoProjec
     const payload = parseStepPayload("render", renderDoc.payload);
     if (payload) {
       base.renderedAt = payload.renderedAt;
+      base.videoMarkdown = typeof payload.videoMarkdown === "string" ? payload.videoMarkdown : null;
     }
   }
 

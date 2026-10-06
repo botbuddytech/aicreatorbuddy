@@ -17,6 +17,7 @@ import {
   newId,
   type VideoProject,
 } from "@/lib/videoProject";
+import { normalizeVisualStyle, normalizeVisualStylePrompts } from "@/lib/visualStyles";
 import { pruneClips } from "@/lib/clipStore";
 import {
   cancelSessionTelemetry,
@@ -61,10 +62,13 @@ function parseStore(raw: string): ProjectStore {
         scenes: normalizeScenes(project.scenes),
         elevenLabsVoice: normalizeElevenLabsVoice(project.elevenLabsVoice),
         qwenVoice: normalizeQwenVoice(project.qwenVoice) ?? DEFAULT_QWEN_VOICE,
+        visualStyle: normalizeVisualStyle(project.visualStyle),
+        visualStylePrompts: normalizeVisualStylePrompts(project.visualStylePrompts),
         editor: normalizeEditorSettings(project.editor),
         lowEffortByStep: normalizeLowEffortByStep(project.lowEffortByStep),
         stepStatus: normalizeStepStatus(project.stepStatus),
         renderedAt: typeof project.renderedAt === "string" ? project.renderedAt : null,
+        videoMarkdown: typeof project.videoMarkdown === "string" ? project.videoMarkdown : null,
       })),
     };
   } catch {

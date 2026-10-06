@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { qwenAudioReady, qwenAudioUrl, qwenCachedSceneIds } from "@/features/qwen/client";
-import { spokenVoiceoverText } from "@/lib/sceneVoiceover";
+import { measureAudioSeconds, spokenVoiceoverText } from "@/lib/sceneVoiceover";
 import type { Scene } from "@/lib/videoProject";
 
 export type VoiceBufferStatus = "generating" | "ready" | "error";
@@ -34,6 +34,7 @@ export function usePreviewVoiceQueue(
   activeIndex: number,
   voiceId: string,
   enabled: boolean,
+  onMeasured?: (sceneId: string, seconds: number) => void,
 ) {
   const [status, setStatus] = useState<Record<string, VoiceBufferStatus>>(() =>
     initialStatus(scenes, voiceId),
@@ -97,7 +98,9 @@ export function usePreviewVoiceQueue(
         return { ...currentStatusMap, [targetKey]: "generating" };
       });
       void qwenAudioUrl(text, voiceId)
-        .then(() => {
+        .then(async (url) => {
+          const seconds = await measureAudioSeconds(url);
+          if (seconds) onMeasured?.(target.id, seconds);
           setStatus((currentStatusMap) => ({ ...currentStatusMap, [targetKey]: "ready" }));
         })
         .catch(() => {
@@ -106,7 +109,7 @@ export function usePreviewVoiceQueue(
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [enabled, scenes, activeIndex, voiceId, status]);
+  }, [enabled, scenes, activeIndex, voiceId, status, onMeasured]);
 
   function readyFor(scene: Scene | undefined) {
     if (!needsVoice(scene) || !scene) return true;

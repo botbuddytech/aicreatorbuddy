@@ -5,6 +5,8 @@ import type { PendingSessionEvent } from "@/lib/session/events";
 
 const EVENT_FLUSH_MS = 2_000;
 const SNAPSHOT_SYNC_MS = 4_000;
+/** Chrome rejects a keepalive body above 64KB with "Failed to fetch". A clip poster crosses that. */
+const KEEPALIVE_MAX_CHARS = 60_000;
 const queues = new Map<string, SessionEventInput[]>();
 const eventTimers = new Map<string, number>();
 const snapshotTimers = new Map<string, number>();
@@ -143,11 +145,12 @@ function sendSnapshot(
   current?.abort();
   const controller = new AbortController();
   snapshotRequests.set(snapshot.id, controller);
+  const body = JSON.stringify(snapshot);
   return fetch(endpoint(snapshot.id, "sync"), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(snapshot),
-    keepalive: true,
+    body,
+    keepalive: body.length <= KEEPALIVE_MAX_CHARS,
     signal: controller.signal,
   }).then((response) => {
     if (snapshotRequests.get(snapshot.id) === controller) snapshotRequests.delete(snapshot.id);

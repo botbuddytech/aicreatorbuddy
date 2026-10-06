@@ -4,7 +4,9 @@ import { useRef, useState } from "react";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Modal } from "@/components/ui/Modal";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
+import { ExportVoiceModal } from "@/components/create/ExportVoiceModal";
 import { exportProjectWithRemotion } from "@/lib/exportRemotion";
+import { buildSceneVoiceovers, type ExportVoiceProvider } from "@/lib/exportVoiceover";
 import { trackSessionEvent } from "@/lib/session/telemetry";
 import {
   FORMAT_LABELS,
@@ -23,6 +25,9 @@ export function ExportButton({
 }) {
   const { project, dispatch } = useVideoProject();
   const [busy, setBusy] = useState(false);
+  const [chooseOpen, setChooseOpen] = useState(false);
+  const [voiceNote, setVoiceNote] = useState<string | null>(null);
+  const [voiceLabel, setVoiceLabel] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +42,7 @@ export function ExportButton({
   const runtime = formatTimecode(totalTimelineSeconds(project.scenes));
   const resolution = project.summary.aspectRatio === "9:16" ? "1080×1920" : "1920×1080";
 
-  async function onExport() {
+  async function openChooser() {
     if (!canExport || busy) return;
     if (document.fullscreenElement) {
       try {
@@ -46,6 +51,12 @@ export function ExportButton({
         /* unsupported */
       }
     }
+    setChooseOpen(true);
+  }
+
+  async function onExport(provider: ExportVoiceProvider) {
+    if (!canExport || busy) return;
+    setChooseOpen(false);
 
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -55,6 +66,12 @@ export function ExportButton({
     setError(null);
     setProgress(0);
     setFileName(null);
+    setVoiceNote(null);
+    const spokenWith =
+      provider === "qwen"
+        ? `Qwen (${project.qwenVoice.name})`
+        : `ElevenLabs (${project.elevenLabsVoice?.name ?? "voice"})`;
+    setVoiceLabel(spokenWith);
     const exportRun = {
       id: crypto.randomUUID(),
       attempt: ++attemptRef.current,
@@ -77,9 +94,26 @@ export function ExportButton({
       payload: exportPayload,
     });
 
+    let voiceovers: Awaited<ReturnType<typeof buildSceneVoiceovers>> | null = null;
     try {
+      voiceovers = await buildSceneVoiceovers(project, provider, {
+        signal: controller.signal,
+        onScene: (done, total, label) => setVoiceNote(`Speaking ${done} of ${total} · ${label}`),
+      });
+      setVoiceNote(null);
+      dispatch({
+        type: "SET_SCENES",
+        scenes: project.scenes.map((scene) => {
+          const length = voiceovers?.seconds[scene.id];
+          if (!length) return scene;
+          return { ...scene, editing: { ...scene.editing, voiceSeconds: length } };
+        }),
+        keepStatus: true,
+      });
       const result = await exportProjectWithRemotion(project, {
         signal: controller.signal,
+        voiceoverUrls: voiceovers.bySceneId,
+        voiceoverSeconds: voiceovers.seconds,
         onProgress: ({ progress: next }) => setProgress(next),
       });
       dispatch({
@@ -113,6 +147,8 @@ export function ExportButton({
       setError(message);
       setOpen(true);
     } finally {
+      voiceovers?.revoke();
+      setVoiceNote(null);
       if (abortRef.current === controller) abortRef.current = null;
       if (exportRef.current?.id === exportRun.id) exportRef.current = null;
       setBusy(false);
@@ -154,9 +190,10 @@ export function ExportButton({
           disabled={!canExport || busy}
           loading={busy}
           loadingLabel={
-            progress > 0 ? `Exporting ${Math.round(progress * 100)}%…` : "Exporting…"
+            voiceNote ??
+            (progress > 0 ? `Exporting ${Math.round(progress * 100)}%…` : "Exporting…")
           }
-          onClick={onExport}
+          onClick={() => void openChooser()}
         >
           {exported ? "Export again" : "Export"}
         </ActionButton>
@@ -170,6 +207,13 @@ export function ExportButton({
           </button>
         ) : null}
       </div>
+      <ExportVoiceModal
+        open={chooseOpen}
+        qwenName={project.qwenVoice.name}
+        elevenName={project.elevenLabsVoice?.name ?? null}
+        onClose={() => setChooseOpen(false)}
+        onChoose={(provider) => void onExport(provider)}
+      />
       <Modal
         open={open}
         title={error ? "Export failed" : "Export ready"}
@@ -185,7 +229,7 @@ export function ExportButton({
               {resolution} · MP4 · {runtime}
             </p>
             <p className="mt-2 text-sm text-muted">
-              Remotion finished encoding in the browser
+              Spoken with {voiceLabel ?? "the selected voice"}. Remotion finished encoding in the browser
               {fileName ? (
                 <>
                   {" "}

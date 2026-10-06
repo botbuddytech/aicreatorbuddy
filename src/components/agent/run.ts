@@ -17,7 +17,7 @@ import type {
   ToolCallState,
 } from "@/lib/agent/types";
 import { readSse } from "@/lib/agent/sse";
-import { newId } from "@/lib/videoProject";
+import { newId, scenePicturePrompt } from "@/lib/videoProject";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object";
@@ -48,6 +48,8 @@ function readContext(): AgentContextPayload {
       thumbnails: [],
       scenes: [],
       references: [],
+      visualStyle: null,
+      visualStylePrompt: "",
     };
   }
   const thumbnail =
@@ -86,7 +88,8 @@ function readContext(): AgentContextPayload {
       script: scene.finalScript,
       durationSeconds: Math.max(1, Math.round(scene.editing.durationSeconds || 1)),
       order: scene.order ?? index,
-      existingPrompt: scene.visuals.description ?? "",
+      existingPrompt: scenePicturePrompt(scene),
+      clipSource: scene.visuals.clipSource === "still" ? "still" : "direct",
     })),
     references: project.summary.references.map((reference) => ({
       url: reference.url.trim(),
@@ -94,6 +97,10 @@ function readContext(): AgentContextPayload {
       transcript: reference.transcript,
       hasTranscript: Boolean(reference.transcript.trim()),
     })),
+    visualStyle: project.visualStyle,
+    visualStylePrompt: project.visualStyle
+      ? (project.visualStylePrompts?.[project.visualStyle] ?? "")
+      : "",
   };
 }
 

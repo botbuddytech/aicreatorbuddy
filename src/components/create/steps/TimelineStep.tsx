@@ -16,6 +16,7 @@ import { ElevenLabsVoiceSelect } from "@/features/elevenlabs/ElevenLabsVoiceSele
 import { QwenVoiceSelect } from "@/features/qwen/QwenVoiceSelect";
 import { useElevenLabsPreview } from "@/features/elevenlabs/useElevenLabsPreview";
 import { MAX_PREVIEW_CHARS } from "@/features/elevenlabs/contract";
+import { StylePromptEditor } from "@/features/cursor-visual-prompts/StylePromptEditor";
 import { useCursorVisualPromptGeneration } from "@/features/cursor-visual-prompts/VisualPromptActions";
 import type { CursorVisualPromptRequest } from "@/features/cursor-visual-prompts/contract";
 import { CursorPromptEditor } from "@/features/cursor-title-generator/CursorPromptEditor";
@@ -40,16 +41,24 @@ import { scenesFromScript } from "@/lib/scenesFromScript";
 import { timelineSectionsFromScript } from "@/lib/scriptSections";
 import { trackSessionEvent } from "@/lib/session/telemetry";
 import { readProjectStore } from "@/lib/useVideoProjectDraft";
+import { deleteStartFrameFile } from "@/lib/storage/sceneFrameUpload";
 import {
+  applyGeneratedVisualPrompts,
   createEmptyScene,
   formatTimecode,
   newId,
   sceneDuration,
+  scenePicturePrompt,
   selectedTitle,
   totalTimelineSeconds,
   type Scene,
   type VideoProject,
 } from "@/lib/videoProject";
+import {
+  normalizeVisualStyle,
+  sessionVisualStylePrompt,
+  VISUAL_STYLES,
+} from "@/lib/visualStyles";
 
 const TIMELINE_GENERATORS = ["chatgpt", "gemini", "cursor"] as const;
 type TimelineGenerator = (typeof TIMELINE_GENERATORS)[number];
@@ -68,6 +77,10 @@ type PreviewTarget =
   | { mode: "visual"; id: string };
 
 type ScriptNotice = "missing" | "unreadable";
+
+function sceneHasStartFrame(scene: Scene): boolean {
+  return Boolean(scene.visuals.startFrameStoragePath || scene.visuals.startFrameUrl);
+}
 
 function sceneHasUploadedClip(scene: Scene): boolean {
   return Boolean(
@@ -91,6 +104,13 @@ async function deleteUploadedSceneClips(sessionId: string, scenes: Scene[]): Pro
       if (clipId) await deleteClip(clipId);
     }),
   );
+  const frames = scenes.filter(sceneHasStartFrame);
+  await Promise.all(
+    frames.map(async (scene) => {
+      const storagePath = scene.visuals.startFrameStoragePath;
+      if (storagePath) await deleteStartFrameFile(sessionId, scene.id, storagePath);
+    }),
+  );
 }
 
 function clipSeconds(scene: Scene): number {
@@ -101,27 +121,6 @@ function clipSeconds(scene: Scene): number {
   return Math.max(1, Math.round(raw));
 }
 
-function scenesWithVisualPrompts(
-  scenes: Scene[],
-  prompts: Array<{ id: string; prompt: string }>,
-): Scene[] {
-  const byId = new Map(
-    prompts.flatMap((item) => {
-      const prompt = item.prompt.trim();
-      return prompt ? [[item.id, prompt] as const] : [];
-    }),
-  );
-  return scenes.map((scene) => {
-    const prompt = byId.get(scene.id);
-    if (!prompt) return scene;
-    return {
-      ...scene,
-      status: "generated",
-      visuals: { ...scene.visuals, description: prompt },
-    };
-  });
-}
-
 function visualScene(scene: Scene, order: number) {
   return {
     id: scene.id,
@@ -129,7 +128,8 @@ function visualScene(scene: Scene, order: number) {
     script: scene.finalScript.trim(),
     durationSeconds: clipSeconds(scene),
     order,
-    existingPrompt: scene.visuals.description.trim() || null,
+    existingPrompt: scenePicturePrompt(scene) || null,
+    clipSource: scene.visuals.clipSource === "still" ? ("still" as const) : ("direct" as const),
   };
 }
 
@@ -143,12 +143,15 @@ function visualRequest(
   const targetIds = new Set(targets.map((scene) => scene.id));
   const scenes = sequence.filter((scene) => targetIds.has(scene.id));
   if (scenes.length === 0) return null;
+  const styleId = normalizeVisualStyle(project.visualStyle);
   return {
     topic: project.summary.topic.trim(),
     title: selectedTitle(project)?.text.trim() ?? "",
     aspectRatio: project.summary.aspectRatio,
     scenes,
     sequence,
+    styleId,
+    stylePrompt: sessionVisualStylePrompt(styleId, project.visualStylePrompts),
   };
 }
 
@@ -201,17 +204,24 @@ function PencilIcon() {
 export function TimelineStep() {
   const { project, dispatch, previewOpen } = useVideoProject();
   const [voiceLengths, setVoiceLengths] = useState<Record<string, VoiceLength>>({});
-  const voiceover = useVoiceoverPreview((sceneId, seconds) => {
+  function rememberVoice(sceneId: string, seconds: number, provider: VoiceLength["provider"]) {
     setVoiceLengths((current) => ({
       ...current,
-      [sceneId]: { provider: "qwen", seconds },
+      [sceneId]: { provider, seconds },
     }));
+    const scene = project.scenes.find((item) => item.id === sceneId);
+    if (scene?.editing.voiceSeconds && Math.abs(scene.editing.voiceSeconds - seconds) < 0.05) return;
+    dispatch({
+      type: "PATCH_SCENE",
+      id: sceneId,
+      patch: { editing: { voiceSeconds: seconds } },
+    });
+  }
+  const voiceover = useVoiceoverPreview((sceneId, seconds) => {
+    rememberVoice(sceneId, seconds, "qwen");
   });
   const elevenLabs = useElevenLabsPreview((sceneId, seconds) => {
-    setVoiceLengths((current) => ({
-      ...current,
-      [sceneId]: { provider: "elevenlabs", seconds },
-    }));
+    rememberVoice(sceneId, seconds, "elevenlabs");
   });
   const [selectedId, setSelectedId] = useState(project.scenes[0]?.id ?? "");
   const [view, setView] = useState<"strip" | "chart">("chart");
@@ -229,12 +239,13 @@ export function TimelineStep() {
   const breakingRef = useRef(false);
   const [breaking, setBreaking] = useState(false);
   const visualGeneration = useCursorVisualPromptGeneration();
+  const [visualPart, setVisualPart] = useState<"clip" | "image" | "all">("clip");
   const generateLocked = visualGeneration.generating;
   const chartBusy =
     visualGeneration.generatingId === "all"
       ? "all-visuals"
       : visualGeneration.generatingId
-        ? `visuals:${visualGeneration.generatingId}`
+        ? `visuals:${visualGeneration.generatingId}:${visualPart}`
         : null;
 
   const durationLock = project.scenes
@@ -316,7 +327,7 @@ export function TimelineStep() {
       setScriptNotice("unreadable");
       return;
     }
-    if (project.scenes.some(sceneHasUploadedClip)) {
+    if (project.scenes.some((scene) => sceneHasUploadedClip(scene) || sceneHasStartFrame(scene))) {
       setRebreakError(null);
       setPendingBreak(style);
       return;
@@ -336,7 +347,7 @@ export function TimelineStep() {
       applyBreak(style);
     } catch (cause) {
       setRebreakError(
-        cause instanceof Error ? cause.message : "Could not delete the uploaded clips.",
+        cause instanceof Error ? cause.message : "Could not delete the uploaded files.",
       );
     } finally {
       breakingRef.current = false;
@@ -350,20 +361,25 @@ export function TimelineStep() {
     return false;
   }
 
-  async function generateVisuals(id: string) {
+  async function generateVisuals(id: string, part: "clip" | "image" = "clip") {
     if (!requireCursor()) return;
     const scene = project.scenes.find((item) => item.id === id);
     if (!scene) return;
+    if (part === "image" && scene.visuals.clipSource !== "still") return;
     const request = visualRequest([scene], project);
     if (!request) {
       visualGeneration.setError("Add a spoken script for this scene before generating a visual prompt.");
       return;
     }
+    setVisualPart(part);
     const result = await visualGeneration.generate(request);
-    if (!result?.prompts.some((item) => item.id === id && item.prompt.trim())) return;
+    const wrote = result?.prompts.some((item) =>
+      item.id === id && (part === "image" ? item.imagePrompt.trim() : item.prompt.trim()),
+    );
+    if (!result || !wrote) return;
     dispatch({
       type: "SET_SCENES",
-      scenes: scenesWithVisualPrompts(project.scenes, result.prompts),
+      scenes: applyGeneratedVisualPrompts(project.scenes, result.prompts, part),
       generated: true,
       keepStatus: true,
     });
@@ -387,11 +403,12 @@ export function TimelineStep() {
       visualGeneration.setError("Add a spoken script before generating visual prompts.");
       return;
     }
+    setVisualPart("all");
     const result = await visualGeneration.generate(request);
     if (!result) return;
     dispatch({
       type: "SET_SCENES",
-      scenes: scenesWithVisualPrompts(project.scenes, result.prompts),
+      scenes: applyGeneratedVisualPrompts(project.scenes, result.prompts, "all"),
       generated: true,
       keepStatus: true,
     });
@@ -577,9 +594,9 @@ export function TimelineStep() {
             description={
               rebreakError
                 ? `${rebreakError} The current scenes are still here.`
-                : "This replaces the current timeline with new scenes from the script. Every uploaded video is permanently deleted from storage and the database first, and cannot be retrieved."
+                : "This replaces the current timeline with new scenes from the script. Every uploaded video and start image is permanently deleted from storage and the database first, and cannot be retrieved."
             }
-            confirmLabel={breaking ? "Deleting clips…" : "Delete clips and re-break"}
+            confirmLabel={breaking ? "Deleting files…" : "Delete files and re-break"}
             onClose={() => {
               if (breaking) return;
               setPendingBreak(null);
@@ -629,6 +646,56 @@ export function TimelineStep() {
               </button>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <label className="inline-flex max-w-full items-center gap-2 rounded-xl border border-border bg-surface px-2.5 py-1">
+                <span className="text-xs font-bold text-muted">Style</span>
+                <select
+                  aria-label="Visual style"
+                  value={project.visualStyle ?? ""}
+                  onChange={(event) => {
+                    const visualStyle = normalizeVisualStyle(event.target.value);
+                    dispatch({
+                      type: "SET_VISUAL_STYLE_STATE",
+                      visualStyle,
+                      visualStylePrompts: project.visualStylePrompts ?? {},
+                    });
+                  }}
+                  className="max-w-[11rem] bg-transparent text-xs font-semibold text-foreground outline-none"
+                >
+                  <option value="">No style</option>
+                  {VISUAL_STYLES.map((style) => (
+                    <option key={style.id} value={style.id}>
+                      {style.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <StylePromptEditor
+                styleId={project.visualStyle}
+                sessionPrompt={sessionVisualStylePrompt(project.visualStyle, project.visualStylePrompts)}
+                onSaveSession={(prompt) => {
+                  const styleId = project.visualStyle;
+                  if (!styleId) return;
+                  dispatch({
+                    type: "SET_VISUAL_STYLE_STATE",
+                    visualStyle: styleId,
+                    visualStylePrompts: {
+                      ...(project.visualStylePrompts ?? {}),
+                      [styleId]: prompt,
+                    },
+                  });
+                }}
+                onUseLibrary={() => {
+                  const styleId = project.visualStyle;
+                  if (!styleId) return;
+                  const visualStylePrompts = { ...(project.visualStylePrompts ?? {}) };
+                  delete visualStylePrompts[styleId];
+                  dispatch({
+                    type: "SET_VISUAL_STYLE_STATE",
+                    visualStyle: styleId,
+                    visualStylePrompts,
+                  });
+                }}
+              />
               <QwenVoiceSelect
                 value={project.qwenVoice}
                 onChange={(voice) => {
@@ -708,7 +775,8 @@ export function TimelineStep() {
               busy={chartBusy}
               generateLocked={generateLocked}
               onSelect={setSelectedId}
-              onGenerateVisuals={generateVisuals}
+              onGenerateVisuals={(id) => void generateVisuals(id, "clip")}
+              onGenerateImage={(id) => void generateVisuals(id, "image")}
               onPreviewScript={previewVoiceover}
               onPreviewVisuals={previewVisual}
               scriptPlayingId={voiceover.playingId}
@@ -795,12 +863,25 @@ export function TimelineStep() {
                 scene={selected}
                 column="visuals"
                 labeled
-                generating={chartBusy === `visuals:${selected.id}` || chartBusy === "all-visuals"}
+                generating={
+                  chartBusy === `visuals:${selected.id}:clip` || chartBusy === "all-visuals"
+                }
+                generatingImage={
+                  chartBusy === `visuals:${selected.id}:image` || chartBusy === "all-visuals"
+                }
                 generateDisabled={
-                  generateLocked && chartBusy !== `visuals:${selected.id}` && chartBusy !== "all-visuals"
+                  generateLocked &&
+                  chartBusy !== `visuals:${selected.id}:clip` &&
+                  chartBusy !== "all-visuals"
+                }
+                generateImageDisabled={
+                  generateLocked &&
+                  chartBusy !== `visuals:${selected.id}:image` &&
+                  chartBusy !== "all-visuals"
                 }
                 previewDisabled={!sceneVisualPreviewSrc(selected.visuals)}
-                onGenerate={() => generateVisuals(selected.id)}
+                onGenerate={() => void generateVisuals(selected.id, "clip")}
+                onGenerateImage={() => void generateVisuals(selected.id, "image")}
                 onPreview={() => previewVisual(selected.id)}
               />
             </div>

@@ -22,6 +22,8 @@ const context: AgentContextPayload = {
   thumbnails: [],
   scenes: [],
   references: [],
+  visualStyle: null,
+  visualStylePrompt: "",
 };
 
 describe("cursor sdk chat helpers", () => {
@@ -54,6 +56,19 @@ describe("cursor sdk chat helpers", () => {
     assert.equal(call.name, "editScript");
     assert.equal(change?.payload.type === "script" ? change.payload.script : "", "Next");
   });
+  it("keeps the opening-frame prompt beside a clip prompt", () => {
+    const change = projectChangeFromTool(
+      "generateVisualPrompts",
+      { prompts: [{ id: "scene-1", prompt: "Move across the desk.", imagePrompt: "A dark desk." }] },
+      context,
+      "call-visual",
+    );
+    assert.equal(change?.payload.type, "visualPrompts");
+    const prompts = change?.payload.type === "visualPrompts" ? change.payload.prompts : [];
+    assert.equal(prompts[0]?.prompt, "Move across the desk.");
+    assert.equal(prompts[0]?.imagePrompt, "A dark desk.");
+  });
+
   it("proposes a project name change", () => {
     const change = projectChangeFromTool("setProjectName", { name: "  Oracle video  " }, context, "call-4");
     assert.equal(change?.tool, "setProjectName");

@@ -234,8 +234,9 @@ function payloadFor(tool: ToolName, args: unknown): ChangePayload | null {
         const row = item as Record<string, unknown>;
         const id = text(row.id, 80);
         const prompt = text(row.prompt, 6000);
+        const imagePrompt = text(row.imagePrompt, 6000);
         if (!id || !prompt) return [];
-        return [{ id, prompt }];
+        return [{ id, prompt, ...(imagePrompt ? { imagePrompt } : {}) }];
       });
       return prompts.length > 0 ? { type: "visualPrompts", prompts } : null;
     }

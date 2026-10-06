@@ -25,6 +25,7 @@ export function TimelineChart({
   generateLocked,
   onSelect,
   onGenerateVisuals,
+  onGenerateImage,
   onPreviewScript,
   onPreviewVisuals,
   scriptPlayingId,
@@ -42,6 +43,7 @@ export function TimelineChart({
   generateLocked: boolean;
   onSelect: (id: string) => void;
   onGenerateVisuals: (id: string) => void;
+  onGenerateImage: (id: string) => void;
   onPreviewScript: (id: string) => void;
   onPreviewVisuals: (id: string) => void;
   scriptPlayingId: string | null;
@@ -98,7 +100,8 @@ export function TimelineChart({
                 : zebra
                   ? "bg-surface-soft"
                   : "bg-surface";
-              const visualsBusy = busy === `visuals:${scene.id}` || busy === "all-visuals";
+              const clipBusy = busy === `visuals:${scene.id}:clip` || busy === "all-visuals";
+              const imageBusy = busy === `visuals:${scene.id}:image` || busy === "all-visuals";
 
               return (
                 <tr
@@ -131,8 +134,11 @@ export function TimelineChart({
                     <p className="text-sm font-semibold leading-snug text-foreground">
                       {scene.sectionLabel}
                     </p>
-                    <div className="mt-2">
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <Badge tone={sceneStatusTone(scene.status)}>{scene.status}</Badge>
+                      {scene.visuals.clipSource === "still" ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-accent">Still</span>
+                      ) : null}
                     </div>
                   </td>
                   <td className="px-4 py-4">
@@ -159,10 +165,13 @@ export function TimelineChart({
                     <SceneBeatFields
                       scene={scene}
                       column="visuals"
-                      generating={visualsBusy}
-                      generateDisabled={generateLocked && !visualsBusy}
+                      generating={clipBusy}
+                      generatingImage={imageBusy}
+                      generateDisabled={generateLocked && !clipBusy}
+                      generateImageDisabled={generateLocked && !imageBusy}
                       previewDisabled={!sceneVisualPreviewSrc(scene.visuals)}
                       onGenerate={() => onGenerateVisuals(scene.id)}
+                      onGenerateImage={() => onGenerateImage(scene.id)}
                       onPreview={() => onPreviewVisuals(scene.id)}
                     />
                   </td>

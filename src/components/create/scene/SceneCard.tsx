@@ -27,6 +27,9 @@ export function SceneCard({
         <Badge tone={sceneStatusTone(scene.status)}>{scene.status}</Badge>
       </div>
       <p className="mt-1 truncate text-sm font-semibold text-foreground">{scene.sectionLabel}</p>
+      {scene.visuals.clipSource === "still" ? (
+        <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-accent">Still</p>
+      ) : null}
       <p className="mt-1 line-clamp-2 text-xs text-muted">
         {scene.finalScript || "Empty scene"}
       </p>

@@ -77,10 +77,34 @@ function PreviewPlayer({
   autoPlay?: boolean;
   voiceId: string;
 }) {
+  const { dispatch } = useVideoProject();
   const holdRef = useRef(false);
   const { playing, elapsed, total, active, seek, toggle, restart, setPlaying } =
     useTimelinePlayback(scenes, holdRef);
-  const { statusFor, readyFor } = usePreviewVoiceQueue(scenes, active?.index ?? 0, voiceId, true);
+  const rememberVoice = useCallback(
+    (sceneId: string, seconds: number) => {
+      const scene = scenes.find((item) => item.id === sceneId);
+      if (
+        !seconds ||
+        (scene?.editing.voiceSeconds && Math.abs(scene.editing.voiceSeconds - seconds) < 0.05)
+      ) {
+        return;
+      }
+      dispatch({
+        type: "PATCH_SCENE",
+        id: sceneId,
+        patch: { editing: { voiceSeconds: seconds } },
+      });
+    },
+    [scenes, dispatch],
+  );
+  const { statusFor, readyFor } = usePreviewVoiceQueue(
+    scenes,
+    active?.index ?? 0,
+    voiceId,
+    true,
+    rememberVoice,
+  );
   const bufferingVoice = Boolean(active && !readyFor(active.scene));
   const waitingForVoice = Boolean(playing && bufferingVoice);
   const scrubbingRef = useRef(false);

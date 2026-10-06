@@ -5,6 +5,23 @@ import { qwenAudioUrl } from "@/features/qwen/client";
 import { DEFAULT_VOICE_ID, isQwenVoiceId } from "@/features/qwen/contract";
 import type { Scene } from "@/lib/videoProject";
 
+export function measureAudioSeconds(url: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    const audio = new Audio();
+    audio.preload = "metadata";
+    const finish = (seconds: number | null) => {
+      audio.removeAttribute("src");
+      audio.load();
+      resolve(seconds);
+    };
+    audio.onloadedmetadata = () => {
+      finish(Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : null);
+    };
+    audio.onerror = () => finish(null);
+    audio.src = url;
+  });
+}
+
 export function spokenVoiceoverText(script: string) {
   return script
     .replace(/\s*(?:→|->)\s*/g, ". ")

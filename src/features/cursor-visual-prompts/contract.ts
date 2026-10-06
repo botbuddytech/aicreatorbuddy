@@ -1,3 +1,11 @@
+import {
+  normalizeVisualStyle,
+  normalizeVisualStylePrompt,
+  VISUAL_GLOBAL_BLOCK,
+  visualAvoidList,
+  type VisualStyleId,
+} from "@/lib/visualStyles";
+
 export const VISUAL_PROMPT_LIMITS = {
   topic: 2_000,
   title: 500,
@@ -11,6 +19,8 @@ export const VISUAL_PROMPT_LIMITS = {
   maxScenes: 48,
 } as const;
 
+export type VisualClipSource = "direct" | "still";
+
 export type VisualPromptScene = {
   id: string;
   section: string;
@@ -18,6 +28,8 @@ export type VisualPromptScene = {
   durationSeconds: number;
   order: number;
   existingPrompt: string | null;
+  /** Missing values are direct, so older requests keep one clip prompt. */
+  clipSource: VisualClipSource;
 };
 
 export type CursorVisualPromptRequest = {
@@ -28,10 +40,17 @@ export type CursorVisualPromptRequest = {
   scenes: VisualPromptScene[];
   /** Every spoken scene in the video, so each new prompt can continue the previous frame. */
   sequence: VisualPromptScene[];
+  /** Selected look. Null keeps the faceless object film. */
+  styleId: VisualStyleId | null;
+  /**
+   * This video's saved copy of the style prompt.
+   * Null means use the shared library prompt for styleId.
+   */
+  stylePrompt: string | null;
 };
 
 export type CursorVisualPromptResponse = {
-  prompts: Array<{ id: string; prompt: string }>;
+  prompts: Array<{ id: string; prompt: string; imagePrompt: string }>;
   promptUsed: string;
 };
 
@@ -67,7 +86,13 @@ export function parseCursorVisualPromptRequest(value: unknown): CursorVisualProm
   const sequence = Array.isArray(value.sequence) ? parseSceneList(value.sequence) : scenes;
   if (!sequence) return null;
   if (!scenes.every((scene) => sequence.some((item) => item.id === scene.id))) return null;
-  return { topic, title, aspectRatio, scenes, sequence };
+  const styleId = value.styleId == null || value.styleId === "" ? null : normalizeVisualStyle(value.styleId);
+  if (value.styleId != null && value.styleId !== "" && !styleId) return null;
+  const rawStylePrompt = typeof value.stylePrompt === "string" ? value.stylePrompt.trim() : "";
+  const stylePrompt = rawStylePrompt ? normalizeVisualStylePrompt(rawStylePrompt) : null;
+  if (rawStylePrompt && !stylePrompt) return null;
+  if (stylePrompt && !styleId) return null;
+  return { topic, title, aspectRatio, scenes, sequence, styleId, stylePrompt };
 }
 
 function parseSceneList(value: unknown): VisualPromptScene[] | null {
@@ -89,6 +114,13 @@ function parseSceneList(value: unknown): VisualPromptScene[] | null {
     const existingPrompt =
       existingRaw == null ? null : boundedText(existingRaw, VISUAL_PROMPT_LIMITS.existingPrompt, true);
     if (existingRaw != null && existingPrompt === null) return null;
+    const clipSource =
+      candidate.clipSource == null || candidate.clipSource === ""
+        ? "direct"
+        : candidate.clipSource === "direct" || candidate.clipSource === "still"
+          ? candidate.clipSource
+          : null;
+    if (!clipSource) return null;
     if (
       !id ||
       !SCENE_ID.test(id) ||
@@ -110,6 +142,7 @@ function parseSceneList(value: unknown): VisualPromptScene[] | null {
       durationSeconds,
       order,
       existingPrompt: existingPrompt || null,
+      clipSource,
     });
   }
   return scenes;
@@ -123,31 +156,162 @@ function mentionsAspectRatio(prompt: string, aspectRatio: "16:9" | "9:16"): bool
   return prompt.includes(aspectRatio);
 }
 
-/** Keeps one prompt per requested scene and states that scene's clip length and frame. */
+function oneLine(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+/** Channel and studio names. Naming them in the picture prompt makes the model draw the word. */
+const STYLE_NAME_PATTERNS = [
+  /\bin the style of Studio Ghibli\b/gi,
+  /\bStudio Ghibli\b/gi,
+  /\bGhibli\b/gi,
+  /\bin the style of Zack D Films\b/gi,
+  /\bZack D Films\b/gi,
+  /\bZack D\b/gi,
+  /\bin the style of Pixar\b/gi,
+  /\bPixar\b/gi,
+  /\bin the style of Vox\b/gi,
+  /\bVox\b/gi,
+];
+
+function withoutStyleNames(text: string, script: string): string {
+  const spoken = script.toLowerCase();
+  let next = text;
+  for (const pattern of STYLE_NAME_PATTERNS) {
+    next = next.replace(pattern, (match) => (spoken.includes(match.toLowerCase()) ? match : ""));
+  }
+  return next
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+([,.;:])/g, "$1")
+    .replace(/\(\s*\)/g, "")
+    .trim();
+}
+
+/** Short spoken lines are the words the picture has to show, such as "Force majeure". */
+export function shortSpokenLines(script: string): string[] {
+  const clean = script.replace(/\s+/g, " ").trim();
+  if (!clean) return [];
+  return clean
+    .split(/(?<=[.!?])\s+/)
+    .map((part) => part.trim())
+    .filter((part) => {
+      const words = part.replace(/[.!?]+$/g, "").split(/\s+/).filter(Boolean);
+      return words.length > 0 && words.length <= 4;
+    });
+}
+
+function readableWordsBit(body: string, script: string): string {
+  const missing = shortSpokenLines(script).filter((line) => {
+    const bare = line.replace(/[.!?]+$/g, "").trim();
+    return bare && !body.toLowerCase().includes(bare.toLowerCase());
+  });
+  if (missing.length === 0) return "";
+  const quoted = missing.map((line) => `"${line.replace(/[.!?]+$/g, "").trim()}"`).join(", ");
+  return ` Readable on-screen text, spelled exactly: ${quoted}.`;
+}
+
+function styleSentence(body: string, stylePrompt: string | null, script: string): string {
+  const style = stylePrompt ? withoutStyleNames(oneLine(stylePrompt), script) : "";
+  return style && !body.includes(style) ? ` Visual style: ${style}` : "";
+}
+
+function sharedSceneTail(body: string, styleId: VisualStyleId | null): string {
+  const globalBit = body.includes(VISUAL_GLOBAL_BLOCK) ? "" : ` ${VISUAL_GLOBAL_BLOCK}`;
+  const avoid = `avoid: ${visualAvoidList(styleId)}`;
+  const avoidBit = body.toLowerCase().includes("avoid:") ? "" : ` ${avoid}.`;
+  return `${globalBit}${avoidBit}`;
+}
+
+function fitPrompt(body: string, tail: string): string | null {
+  const maxShot = VISUAL_PROMPT_LIMITS.prompt - tail.length;
+  if (maxShot < 40) return null;
+  const trimmed = body.length > maxShot ? body.slice(0, maxShot).trimEnd() : body;
+  const combined = `${trimmed}${tail}`.trim();
+  if (!combined || combined.length > VISUAL_PROMPT_LIMITS.prompt) return null;
+  return combined;
+}
+
+/** Keeps duration, frame, and the selected style inside the prompt limit. */
+export function composeVisualPrompt(
+  shot: string,
+  durationSeconds: number,
+  aspectRatio: "16:9" | "9:16",
+  stylePrompt: string | null,
+  script = "",
+  styleId: VisualStyleId | null = null,
+): string | null {
+  const body = withoutStyleNames(oneLine(shot), script);
+  if (!body) return null;
+  const durationBit = mentionsDuration(body, durationSeconds)
+    ? ""
+    : ` Create a clip of exactly ${durationSeconds} seconds.`;
+  const aspectBit = mentionsAspectRatio(body, aspectRatio) ? "" : ` Aspect ratio ${aspectRatio}.`;
+  const wordsBit = readableWordsBit(body, script);
+  return fitPrompt(
+    body,
+    `${durationBit}${aspectBit}${wordsBit}${styleSentence(body, stylePrompt, script)}${sharedSceneTail(body, styleId)}`,
+  );
+}
+
+/** Opening frame: aspect ratio and style, never a timed clip. */
+function composeStillPrompt(
+  shot: string,
+  aspectRatio: "16:9" | "9:16",
+  stylePrompt: string | null,
+  script = "",
+  styleId: VisualStyleId | null = null,
+): string | null {
+  const body = withoutStyleNames(oneLine(shot), script);
+  if (!body) return null;
+  const aspectBit = mentionsAspectRatio(body, aspectRatio) ? "" : ` Aspect ratio ${aspectRatio}.`;
+  const wordsBit = readableWordsBit(body, script);
+  return fitPrompt(
+    body,
+    `${aspectBit}${wordsBit}${styleSentence(body, stylePrompt, script)}${sharedSceneTail(body, styleId)}`,
+  );
+}
+
+/** Keeps one clip prompt per scene. A still scene also keeps an opening-frame prompt. */
 export function normalizeVisualPrompts(
   value: unknown,
   scenes: readonly VisualPromptScene[],
   aspectRatio: "16:9" | "9:16",
-): Array<{ id: string; prompt: string }> | null {
+  stylePrompt: string | null = null,
+  styleId: VisualStyleId | null = null,
+): Array<{ id: string; prompt: string; imagePrompt: string }> | null {
   if (!isRecord(value) || !Array.isArray(value.prompts)) return null;
   const expected = new Map(scenes.map((scene) => [scene.id, scene]));
-  const found = new Map<string, string>();
+  const found = new Map<string, { prompt: string; imagePrompt: string }>();
   for (const candidate of value.prompts) {
     if (!isRecord(candidate) || found.size > expected.size) continue;
     const id = typeof candidate.id === "string" ? candidate.id.trim() : "";
     const scene = expected.get(id);
     if (!scene || found.has(id) || typeof candidate.prompt !== "string") continue;
-    const prompt = candidate.prompt.replace(/\s+/g, " ").trim();
-    if (!prompt || prompt.length > VISUAL_PROMPT_LIMITS.prompt) continue;
-    const withDuration = mentionsDuration(prompt, scene.durationSeconds)
-      ? prompt
-      : `${prompt} Create a clip of exactly ${scene.durationSeconds} seconds.`;
-    const withFrame = mentionsAspectRatio(withDuration, aspectRatio)
-      ? withDuration
-      : `${withDuration} Aspect ratio ${aspectRatio}.`;
-    if (withFrame.length > VISUAL_PROMPT_LIMITS.prompt) continue;
-    found.set(id, withFrame);
+    if (candidate.imagePrompt != null && typeof candidate.imagePrompt !== "string") return null;
+    const imageText = typeof candidate.imagePrompt === "string" ? oneLine(candidate.imagePrompt) : "";
+    const source = scene.clipSource === "still" ? "still" : "direct";
+    if (source === "direct" && imageText) return null;
+    const prompt = composeVisualPrompt(
+      candidate.prompt,
+      scene.durationSeconds,
+      aspectRatio,
+      stylePrompt,
+      scene.script,
+      styleId,
+    );
+    if (!prompt) continue;
+    if (source === "direct") {
+      found.set(id, { prompt, imagePrompt: "" });
+      continue;
+    }
+    if (!imageText) continue;
+    const imagePrompt = composeStillPrompt(imageText, aspectRatio, stylePrompt, scene.script, styleId);
+    if (!imagePrompt) continue;
+    found.set(id, { prompt, imagePrompt });
   }
   if (found.size !== scenes.length) return null;
-  return scenes.map((scene) => ({ id: scene.id, prompt: found.get(scene.id) ?? "" }));
+  return scenes.map((scene) => {
+    const item = found.get(scene.id);
+    return { id: scene.id, prompt: item?.prompt ?? "", imagePrompt: item?.imagePrompt ?? "" };
+  });
 }

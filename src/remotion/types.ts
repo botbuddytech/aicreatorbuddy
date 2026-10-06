@@ -16,6 +16,8 @@ export type FacelessSceneProps = {
   clipUrl: string | null;
   posterUrl: string | null;
   clipKind: "image" | "video" | null;
+  /** Spoken voice for this scene. Null leaves the export without narration. */
+  voiceoverUrl: string | null;
 };
 
 export type FacelessVideoProps = {

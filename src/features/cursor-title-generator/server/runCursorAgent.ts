@@ -32,6 +32,7 @@ import {
   type CursorVisualPromptRequest,
   type CursorVisualPromptResponse,
 } from "@/features/cursor-visual-prompts/contract";
+import { resolveVisualStylePrompt } from "@/features/cursor-visual-prompts/repo";
 
 const TIMEOUT_MS = 90_000;
 const SCRIPT_TIMEOUT_MS = 180_000;
@@ -582,17 +583,26 @@ function buildVisualPrompt(instruction: string, input: CursorVisualPromptRequest
             ? `Previous scene's picture, match this look exactly:\n${previous.existingPrompt}`
             : `Previous spoken line:\n${previous.script}`
         }`
-      : "This is the first frame of the film. Establish a look with no people that every later scene must keep.";
+      : input.stylePrompt
+        ? "This is the first frame of the film. Establish the visual style so every later scene keeps it."
+        : "This is the first frame of the film. Establish a look with no people that every later scene must keep.";
     const forward = next
       ? `\nNext scene: ${next.order}. ${next.section}. End this clip on a frame that scene can continue.\n${
           next.existingPrompt ? `Next scene's picture:\n${next.existingPrompt}` : `Next spoken line:\n${next.script}`
         }`
       : "";
     const timing = formatSceneTiming(scene.script, scene.durationSeconds);
+    const styleNote = input.stylePrompt
+      ? "Ignore any no-people rule below. The visual style at the end decides who and what appears.\n"
+      : "";
+    const stillNote =
+      scene.clipSource === "still"
+        ? `Clip source: still. imagePrompt is one opening frame in this scene's visual style. No camera move and no duration. prompt starts on that still and moves for ${scene.durationSeconds} seconds. Do not invent a different opening frame.\n`
+        : "Clip source: direct. Write one clip prompt. imagePrompt must be an empty string.\n";
     return `Scene ${scene.order} of ${film.length}
 Scene id: ${scene.id}
 Write a new prompt: ${writeIds.has(scene.id) ? "yes" : "no, context only"}
-${handoff}${forward}
+${stillNote}${styleNote}${handoff}${forward}
 Voice timing for this scene. The picture must follow these holds. When the voice holds, the frame holds:
 ${timing}
 
@@ -603,15 +613,28 @@ ${filled}`;
 This is a writing-only task. Do not create video, inspect files, run commands, browse, or call external tools.
 The scenes above are one continuous film in that order. They must not look like unrelated clips joined together.
 When only some scenes are marked "yes", treat every other scene's existing picture as locked reference. Copy its objects, palette, light, lens, and framing. Do not invent a new visual style for that one scene.
-No people in any prompt. No faces, eyes, hands, bodies, silhouettes, presenters, crowds, or characters. The spoken script is voiceover only and must not appear as a person on screen. Use objects, places, diagrams, machines, nature, light, or abstract motion.
+${
+  input.stylePrompt
+    ? `Visual style for the shot. Write the picture in this look. Do not paste this paragraph into the prompt:
+${input.stylePrompt}
+Show the subjects this style needs. They act inside the scene.
+Do not write the style's name, the studio's name, or the channel's name in the prompt. Describe the look only. The picture must not show that name as a logo, title, watermark, or caption.`
+    : "No style is selected. Do not put people, faces, hands, bodies, silhouettes, presenters, crowds, or characters in the shot. Use objects, places, diagrams, machines, nature, light, or abstract motion."
+}
+Do not write an avoid list, a narration-rules paragraph, or the words "not", "no host", or "no cartoon" as exclusions. Those are added after you write.
+When the spoken line names a word, phrase, ticker, or number, spell that text in the prompt in quotes. Do not hide those words as illegible, unreadable, fake, slabs, or word-shaped blocks.
 Lock one visual world and repeat it in every prompt you write: the same color grade, light, lens, time of day, and environment.
-Each prompt must be specific: the opening frame, what is in the frame, where the camera is, how it moves, and the exact closing frame.
-From the second scene on, the opening frame is the closing frame of the previous scene. Name that handoff. Keep the same objects in the same place in the frame, then continue the motion.
+Each clip prompt must be specific: the opening frame, what is in the frame, where the camera is, how it moves, and the exact closing frame.
+From the second scene on, the opening frame is the closing frame of the previous scene. Name that handoff. Keep the same objects in the same place in the frame, then continue the motion. When the scene is a still, that opening frame is imagePrompt.
 Inside a scene, follow its voice timing. A HOLD is a pause in the voice: do not cut, do not introduce a new action, and hold the current frame for that many seconds.
 Write a new prompt only for the scene ids marked "yes".
-Each of those prompts must say the clip is exactly that scene's duration in seconds and the aspect ratio is exactly ${input.aspectRatio}.
+Each clip prompt must say the clip is exactly that scene's duration in seconds and the aspect ratio is exactly ${input.aspectRatio}.
+For a direct scene, imagePrompt must be an empty string.
+For a still scene, imagePrompt is one opening frame in the same visual style: what is in the frame, the light, and the lens. No camera move, no duration, and do not say "Create a clip". The prompt field starts on that still and moves for the scene length. Do not invent a different opening frame.
+A short spoken line of four words or fewer must appear in the prompt as readable text, in quotes, exactly as spoken. "Force majeure" must be the words Force majeure, not a blank block.
+The same rules apply to imagePrompt and prompt. If a visual style is set, both follow it, including any characters it needs.
 Return only valid JSON in this shape:
-{"prompts":[{"id":"scene id","prompt":"visual prompt"}]}`;
+{"prompts":[{"id":"scene id","prompt":"clip prompt","imagePrompt":""}]}`;
 }
 
 export async function generateVisualPromptsWithCursor(
@@ -619,10 +642,18 @@ export async function generateVisualPromptsWithCursor(
   input: CursorVisualPromptRequest,
   signal?: AbortSignal,
 ): Promise<CursorVisualPromptResponse> {
-  const promptUsed = buildVisualPrompt(instruction, input);
+  const stylePrompt = await resolveVisualStylePrompt(input.styleId, input.stylePrompt);
+  const resolved = { ...input, stylePrompt };
+  const promptUsed = buildVisualPrompt(instruction, resolved);
   const timeoutMs = input.scenes.length > 1 ? SCRIPT_TIMEOUT_MS : TIMEOUT_MS;
   const payload = await runCursorPrompt(promptUsed, signal, timeoutMs);
-  const prompts = normalizeVisualPrompts(payload, input.scenes, input.aspectRatio);
+  const prompts = normalizeVisualPrompts(
+    payload,
+    input.scenes,
+    input.aspectRatio,
+    stylePrompt,
+    input.styleId,
+  );
   if (!prompts) throw new CursorRunnerError("invalid-output");
   return { prompts, promptUsed };
 }

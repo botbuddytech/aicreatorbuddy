@@ -10,11 +10,15 @@ import { ElevenLabsListenButton } from "@/features/elevenlabs/ElevenLabsListenBu
 import { buildClipPoster, clipKindFor } from "@/lib/clipPoster";
 import { deleteClip, putClip } from "@/lib/clipStore";
 import { deleteSceneClipFile, uploadSceneClipFile } from "@/lib/storage/sceneClipUpload";
+import { deleteStartFrameFile, uploadStartFrameFile } from "@/lib/storage/sceneFrameUpload";
 import { trackSessionEvent } from "@/lib/session/telemetry";
-import { sceneDuration, type Scene } from "@/lib/videoProject";
+import { sceneDuration, type ClipSource, type Scene } from "@/lib/videoProject";
 
 const MAX_CLIP_BYTES = 100 * 1024 * 1024;
 const CLIP_ACCEPT = "image/*,video/*";
+const FRAME_ACCEPT = "image/jpeg,image/png,image/webp";
+
+type MediaConfirm = "delete-clip" | "replace-clip" | "delete-frame" | "replace-frame";
 
 function halt(event: SyntheticEvent) {
   event.stopPropagation();
@@ -52,6 +56,40 @@ function ClipUploadProgress({ percent }: { percent: number }) {
   );
 }
 
+function ClipSourceSwitch({
+  value,
+  onChange,
+}: {
+  value: ClipSource;
+  onChange: (value: ClipSource) => void;
+}) {
+  const options = [
+    ["direct", "Direct clip"],
+    ["still", "Image, then clip"],
+  ] as const;
+  return (
+    <div
+      className="inline-flex max-w-full flex-wrap rounded-lg border border-border bg-surface-soft p-0.5"
+      role="group"
+      aria-label="How this scene’s clip is made"
+    >
+      {options.map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          aria-pressed={value === id}
+          onClick={() => onChange(id)}
+          className={`rounded-md px-2.5 py-1 text-[11px] font-semibold ${
+            value === id ? "bg-accent/15 text-accent" : "text-muted hover:text-foreground"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function FieldLabel({ children }: { children: string }) {
   return (
     <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{children}</p>
@@ -64,7 +102,9 @@ export function SceneBeatFields({
   labeled = false,
   hideActions = false,
   generating = false,
+  generatingImage = false,
   generateDisabled,
+  generateImageDisabled,
   previewing = false,
   previewLoading = false,
   previewDisabled = false,
@@ -75,6 +115,7 @@ export function SceneBeatFields({
   voiceLength = null,
   onElevenLabsPreview,
   onGenerate = () => {},
+  onGenerateImage = () => {},
   onPreview = () => {},
 }: {
   scene: Scene;
@@ -83,7 +124,9 @@ export function SceneBeatFields({
   /** Show the script or visuals text without generate, upload, or preview controls. */
   hideActions?: boolean;
   generating?: boolean;
+  generatingImage?: boolean;
   generateDisabled?: boolean;
+  generateImageDisabled?: boolean;
   previewing?: boolean;
   /** Qwen is synthesizing the Listen preview. */
   previewLoading?: boolean;
@@ -96,28 +139,44 @@ export function SceneBeatFields({
   voiceLength?: { provider: "qwen" | "elevenlabs"; seconds: number } | null;
   onElevenLabsPreview?: () => void;
   onGenerate?: () => void;
+  onGenerateImage?: () => void;
   onPreview?: () => void;
 }) {
   const { project, dispatch } = useVideoProject();
   const fileRef = useRef<HTMLInputElement>(null);
+  const frameRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadPercent, setUploadPercent] = useState<number | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [clipConfirm, setClipConfirm] = useState<"delete" | "replace" | null>(null);
+  const [framePercent, setFramePercent] = useState<number | null>(null);
+  const [copied, setCopied] = useState<"image" | "clip" | null>(null);
+  const [mediaConfirm, setMediaConfirm] = useState<MediaConfirm | null>(null);
   const [deletingClip, setDeletingClip] = useState(false);
+  const [deletingFrame, setDeletingFrame] = useState(false);
   const generateLabel = "Generate visuals";
   const clipName = scene.visuals.uploadedClipName;
+  const frameName = scene.visuals.startFrameName;
+  const hasFrame = Boolean(frameName || scene.visuals.startFrameStoragePath || scene.visuals.startFrameUrl);
+  const clipSource: ClipSource = scene.visuals.clipSource === "still" ? "still" : "direct";
 
-  async function copyPrompt() {
-    const prompt = scene.visuals.description.trim();
+  async function copyText(kind: "image" | "clip", value: string) {
+    const prompt = value.trim();
     if (!prompt) return;
     try {
-      await navigator.clipboard.writeText(scene.visuals.description);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
+      await navigator.clipboard.writeText(value);
+      setCopied(kind);
+      window.setTimeout(() => setCopied(null), 1500);
     } catch {
       setUploadError("Could not copy that prompt.");
     }
+  }
+
+  function setClipSource(next: ClipSource) {
+    if (next === clipSource) return;
+    dispatch({
+      type: "PATCH_SCENE",
+      id: scene.id,
+      patch: { visuals: { clipSource: next } },
+    });
   }
 
   function saveScenes(next: Scene[]) {
@@ -235,6 +294,78 @@ export function SceneBeatFields({
     }
   }
 
+  async function onUploadFrame(file: File) {
+    setUploadError(null);
+    if (!file.type.startsWith("image/") || !FRAME_ACCEPT.split(",").includes(file.type)) {
+      setUploadError("Use a JPEG, PNG, or WebP image.");
+      return;
+    }
+    if (file.size > MAX_CLIP_BYTES) {
+      setUploadError("Image must be under 100MB.");
+      return;
+    }
+    const previousPath = scene.visuals.startFrameStoragePath;
+    setFramePercent(0);
+    try {
+      const stored = await uploadStartFrameFile(
+        project.id,
+        scene.id,
+        file,
+        previousPath,
+        setFramePercent,
+      );
+      saveScenes(
+        project.scenes.map((item) =>
+          item.id === scene.id
+            ? {
+                ...item,
+                visuals: {
+                  ...item.visuals,
+                  startFrameId: stored.frameId,
+                  startFrameName: file.name,
+                  startFrameStoragePath: stored.storagePath,
+                  startFrameUrl: stored.url,
+                },
+              }
+            : item,
+        ),
+      );
+    } catch (cause) {
+      setUploadError(cause instanceof Error ? cause.message : "Could not upload that image.");
+    } finally {
+      setFramePercent(null);
+    }
+  }
+
+  async function onRemoveFrame() {
+    const storagePath = scene.visuals.startFrameStoragePath;
+    setUploadError(null);
+    setDeletingFrame(true);
+    try {
+      if (storagePath) await deleteStartFrameFile(project.id, scene.id, storagePath);
+      saveScenes(
+        project.scenes.map((item) =>
+          item.id === scene.id
+            ? {
+                ...item,
+                visuals: {
+                  ...item.visuals,
+                  startFrameId: null,
+                  startFrameName: null,
+                  startFrameStoragePath: null,
+                  startFrameUrl: null,
+                },
+              }
+            : item,
+        ),
+      );
+    } catch (cause) {
+      setUploadError(cause instanceof Error ? cause.message : "Could not delete that image.");
+    } finally {
+      setDeletingFrame(false);
+    }
+  }
+
   return (
     <div className="space-y-2" onClick={halt} onMouseDown={halt}>
       {column === "script" ? (
@@ -250,11 +381,89 @@ export function SceneBeatFields({
         </>
       ) : (
         <>
-          {labeled ? <FieldLabel>Visuals</FieldLabel> : null}
+          <ClipSourceSwitch value={clipSource} onChange={setClipSource} />
+          {clipSource === "still" ? (
+            <>
+              <FieldLabel>Image prompt</FieldLabel>
+              <Textarea
+                aria-label="Image prompt"
+                className="min-h-[5.5rem] text-xs"
+                placeholder="Prompt for the opening still…"
+                value={scene.visuals.imagePrompt}
+                onChange={(event) =>
+                  dispatch({
+                    type: "PATCH_SCENE",
+                    id: scene.id,
+                    patch: { visuals: { imagePrompt: event.target.value }, status: "draft" },
+                  })
+                }
+              />
+              {hideActions ? null : (
+                <ActionButton
+                  size="sm"
+                  loading={generatingImage}
+                  loadingLabel="Generating…"
+                  disabled={generateImageDisabled}
+                  onClick={onGenerateImage}
+                >
+                  Generate image prompt
+                </ActionButton>
+              )}
+              <p className="text-[11px] leading-snug text-muted">
+                Make this image from the prompt, then attach it here.
+              </p>
+              {hasFrame ? (
+                <div className="flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-border bg-surface-soft p-2">
+                  {scene.visuals.startFrameUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={scene.visuals.startFrameUrl}
+                      alt=""
+                      className="h-10 w-16 shrink-0 rounded object-cover"
+                    />
+                  ) : null}
+                  <p className="min-w-0 flex-1 truncate text-[11px] text-muted" title={frameName ?? undefined}>
+                    {frameName || "Start image"}
+                  </p>
+                  <button
+                    type="button"
+                    aria-label={deletingFrame ? "Deleting start image" : "Delete start image"}
+                    title={deletingFrame ? "Deleting start image" : "Delete start image"}
+                    disabled={framePercent !== null || deletingFrame}
+                    onClick={() => setMediaConfirm("delete-frame")}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-accent hover:bg-accent/10 ${deletingFrame ? "" : "disabled:opacity-40"}`}
+                  >
+                    {deletingFrame ? <ClipDeleteSpinner /> : <TrashIcon />}
+                  </button>
+                </div>
+              ) : (
+                <ActionButton
+                  size="sm"
+                  variant="secondary"
+                  disabled={framePercent !== null}
+                  onClick={() => frameRef.current?.click()}
+                >
+                  Upload start image
+                </ActionButton>
+              )}
+              {framePercent !== null ? <ClipUploadProgress percent={framePercent} /> : null}
+              <FieldLabel>Clip prompt</FieldLabel>
+              <p className="text-[11px] leading-snug text-muted">
+                Use this prompt together with the start image to make the clip.
+              </p>
+            </>
+          ) : (
+            <>
+              {labeled ? <FieldLabel>Visuals</FieldLabel> : null}
+              <p className="text-[11px] leading-snug text-muted">
+                One prompt becomes the clip, in the timeline’s style.
+              </p>
+            </>
+          )}
           <Textarea
-            aria-label="Visuals"
+            aria-label={clipSource === "still" ? "Clip prompt" : "Visuals"}
             className="min-h-[6rem] text-xs"
-            placeholder="Visual prompt for this clip…"
+            placeholder={clipSource === "still" ? "Prompt for the clip that starts from the image…" : "Visual prompt for this clip…"}
             value={scene.visuals.description}
             onChange={(event) =>
               dispatch({
@@ -286,7 +495,7 @@ export function SceneBeatFields({
                 aria-busy={deletingClip}
                 title={deletingClip ? "Deleting clip" : "Delete clip"}
                 disabled={uploadPercent !== null || deletingClip}
-                onClick={() => setClipConfirm("delete")}
+                onClick={() => setMediaConfirm("delete-clip")}
                 className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-accent hover:bg-accent/10 ${deletingClip ? "" : "disabled:opacity-40"}`}
               >
                 {deletingClip ? <ClipDeleteSpinner /> : <TrashIcon />}
@@ -297,6 +506,7 @@ export function SceneBeatFields({
       )}
 
       {hideActions || column === "script" ? null : (
+      <>
       <input
         ref={fileRef}
         type="file"
@@ -308,6 +518,18 @@ export function SceneBeatFields({
           event.target.value = "";
         }}
       />
+      <input
+        ref={frameRef}
+        type="file"
+        accept={FRAME_ACCEPT}
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) void onUploadFrame(file);
+          event.target.value = "";
+        }}
+      />
+      </>
       )}
 
       {hideActions ? null : (
@@ -339,7 +561,7 @@ export function SceneBeatFields({
               disabled={generateDisabled}
               onClick={onGenerate}
             >
-              {labeled ? generateLabel : "Generate"}
+              {clipSource === "still" ? "Generate clip" : labeled ? generateLabel : "Generate"}
             </ActionButton>
             <ActionButton
               size="sm"
@@ -347,7 +569,7 @@ export function SceneBeatFields({
               disabled={uploadPercent !== null}
               onClick={() => {
                 if (clipName || scene.visuals.uploadedClipStoragePath || scene.visuals.uploadedClipUrl) {
-                  setClipConfirm("replace");
+                  setMediaConfirm("replace-clip");
                   return;
                 }
                 fileRef.current?.click();
@@ -376,14 +598,38 @@ export function SceneBeatFields({
         </ActionButton>
         )}
         {column === "script" ? null : (
-          <ActionButton
-            size="sm"
-            variant="secondary"
-            disabled={!scene.visuals.description.trim()}
-            onClick={() => void copyPrompt()}
-          >
-            {copied ? "Copied" : "Copy"}
-          </ActionButton>
+          <>
+            <ActionButton
+              size="sm"
+              variant="secondary"
+              disabled={!scene.visuals.description.trim()}
+              onClick={() => void copyText("clip", scene.visuals.description)}
+            >
+              {copied === "clip" ? "Copied" : clipSource === "still" ? "Copy clip" : "Copy"}
+            </ActionButton>
+            {clipSource === "still" ? (
+              <>
+                <ActionButton
+                  size="sm"
+                  variant="secondary"
+                  disabled={!scene.visuals.imagePrompt.trim()}
+                  onClick={() => void copyText("image", scene.visuals.imagePrompt)}
+                >
+                  {copied === "image" ? "Copied" : "Copy image"}
+                </ActionButton>
+                {hasFrame ? (
+                  <ActionButton
+                    size="sm"
+                    variant="secondary"
+                    disabled={framePercent !== null || deletingFrame}
+                    onClick={() => setMediaConfirm("replace-frame")}
+                  >
+                    Replace image
+                  </ActionButton>
+                ) : null}
+              </>
+            ) : null}
+          </>
         )}
         {column === "script" && onElevenLabsPreview ? (
           <>
@@ -409,20 +655,42 @@ export function SceneBeatFields({
       )}
       {column === "script" ? null : (
         <ConfirmModal
-          open={clipConfirm !== null}
-          title={clipConfirm === "replace" ? "Replace this clip?" : "Delete this clip?"}
-          description={
-            clipConfirm === "replace"
-              ? "The current video will be permanently deleted from storage and from this scene, then replaced with the new file. The old clip cannot be retrieved."
-              : "This permanently deletes the video from this scene, from storage, and from the database. It cannot be retrieved."
+          open={mediaConfirm !== null}
+          title={
+            mediaConfirm === "replace-clip"
+              ? "Replace this clip?"
+              : mediaConfirm === "delete-frame"
+                ? "Delete this start image?"
+                : mediaConfirm === "replace-frame"
+                  ? "Replace this start image?"
+                  : "Delete this clip?"
           }
-          confirmLabel={clipConfirm === "replace" ? "Replace clip" : "Delete clip"}
-          onClose={() => setClipConfirm(null)}
+          description={
+            mediaConfirm === "replace-clip"
+              ? "The current video will be permanently deleted from storage and from this scene, then replaced with the new file. The old clip cannot be retrieved."
+              : mediaConfirm === "delete-frame"
+                ? "This permanently deletes the start image from this scene and from storage. It cannot be retrieved."
+                : mediaConfirm === "replace-frame"
+                  ? "The current start image will be permanently deleted from storage and from this scene, then replaced with the new file. The old image cannot be retrieved."
+                  : "This permanently deletes the video from this scene, from storage, and from the database. It cannot be retrieved."
+          }
+          confirmLabel={
+            mediaConfirm === "replace-clip"
+              ? "Replace clip"
+              : mediaConfirm === "delete-frame"
+                ? "Delete image"
+                : mediaConfirm === "replace-frame"
+                  ? "Replace image"
+                  : "Delete clip"
+          }
+          onClose={() => setMediaConfirm(null)}
           onConfirm={() => {
-            const action = clipConfirm;
-            setClipConfirm(null);
-            if (action === "delete") void onRemoveClip();
-            if (action === "replace") fileRef.current?.click();
+            const action = mediaConfirm;
+            setMediaConfirm(null);
+            if (action === "delete-clip") void onRemoveClip();
+            if (action === "replace-clip") fileRef.current?.click();
+            if (action === "delete-frame") void onRemoveFrame();
+            if (action === "replace-frame") frameRef.current?.click();
           }}
         />
       )}

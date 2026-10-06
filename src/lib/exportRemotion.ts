@@ -59,6 +59,10 @@ export async function exportProjectWithRemotion(
     onProgress?: (progress: ExportProgress) => void;
     signal?: AbortSignal;
     download?: boolean;
+    /** Spoken track for each scene id. The MP4 is silent when this is omitted. */
+    voiceoverUrls?: Record<string, string>;
+    /** Spoken length for each scene. A longer clip is cut here; a shorter clip holds its last frame. */
+    voiceoverSeconds?: Record<string, number>;
   },
 ): Promise<ExportResult> {
   if (project.scenes.length === 0) {
@@ -71,7 +75,12 @@ export async function exportProjectWithRemotion(
   const { urls, revoke } = await resolveClipUrls(clipIds);
 
   try {
-    const inputProps = buildInputProps(project, urls);
+    const inputProps = buildInputProps(
+      project,
+      urls,
+      options?.voiceoverUrls,
+      options?.voiceoverSeconds,
+    );
     const meta = playerCompositionMeta(inputProps);
     const totalFrames = meta.durationInFrames;
     const title =
@@ -82,6 +91,8 @@ export async function exportProjectWithRemotion(
     const capability = await canRenderMediaOnWeb({
       container: "mp4",
       videoCodec: "h264",
+      audioCodec: "aac",
+      muted: false,
       width: meta.compositionWidth,
       height: meta.compositionHeight,
     });
@@ -112,6 +123,8 @@ export async function exportProjectWithRemotion(
       inputProps,
       container: "mp4",
       videoCodec: "h264",
+      audioCodec: "aac",
+      muted: false,
       signal: options?.signal,
       pageResponsiveness: "medium",
       metadata: {

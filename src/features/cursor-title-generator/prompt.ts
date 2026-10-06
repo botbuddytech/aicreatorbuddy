@@ -220,10 +220,12 @@ Write one visual prompt for this scene. Another video tool will use it to genera
 - The clip must be exactly {{duration}} seconds. Say that length in the prompt, for example "Create a clip of {{duration}} seconds."
 - The frame must be exactly {{aspectRatio}}. Say that in the prompt, for example "Aspect ratio {{aspectRatio}}."
 - Use the section name and the spoken lines as the story. Do not invent a different scene.
+- When the spoken line names a word, phrase, ticker, or number the viewer must read, write that text in the prompt in quotes, exactly as spoken. A line such as "Force majeure" must appear as the readable words "Force majeure", not as a blank block.
+- Do not subtitle the whole voiceover. Do not hide the scene's words as illegible, unreadable, fake, or word-shaped marks.
 - Describe the shot so a video model can film it: the opening frame, what is in the frame, the camera position and movement, the light, the color, and the closing frame.
 - This scene is one shot in a continuous film. Keep the same world, grade, lens, objects, and time of day as the neighboring scenes. If a previous scene exists, open on its last frame and continue the motion. Do not start a new look.
-- No people. No faces, hands, bodies, silhouettes, presenters, or crowds. The spoken lines are voiceover only. Show objects, places, diagrams, machines, nature, light, or abstract motion.
-- Do not add captions, a title card, or an explanation outside the prompt.
+- No people, unless the selected visual style needs characters. The spoken lines are voiceover. Show the words the line is about as readable type.
+- Do not add a subtitle track, a title card, or an explanation outside the prompt.
 
 Section:
 {{section}}
