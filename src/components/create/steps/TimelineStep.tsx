@@ -10,9 +10,10 @@ import { LowEffortCheck } from "@/components/create/LowEffortCheck";
 import { SceneBeatFields } from "@/components/create/scene/SceneBeatFields";
 import { SceneCard } from "@/components/create/scene/SceneCard";
 import { SceneVisualPreviewModal } from "@/components/create/scene/SceneVisualPreviewModal";
-import { TimelineChart } from "@/components/create/scene/TimelineChart";
+import { TimelineChart, type VoiceLength } from "@/components/create/scene/TimelineChart";
 import { StepFixModal } from "@/components/create/StepFixModal";
 import { ElevenLabsVoiceSelect } from "@/features/elevenlabs/ElevenLabsVoiceSelect";
+import { QwenVoiceSelect } from "@/features/qwen/QwenVoiceSelect";
 import { useElevenLabsPreview } from "@/features/elevenlabs/useElevenLabsPreview";
 import { MAX_PREVIEW_CHARS } from "@/features/elevenlabs/contract";
 import { useCursorVisualPromptGeneration } from "@/features/cursor-visual-prompts/VisualPromptActions";
@@ -183,8 +184,19 @@ function PencilIcon() {
 
 export function TimelineStep() {
   const { project, dispatch, previewOpen } = useVideoProject();
-  const voiceover = useVoiceoverPreview();
-  const elevenLabs = useElevenLabsPreview();
+  const [voiceLengths, setVoiceLengths] = useState<Record<string, VoiceLength>>({});
+  const voiceover = useVoiceoverPreview((sceneId, seconds) => {
+    setVoiceLengths((current) => ({
+      ...current,
+      [sceneId]: { provider: "qwen", seconds },
+    }));
+  });
+  const elevenLabs = useElevenLabsPreview((sceneId, seconds) => {
+    setVoiceLengths((current) => ({
+      ...current,
+      [sceneId]: { provider: "elevenlabs", seconds },
+    }));
+  });
   const [selectedId, setSelectedId] = useState(project.scenes[0]?.id ?? "");
   const [view, setView] = useState<"strip" | "chart">("chart");
   const [preview, setPreview] = useState<PreviewTarget | null>(null);
@@ -374,7 +386,7 @@ export function TimelineStep() {
     elevenLabs.stop();
     const scene = project.scenes.find((item) => item.id === id);
     if (!scene) return;
-    voiceover.preview(scene);
+    voiceover.preview(scene, project.qwenVoice.voiceId);
   }
 
   function previewElevenLabs(id: string) {
@@ -591,6 +603,13 @@ export function TimelineStep() {
               </button>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <QwenVoiceSelect
+                value={project.qwenVoice}
+                onChange={(voice) => {
+                  voiceover.stop();
+                  dispatch({ type: "SET_QWEN_VOICE", voice });
+                }}
+              />
               <ElevenLabsVoiceSelect
                 value={project.elevenLabsVoice}
                 onChange={(voice) => {
@@ -643,6 +662,18 @@ export function TimelineStep() {
             </div>
           </div>
 
+          {voiceover.loadingId ? (
+            <p className="flex items-center gap-2 rounded-xl bg-accent/10 px-3 py-2 text-sm text-foreground">
+              <span
+                className="h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent text-accent"
+                aria-hidden
+              />
+              <span>
+                Building this scene’s voice from the script. Nothing plays until it’s ready.
+                <span className="ml-1 tabular-nums text-muted">{voiceover.loadingSeconds}s</span>
+              </span>
+            </p>
+          ) : null}
           {voiceover.error ? (
             <p className="text-sm text-accent">{voiceover.error}</p>
           ) : null}
@@ -666,10 +697,12 @@ export function TimelineStep() {
               onPreviewScript={previewVoiceover}
               onPreviewVisuals={previewVisual}
               scriptPlayingId={voiceover.playingId}
+              scriptLoadingId={voiceover.loadingId}
               elevenLabsPlayingId={elevenLabs.playingId}
               elevenLabsLoadingId={elevenLabs.loadingId}
               elevenLabsDisabled={!project.elevenLabsVoice}
               elevenLabsDurations={elevenLabs.durations}
+              voiceLengths={voiceLengths}
               onElevenLabsPreview={previewElevenLabs}
             />
           ) : (
@@ -730,6 +763,7 @@ export function TimelineStep() {
                 column="script"
                 labeled
                 previewing={voiceover.playingId === selected.id}
+                previewLoading={voiceover.loadingId === selected.id}
                 previewDisabled={!selected.finalScript.trim()}
                 onPreview={() => previewVoiceover(selected.id)}
                 elevenLabsPlaying={elevenLabs.playingId === selected.id}
@@ -739,6 +773,7 @@ export function TimelineStep() {
                   spokenVoiceoverText(selected.finalScript).length > MAX_PREVIEW_CHARS
                 }
                 elevenLabsVoiceSeconds={elevenLabs.durations[selected.id] ?? null}
+                voiceLength={voiceLengths[selected.id] ?? null}
                 onElevenLabsPreview={() => previewElevenLabs(selected.id)}
               />
               <SceneBeatFields

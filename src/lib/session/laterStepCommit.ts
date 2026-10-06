@@ -1,8 +1,11 @@
 import {
+  DEFAULT_QWEN_VOICE,
   normalizeElevenLabsVoice,
+  normalizeQwenVoice,
   type EditorSettings,
   type ElevenLabsVoice,
   type LowEffortReport,
+  type QwenVoice,
   type Scene,
   type ScriptScore,
   type StepId,
@@ -47,6 +50,7 @@ type ScriptCommit = {
 type TimelineCommit = {
   scenes: Scene[];
   elevenLabsVoice: ElevenLabsVoice | null;
+  qwenVoice: QwenVoice;
   provider: VideoProject["providerByStep"]["timeline"];
   stepStatus: StepStatus;
   lowEffort: LowEffortReport | undefined;
@@ -156,6 +160,7 @@ export function applyLaterSteps(project: VideoProject, commit: LaterStepsCommit)
     scriptScore: commit.script.scriptScore,
     scenes: commit.timeline.scenes,
     elevenLabsVoice: commit.timeline.elevenLabsVoice,
+    qwenVoice: commit.timeline.qwenVoice,
     description: commit.description.description,
     tags: commit.description.tags,
     renderedAt: commit.render.renderedAt,
@@ -212,6 +217,7 @@ function timelineSlice(project: VideoProject, stepStatus: StepStatus): TimelineC
   return {
     scenes: structuredClone(project.scenes),
     elevenLabsVoice: normalizeElevenLabsVoice(project.elevenLabsVoice),
+    qwenVoice: normalizeQwenVoice(project.qwenVoice) ?? DEFAULT_QWEN_VOICE,
     provider: project.providerByStep.timeline,
     stepStatus,
     lowEffort: project.lowEffortByStep.timeline
@@ -276,6 +282,7 @@ function timelineSignature(commit: TimelineCommit): string {
     provider: commit.provider ?? null,
     scenes: commit.scenes,
     elevenLabsVoice: commit.elevenLabsVoice,
+    qwenVoice: commit.qwenVoice,
     lowEffort: commit.lowEffort ?? null,
   });
 }

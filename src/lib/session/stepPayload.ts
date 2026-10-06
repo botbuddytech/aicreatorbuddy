@@ -4,6 +4,7 @@ import type {
   AspectRatio,
   EditorSettings,
   ElevenLabsVoice,
+  QwenVoice,
   Scene,
   ScriptScore,
   StepId,
@@ -18,11 +19,13 @@ import type {
 } from "@/lib/videoProject";
 import {
   createEmptyProject,
+  DEFAULT_QWEN_VOICE,
   isStepId,
   referenceTitleFromMetadata,
   normalizeApiCosts,
   normalizeEditorSettings,
   normalizeElevenLabsVoice,
+  normalizeQwenVoice,
   normalizeScenes,
   normalizeScriptScore,
   normalizeStepStatus,
@@ -75,6 +78,7 @@ export type ScriptStepPayload = {
 export type TimelineStepPayload = {
   scenes: Scene[];
   elevenLabsVoice?: ElevenLabsVoice | null;
+  qwenVoice?: QwenVoice | null;
 };
 
 export type DescriptionStepPayload = {
@@ -278,6 +282,7 @@ export function buildStepPayloads(project: VideoProject): {
     timeline: {
       scenes: project.scenes,
       elevenLabsVoice: project.elevenLabsVoice,
+      qwenVoice: project.qwenVoice,
     },
     description: {
       description: project.description,
@@ -477,6 +482,7 @@ export function projectFromSessionDocuments(docs: SessionDocuments): VideoProjec
     if (payload) {
       base.scenes = normalizeScenes(payload.scenes);
       base.elevenLabsVoice = normalizeElevenLabsVoice(payload.elevenLabsVoice);
+      base.qwenVoice = normalizeQwenVoice(payload.qwenVoice) ?? DEFAULT_QWEN_VOICE;
     }
   }
 

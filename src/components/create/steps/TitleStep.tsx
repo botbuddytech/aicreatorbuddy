@@ -8,7 +8,6 @@ import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { GenerateBar } from "@/components/create/GenerateBar";
-import { IntroductionGlimpse } from "@/components/create/PriorStepGlimpse";
 import { OptionCard } from "@/components/create/OptionCard";
 import { ManualTitleModal } from "@/components/create/ManualTitleModal";
 import { StepFixModal } from "@/components/create/StepFixModal";
@@ -191,7 +190,6 @@ export function TitleStep() {
 
   return (
     <div className="space-y-4">
-      <IntroductionGlimpse summary={project.summary} />
       <div className="rounded-2xl border border-border bg-surface p-5">
         <h3 className="font-display text-lg font-semibold text-foreground">Title generation</h3>
         <p className="mt-1 text-sm text-muted">

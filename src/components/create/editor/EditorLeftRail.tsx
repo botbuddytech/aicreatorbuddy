@@ -1,9 +1,8 @@
 "use client";
 
-import { ActionButton } from "@/components/ui/ActionButton";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
-import { VoicePicker } from "@/components/create/scene/VoicePicker";
+import { ListenButton } from "@/components/create/scene/ListenButton";
 import { useVoiceoverPreview } from "@/components/create/useVoiceoverPreview";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { mockMusicTracks, mockStockClips } from "@/lib/mockAi";
@@ -199,24 +198,22 @@ export function EditorLeftRail({
               </p>
               {scene ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <ActionButton
-                    size="sm"
-                    variant="secondary"
+                  <ListenButton
+                    playing={voiceover.playingId === scene.id}
+                    loading={voiceover.loadingId === scene.id}
                     disabled={!scene.finalScript.trim()}
-                    onClick={() => voiceover.preview(scene)}
-                  >
-                    {voiceover.playingId === scene.id ? "Stop" : "Listen"}
-                  </ActionButton>
-                  <VoicePicker
-                    scene={scene}
-                    onVoiceChange={() => {
-                      if (voiceover.playingId === scene.id) voiceover.stop();
-                    }}
+                    onClick={() => voiceover.preview(scene, project.qwenVoice.voiceId)}
                   />
                 </div>
               ) : (
                 <p className="text-xs text-muted">Select a clip first.</p>
               )}
+              {voiceover.loadingId ? (
+                <p className="mt-1 text-xs text-muted">
+                  Building this clip’s voice. Nothing plays until it’s ready.
+                  <span className="ml-1 tabular-nums">{voiceover.loadingSeconds}s</span>
+                </p>
+              ) : null}
               {voiceover.error ? (
                 <p className="mt-1 text-xs text-accent">{voiceover.error}</p>
               ) : null}

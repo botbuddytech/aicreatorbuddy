@@ -149,4 +149,20 @@ describe("laterStepCommit", () => {
     project.elevenLabsVoice = { voiceId: "EXAVITQu4vr4xnSDxMaL", name: "Sarah" };
     assert.equal(laterStepMatches(project, saved, "timeline"), false);
   });
+
+  it("stores the selected Qwen demo voice with the timeline", () => {
+    const project = createEmptyProject({ name: "Draft" });
+    project.qwenVoice = { voiceId: "Aiden", name: "Aiden (English)" };
+    const saved = withLaterStep(
+      captureLaterStepsCommit(createEmptyProject({ name: "Draft" })),
+      project,
+      "timeline",
+      "approved",
+    );
+    const stored = applyLaterSteps(createEmptyProject({ name: "Draft" }), saved);
+    assert.deepEqual(stored.qwenVoice, {
+      voiceId: "Aiden",
+      name: "Aiden (English)",
+    });
+  });
 });

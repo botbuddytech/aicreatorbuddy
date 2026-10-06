@@ -65,6 +65,7 @@ export function EditorWorkspace() {
     enabled: Boolean(hasVoiceover),
     sceneLocalSeconds,
     syncKey: voiceSyncKey,
+    voiceId: project.qwenVoice.voiceId,
   });
 
   const selected =
@@ -190,7 +191,7 @@ export function EditorWorkspace() {
   function togglePlay() {
     const player = playerRef.current;
     if (!player || total <= 0) return;
-    // Play click is the user gesture speechSynthesis / VO audio need.
+    // Play click is the user gesture voice playback needs.
     setVoiceUnlocked(true);
     if (elapsed >= total - 0.05) {
       setVoiceSyncKey((value) => value + 1);

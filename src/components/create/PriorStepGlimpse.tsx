@@ -3,13 +3,19 @@
 import { useState, type ReactNode } from "react";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Modal } from "@/components/ui/Modal";
+import { useVideoProject } from "@/components/create/VideoProjectProvider";
+import { spokenVoiceoverText } from "@/lib/sceneVoiceover";
 import { savedTitlesForDisplay, type TitleCommit } from "@/lib/session/summaryCommit";
 import {
   FORMAT_LABELS,
   INTENT_LABELS,
   PROVIDER_LABELS,
+  STEPS,
   type ReferenceVideo,
+  type StepId,
+  type ThumbnailOption,
   type TitleOption,
+  type VideoProject,
   type VideoSummary,
 } from "@/lib/videoProject";
 
@@ -54,14 +60,67 @@ function PriorStepPanel({
   );
 }
 
-export function IntroductionGlimpse({ summary }: { summary: VideoSummary }) {
+export function PreviousSteps({ step }: { step: StepId }) {
+  const { project, savedTitle } = useVideoProject();
+  const index = STEPS.findIndex((item) => item.id === step);
+  const prior = index > 0 ? STEPS.slice(0, index) : [];
+  if (prior.length === 0) return null;
+
+  return (
+    <PriorStepPanel id="previous-steps-panel" title="Previous steps">
+      <div className="divide-y divide-border">
+        {prior.map((item, sectionIndex) => (
+          <section key={item.id} className="py-5 first:pt-0 last:pb-0">
+            <p className="text-sm font-semibold text-foreground">
+              {sectionIndex + 1}. {item.label}
+            </p>
+            <div className="mt-3">
+              <StepFacts id={item.id} project={project} savedTitle={savedTitle} />
+            </div>
+          </section>
+        ))}
+      </div>
+    </PriorStepPanel>
+  );
+}
+
+function StepFacts({
+  id,
+  project,
+  savedTitle,
+}: {
+  id: StepId;
+  project: VideoProject;
+  savedTitle: TitleCommit | null;
+}) {
+  switch (id) {
+    case "summary":
+      return <IntroductionFacts summary={project.summary} />;
+    case "title":
+      return <SavedTitleFactsList commit={savedTitle} />;
+    case "thumbnail":
+      return <ThumbnailFacts project={project} />;
+    case "script":
+      return <ScriptFacts project={project} />;
+    case "timeline":
+      return <TimelineFacts project={project} />;
+    case "description":
+      return <DescriptionFacts project={project} />;
+    case "render":
+      return <RenderFacts project={project} />;
+    case "editor":
+      return null;
+  }
+}
+
+function IntroductionFacts({ summary }: { summary: VideoSummary }) {
   const topic = summary.topic.trim();
   const references = summary.references.filter(
     (reference) => reference.url.trim() || reference.title.trim(),
   );
 
   return (
-    <PriorStepPanel id="video-introduction-panel" title="From step 1 (Video introduction)">
+    <>
       <dl className="grid gap-3 sm:grid-cols-2">
         <div>
           <dt className="text-[10px] font-bold uppercase tracking-wide text-muted">Video type</dt>
@@ -96,7 +155,7 @@ export function IntroductionGlimpse({ summary }: { summary: VideoSummary }) {
           </ul>
         )}
       </div>
-    </PriorStepPanel>
+    </>
   );
 }
 
@@ -107,7 +166,7 @@ function scoreGrade(score: number): "A" | "B" | "C" | "D" {
   return "D";
 }
 
-function titleSourceLabel(provider: TitleOption["provider"]): string {
+function sourceLabel(provider: TitleOption["provider"] | ThumbnailOption["provider"]): string {
   if (provider === "cursor") return "Cursor";
   if (provider === "vidiq") return "vidIQ";
   if (provider === "manual") return "Manual";
@@ -141,9 +200,7 @@ function SavedTitleFacts({ title }: { title: TitleOption }) {
       </div>
       <div>
         <dt className="text-[10px] font-bold uppercase tracking-wide text-muted">Source</dt>
-        <dd className="mt-0.5 text-sm font-semibold text-foreground">
-          {titleSourceLabel(title.provider)}
-        </dd>
+        <dd className="mt-0.5 text-sm font-semibold text-foreground">{sourceLabel(title.provider)}</dd>
       </div>
       {score ? (
         <>
@@ -169,21 +226,150 @@ function SavedTitleFacts({ title }: { title: TitleOption }) {
   );
 }
 
-export function SavedTitleGlimpse({ commit }: { commit: TitleCommit | null }) {
+function SavedTitleFactsList({ commit }: { commit: TitleCommit | null }) {
   const titles = savedTitlesForDisplay(commit);
 
+  if (titles.length === 0) {
+    return <p className="text-sm text-muted">Not saved yet</p>;
+  }
+
   return (
-    <PriorStepPanel id="saved-title-panel" title="From step 2 (Title)">
-      {titles.length === 0 ? (
-        <p className="text-sm text-muted">Not saved yet</p>
-      ) : (
-        <div className="space-y-4">
-          {titles.map((title) => (
-            <SavedTitleFacts key={title.id} title={title} />
-          ))}
+    <div className="space-y-4">
+      {titles.map((title) => (
+        <SavedTitleFacts key={title.id} title={title} />
+      ))}
+    </div>
+  );
+}
+
+function ThumbnailFacts({ project }: { project: VideoProject }) {
+  const thumbnail = project.thumbnails.find((item) => item.id === project.selectedThumbnailId);
+  const concept = thumbnail?.concept.trim() ?? "";
+
+  if (!thumbnail) {
+    return <p className="text-sm text-muted">Not saved yet</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <dl className="grid gap-3 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <dt className="text-[10px] font-bold uppercase tracking-wide text-muted">Concept</dt>
+          <dd
+            className={`mt-0.5 text-sm ${concept ? "font-semibold text-foreground" : "text-muted"}`}
+          >
+            {concept || "Not entered yet"}
+          </dd>
         </div>
-      )}
-    </PriorStepPanel>
+        <div>
+          <dt className="text-[10px] font-bold uppercase tracking-wide text-muted">Source</dt>
+          <dd className="mt-0.5 text-sm font-semibold text-foreground">
+            {thumbnail.provider === "manual" ? "Custom" : sourceLabel(thumbnail.provider)}
+          </dd>
+        </div>
+      </dl>
+      {thumbnail.customUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={thumbnail.customUrl}
+          alt={concept || "Selected thumbnail"}
+          className="aspect-video w-full max-w-xs rounded-xl object-cover"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ScriptFacts({ project }: { project: VideoProject }) {
+  const script = project.fullScript;
+  if (!script.trim()) {
+    return <p className="text-sm text-muted">Not saved yet</p>;
+  }
+
+  return (
+    <div className="max-h-64 overflow-y-auto rounded-xl border border-border bg-background px-3 py-2.5">
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{script}</p>
+    </div>
+  );
+}
+
+function TimelineFacts({ project }: { project: VideoProject }) {
+  const scenes = project.scenes;
+  if (scenes.length === 0) {
+    return <p className="text-sm text-muted">Not saved yet</p>;
+  }
+
+  return (
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-wide text-muted">
+        {scenes.length} {scenes.length === 1 ? "scene" : "scenes"}
+      </p>
+      <ul className="mt-2 max-h-64 space-y-3 overflow-y-auto">
+        {scenes.map((scene) => {
+          const label = scene.sectionLabel.trim();
+          const spoken = spokenVoiceoverText(scene.finalScript);
+          return (
+            <li key={scene.id}>
+              <p className="text-sm font-semibold text-foreground">
+                {label || `Scene ${scene.order + 1}`}
+              </p>
+              <p className={`mt-0.5 text-sm ${spoken ? "text-foreground" : "text-muted"}`}>
+                {spoken || "No spoken line"}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function DescriptionFacts({ project }: { project: VideoProject }) {
+  const description = project.description.trim();
+  const tags = project.tags.map((tag) => tag.trim()).filter(Boolean);
+  if (!description && tags.length === 0) {
+    return <p className="text-sm text-muted">Not saved yet</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Description</p>
+        {description ? (
+          <div className="mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-border bg-background px-3 py-2.5">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+              {project.description}
+            </p>
+          </div>
+        ) : (
+          <p className="mt-0.5 text-sm text-muted">Not saved yet</p>
+        )}
+      </div>
+      <div>
+        <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Tags</p>
+        <p className={`mt-0.5 text-sm ${tags.length ? "font-medium text-foreground" : "text-muted"}`}>
+          {tags.length ? tags.join(", ") : "None added"}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function RenderFacts({ project }: { project: VideoProject }) {
+  if (!project.renderedAt) {
+    return <p className="text-sm text-muted">Not rendered yet</p>;
+  }
+
+  const rendered = new Date(project.renderedAt);
+  const label = Number.isNaN(rendered.getTime())
+    ? project.renderedAt
+    : rendered.toLocaleString();
+
+  return (
+    <dl>
+      <dt className="text-[10px] font-bold uppercase tracking-wide text-muted">Rendered</dt>
+      <dd className="mt-0.5 text-sm font-semibold text-foreground">{label}</dd>
+    </dl>
   );
 }
 

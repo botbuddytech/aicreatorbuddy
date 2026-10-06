@@ -54,6 +54,7 @@ import {
   emptyEditorSettings,
   inferStepStatus,
   normalizeElevenLabsVoice,
+  normalizeQwenVoice,
   isStepId,
   newId,
   reindexScenes,
@@ -63,6 +64,7 @@ import {
   type EditorSettings,
   type ElevenLabsVoice,
   type LowEffortReport,
+  type QwenVoice,
   type Scene,
   type ScriptScore,
   type StepId,
@@ -114,7 +116,8 @@ export type ProjectAction =
   | { type: "UPDATE_EDITOR"; patch: Partial<EditorSettings> }
   | { type: "CONFIRM_EDIT" }
   | { type: "SET_LOW_EFFORT_REPORT"; report: LowEffortReport }
-  | { type: "SET_ELEVENLABS_VOICE"; voice: ElevenLabsVoice | null };
+  | { type: "SET_ELEVENLABS_VOICE"; voice: ElevenLabsVoice | null }
+  | { type: "SET_QWEN_VOICE"; voice: QwenVoice };
 
 function applyScenePatch(scene: Scene, patch: ScenePatch): Scene {
   return {
@@ -357,6 +360,11 @@ function reduceProject(
       return {
         ...state,
         elevenLabsVoice: normalizeElevenLabsVoice(action.voice),
+      };
+    case "SET_QWEN_VOICE":
+      return {
+        ...state,
+        qwenVoice: normalizeQwenVoice(action.voice) ?? state.qwenVoice,
       };
     default: {
       const exhaustive: never = action;
@@ -921,6 +929,45 @@ export function VideoProjectProvider({
     })();
   }, [project, channels, activeStep]);
 
+  const persistQwenVoice = useCallback((voice: QwenVoice) => {
+    const current = project;
+    if (!current) return;
+    const nextVoice = normalizeQwenVoice(voice) ?? current.qwenVoice;
+    const summary = summaryCommitRef.current ?? captureSummaryCommit(current);
+    const title = titleCommitRef.current ?? captureTitleCommit(current);
+    const previousLater = laterCommitRef.current ?? captureLaterStepsCommit(current);
+    const nextLater: LaterStepsCommit = {
+      ...previousLater,
+      timeline: {
+        ...previousLater.timeline,
+        qwenVoice: nextVoice,
+      },
+    };
+    const token = commitTokenRef.current + 1;
+    commitTokenRef.current = token;
+    laterCommitRef.current = nextLater;
+    setLaterCommit(nextLater);
+    rawDispatch({ type: "SET_QWEN_VOICE", voice: nextVoice });
+
+    const channelTitle = channels.find((channel) => channel.id === summary.channelId)?.title ?? null;
+    const stored = projectSavedToDatabase(
+      { ...current, qwenVoice: nextVoice, lastUpdated: new Date().toISOString() },
+      summary,
+      title,
+      nextLater,
+    );
+    void (async () => {
+      const result = await flushSnapshotSync(buildSnapshot(stored, activeStep, channelTitle));
+      if (commitTokenRef.current !== token) return;
+      if (result !== "ok") {
+        laterCommitRef.current = previousLater;
+        setLaterCommit(previousLater);
+        rawDispatch({ type: "SET_QWEN_VOICE", voice: current.qwenVoice });
+        setSummarySaveError("Could not save the Qwen voice.");
+      }
+    })();
+  }, [project, channels, activeStep]);
+
   const commitTitleStatus = useCallback((status: StepStatus) => {
     const current = project;
     if (!current || summarySavingRef.current) return;
@@ -1185,6 +1232,10 @@ export function VideoProjectProvider({
       persistElevenLabsVoice(action.voice);
       return;
     }
+    if (action.type === "SET_QWEN_VOICE") {
+      persistQwenVoice(action.voice);
+      return;
+    }
     if (action.type === "SET_NAME" && project) {
       const name = action.name.trim().slice(0, 120) || DEFAULT_PROJECT_NAME;
       const next = { ...project, name, lastUpdated: new Date().toISOString() };
@@ -1201,7 +1252,7 @@ export function VideoProjectProvider({
       }
     }
     rawDispatch(action);
-  }, [project, channels, activeStep, commitSummaryStatus, commitTitleStatus, persistGeneratedTitles, persistGeneratedThumbnails, persistGeneratedScript, persistGeneratedScenes, persistStoredThumbnail, persistElevenLabsVoice, commitLaterStatus, commitEditor]);
+  }, [project, channels, activeStep, commitSummaryStatus, commitTitleStatus, persistGeneratedTitles, persistGeneratedThumbnails, persistGeneratedScript, persistGeneratedScenes, persistStoredThumbnail, persistElevenLabsVoice, persistQwenVoice, commitLaterStatus, commitEditor]);
 
   if (hydrated && loadedId !== projectId) {
     setLoadedId(projectId);

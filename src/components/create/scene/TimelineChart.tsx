@@ -13,6 +13,11 @@ import {
   type Scene,
 } from "@/lib/videoProject";
 
+export type VoiceLength = {
+  provider: "qwen" | "elevenlabs";
+  seconds: number;
+};
+
 export function TimelineChart({
   scenes,
   selectedId,
@@ -23,10 +28,12 @@ export function TimelineChart({
   onPreviewScript,
   onPreviewVisuals,
   scriptPlayingId,
+  scriptLoadingId,
   elevenLabsPlayingId,
   elevenLabsLoadingId,
   elevenLabsDisabled,
   elevenLabsDurations,
+  voiceLengths,
   onElevenLabsPreview,
 }: {
   scenes: Scene[];
@@ -38,10 +45,12 @@ export function TimelineChart({
   onPreviewScript: (id: string) => void;
   onPreviewVisuals: (id: string) => void;
   scriptPlayingId: string | null;
+  scriptLoadingId: string | null;
   elevenLabsPlayingId: string | null;
   elevenLabsLoadingId: string | null;
   elevenLabsDisabled: boolean;
   elevenLabsDurations: Record<string, number>;
+  voiceLengths: Record<string, VoiceLength>;
   onElevenLabsPreview: (id: string) => void;
 }) {
   const total = totalTimelineSeconds(scenes);
@@ -108,7 +117,15 @@ export function TimelineChart({
                     <p className="font-mono text-xs font-semibold tabular-nums tracking-tight text-foreground">
                       {range.label}
                     </p>
-                    <p className="mt-1 text-[11px] text-muted">{duration}s</p>
+                    <p className="mt-1 flex items-center gap-1.5 text-[11px] tabular-nums">
+                      <span className="text-muted">{duration}s</span>
+                      {voiceLengths[scene.id] ? (
+                        <VoiceLengthMark
+                          sceneSeconds={duration}
+                          voice={voiceLengths[scene.id]}
+                        />
+                      ) : null}
+                    </p>
                   </td>
                   <td className="px-4 py-4">
                     <p className="text-sm font-semibold leading-snug text-foreground">
@@ -123,6 +140,7 @@ export function TimelineChart({
                       scene={scene}
                       column="script"
                       previewing={scriptPlayingId === scene.id}
+                      previewLoading={scriptLoadingId === scene.id}
                       previewDisabled={!scene.finalScript.trim()}
                       onPreview={() => onPreviewScript(scene.id)}
                       elevenLabsPlaying={elevenLabsPlayingId === scene.id}
@@ -133,6 +151,7 @@ export function TimelineChart({
                         spokenVoiceoverText(scene.finalScript).length > MAX_PREVIEW_CHARS
                       }
                       elevenLabsVoiceSeconds={elevenLabsDurations[scene.id] ?? null}
+                      voiceLength={voiceLengths[scene.id] ?? null}
                       onElevenLabsPreview={() => onElevenLabsPreview(scene.id)}
                     />
                   </td>
@@ -154,5 +173,28 @@ export function TimelineChart({
         </table>
       </div>
     </div>
+  );
+}
+
+function VoiceLengthMark({
+  sceneSeconds,
+  voice,
+}: {
+  sceneSeconds: number;
+  voice: VoiceLength;
+}) {
+  const apart = Math.abs(Math.round(voice.seconds) - sceneSeconds) > 1;
+  return (
+    <span className="inline-flex items-center gap-1">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={voice.provider === "qwen" ? "/icons/providers/qwen.svg" : "/icons/providers/elevenlabs.svg"}
+        alt=""
+        className="h-3.5 w-3.5"
+      />
+      <span className={apart ? "font-semibold text-red-500" : "font-semibold text-foreground"}>
+        {Math.round(voice.seconds)}s
+      </span>
+    </span>
   );
 }

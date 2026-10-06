@@ -18,7 +18,7 @@ function StopMark() {
   );
 }
 
-export function ElevenLabsListenButton({
+export function ListenButton({
   playing,
   loading,
   disabled,
@@ -26,24 +26,26 @@ export function ElevenLabsListenButton({
 }: {
   playing: boolean;
   loading: boolean;
-  disabled: boolean;
+  disabled?: boolean;
   onClick: () => void;
 }) {
+  const label = loading ? "Building…" : playing ? "Stop" : "Listen";
   return (
     <button
       type="button"
-      disabled={disabled}
+      aria-label={loading ? "Building Qwen voice" : playing ? "Stop Qwen voice" : "Listen with Qwen"}
+      disabled={disabled && !playing && !loading}
       onClick={(event) => {
         event.stopPropagation();
         onClick();
       }}
-      className="inline-flex items-center gap-1.5 rounded-lg border border-accent/50 bg-accent/10 px-3 py-1.5 text-xs font-bold text-accent hover:bg-accent/20 disabled:opacity-60"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-[#7c3aed]/45 bg-[#7c3aed]/10 px-2.5 py-1.5 text-xs font-semibold text-foreground hover:bg-[#7c3aed]/20 disabled:opacity-60"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/icons/providers/elevenlabs.svg" alt="" className="h-3.5 w-3.5 shrink-0" />
+      <img src="/icons/providers/qwen.svg" alt="" className="h-3.5 w-3.5 shrink-0" />
       {loading ? (
         <span
-          className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent"
+          className="h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent text-[#c4b5fd]"
           aria-hidden
         />
       ) : playing ? (
@@ -51,7 +53,7 @@ export function ElevenLabsListenButton({
       ) : (
         <PlayMark />
       )}
-      {loading ? "Speaking…" : playing ? "Stop" : "ElevenLabs Listen"}
+      {label}
     </button>
   );
 }

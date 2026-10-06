@@ -56,3 +56,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# Local Qwen synthesis cache and voice-server log
+/services/qwen/cache/
+/services/qwen/voice.log
+

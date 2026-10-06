@@ -8,7 +8,6 @@ import { ActionButton } from "@/components/ui/ActionButton";
 import { Modal } from "@/components/ui/Modal";
 import { GenerateBar } from "@/components/create/GenerateBar";
 import { LowEffortCheck } from "@/components/create/LowEffortCheck";
-import { IntroductionGlimpse, SavedTitleGlimpse } from "@/components/create/PriorStepGlimpse";
 import { StepFixModal } from "@/components/create/StepFixModal";
 import { useCursorScriptGeneration } from "@/features/cursor-script-generator/ScriptActions";
 import { CursorPromptEditor } from "@/features/cursor-title-generator/CursorPromptEditor";
@@ -50,7 +49,7 @@ function isAllowedScriptFile(file: File): boolean {
 }
 
 export function ScriptStep() {
-  const { project, dispatch, savedTitle } = useVideoProject();
+  const { project, dispatch } = useVideoProject();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [promptOpen, setPromptOpen] = useState(false);
@@ -124,8 +123,6 @@ export function ScriptStep() {
 
   return (
     <div className="space-y-4">
-      <IntroductionGlimpse summary={project.summary} />
-      <SavedTitleGlimpse commit={savedTitle} />
       <div className="rounded-2xl border border-border bg-surface p-5">
         <h3 className="font-display text-lg font-semibold text-foreground">Video script</h3>
         <p className="mt-1 text-sm text-muted">

@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   createEmptyProject,
+  DEFAULT_QWEN_VOICE,
   normalizeApiCosts,
   normalizeEditorSettings,
   normalizeElevenLabsVoice,
+  normalizeQwenVoice,
   normalizeLowEffortByStep,
   normalizeScenes,
   normalizeScriptScore,
@@ -58,6 +60,7 @@ function parseStore(raw: string): ProjectStore {
         apiCosts: normalizeApiCosts(project.apiCosts),
         scenes: normalizeScenes(project.scenes),
         elevenLabsVoice: normalizeElevenLabsVoice(project.elevenLabsVoice),
+        qwenVoice: normalizeQwenVoice(project.qwenVoice) ?? DEFAULT_QWEN_VOICE,
         editor: normalizeEditorSettings(project.editor),
         lowEffortByStep: normalizeLowEffortByStep(project.lowEffortByStep),
         stepStatus: normalizeStepStatus(project.stepStatus),

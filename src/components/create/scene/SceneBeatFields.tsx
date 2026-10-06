@@ -5,7 +5,7 @@ import { ActionButton } from "@/components/ui/ActionButton";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Textarea } from "@/components/ui/Textarea";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
-import { VoicePicker } from "@/components/create/scene/VoicePicker";
+import { ListenButton } from "@/components/create/scene/ListenButton";
 import { ElevenLabsListenButton } from "@/features/elevenlabs/ElevenLabsListenButton";
 import { buildClipPoster, clipKindFor } from "@/lib/clipPoster";
 import { deleteClip, putClip } from "@/lib/clipStore";
@@ -66,11 +66,13 @@ export function SceneBeatFields({
   generating = false,
   generateDisabled,
   previewing = false,
+  previewLoading = false,
   previewDisabled = false,
   elevenLabsPlaying = false,
   elevenLabsLoading = false,
   elevenLabsDisabled = false,
   elevenLabsVoiceSeconds = null,
+  voiceLength = null,
   onElevenLabsPreview,
   onGenerate = () => {},
   onPreview = () => {},
@@ -83,11 +85,15 @@ export function SceneBeatFields({
   generating?: boolean;
   generateDisabled?: boolean;
   previewing?: boolean;
+  /** Qwen is synthesizing the Listen preview. */
+  previewLoading?: boolean;
   previewDisabled?: boolean;
   elevenLabsPlaying?: boolean;
   elevenLabsLoading?: boolean;
   elevenLabsDisabled?: boolean;
   elevenLabsVoiceSeconds?: number | null;
+  /** Latest Qwen or ElevenLabs listen length for this scene. */
+  voiceLength?: { provider: "qwen" | "elevenlabs"; seconds: number } | null;
   onElevenLabsPreview?: () => void;
   onGenerate?: () => void;
   onPreview?: () => void;
@@ -352,18 +358,23 @@ export function SceneBeatFields({
             {uploadPercent !== null ? <ClipUploadProgress percent={uploadPercent} /> : null}
           </>
         )}
+        {column === "script" ? (
+          <ListenButton
+            playing={previewing}
+            loading={previewLoading}
+            disabled={previewDisabled}
+            onClick={onPreview}
+          />
+        ) : (
         <ActionButton
           size="sm"
           variant="secondary"
-          disabled={previewDisabled && !previewing}
+          disabled={previewDisabled && !previewing && !previewLoading}
           onClick={onPreview}
         >
-          {column === "script"
-            ? previewing
-              ? "Stop"
-              : "Listen"
-            : "Preview"}
+          Preview
         </ActionButton>
+        )}
         {column === "script" ? null : (
           <ActionButton
             size="sm"
@@ -374,14 +385,6 @@ export function SceneBeatFields({
             {copied ? "Copied" : "Copy"}
           </ActionButton>
         )}
-        {column === "script" ? (
-          <VoicePicker
-            scene={scene}
-            onVoiceChange={() => {
-              if (previewing) onPreview();
-            }}
-          />
-        ) : null}
         {column === "script" && onElevenLabsPreview ? (
           <>
             <ElevenLabsListenButton
@@ -392,7 +395,9 @@ export function SceneBeatFields({
             />
             <VoiceSyncReadout
               sceneSeconds={Math.round(sceneDuration(scene))}
-              voiceSeconds={elevenLabsVoiceSeconds}
+              voice={voiceLength ?? (elevenLabsVoiceSeconds != null
+                ? { provider: "elevenlabs", seconds: elevenLabsVoiceSeconds }
+                : null)}
             />
           </>
         ) : null}
@@ -427,19 +432,28 @@ export function SceneBeatFields({
 
 function VoiceSyncReadout({
   sceneSeconds,
-  voiceSeconds,
+  voice,
 }: {
   sceneSeconds: number;
-  voiceSeconds: number | null;
+  voice: { provider: "qwen" | "elevenlabs"; seconds: number } | null;
 }) {
-  const voiceLabel = voiceSeconds == null ? "—" : `${voiceSeconds.toFixed(1)}s`;
-  const apart = voiceSeconds != null && Math.abs(voiceSeconds - sceneSeconds) > 0.8;
+  const apart = voice != null && Math.abs(Math.round(voice.seconds) - sceneSeconds) > 1;
+  const voiceLabel = voice == null ? "—" : `${Math.round(voice.seconds)}s`;
   return (
     <span className="inline-flex min-w-[11.5rem] items-center justify-center gap-2 rounded-xl border border-border bg-surface-soft px-3.5 py-2 text-sm tabular-nums">
       <span className="text-muted">Scene</span>
       <span className="font-bold text-red-500">{sceneSeconds}s</span>
       <span className="text-muted">·</span>
-      <span className="text-muted">Voice</span>
+      {voice ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={voice.provider === "qwen" ? "/icons/providers/qwen.svg" : "/icons/providers/elevenlabs.svg"}
+          alt=""
+          className="h-4 w-4 shrink-0"
+        />
+      ) : (
+        <span className="text-muted">Voice</span>
+      )}
       <span className={`font-bold ${apart ? "text-red-500" : "text-foreground"}`}>{voiceLabel}</span>
     </span>
   );

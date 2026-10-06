@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export function useElevenLabsPreview() {
+export function useElevenLabsPreview(onMeasured?: (sceneId: string, seconds: number) => void) {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [durations, setDurations] = useState<Record<string, number>>({});
+  const [lastMeasured, setLastMeasured] = useState<{ sceneId: string; seconds: number } | null>(null);
   const generation = useRef(0);
   const playingIdRef = useRef<string | null>(null);
   const loadingIdRef = useRef<string | null>(null);
@@ -72,6 +73,8 @@ export function useElevenLabsPreview() {
         audio.onloadedmetadata = () => {
           if (!Number.isFinite(audio.duration) || audio.duration <= 0) return;
           setDurations((current) => ({ ...current, [sceneId]: audio.duration }));
+          setLastMeasured({ sceneId, seconds: audio.duration });
+          onMeasured?.(sceneId, audio.duration);
         };
         audio.onended = () => {
           if (generation.current === token) stop();
@@ -98,8 +101,8 @@ export function useElevenLabsPreview() {
         setLoadingId(null);
       }
     },
-    [releaseAudio, stop],
+    [releaseAudio, stop, onMeasured],
   );
 
-  return { playingId, loadingId, durations, error, preview, stop };
+  return { playingId, loadingId, durations, lastMeasured, error, preview, stop };
 }

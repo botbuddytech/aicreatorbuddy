@@ -52,11 +52,13 @@ function PreviewPlayer({
   thumbUrl,
   aspectRatio,
   autoPlay = true,
+  voiceId,
 }: {
   scenes: Scene[];
   thumbUrl?: string;
   aspectRatio: AspectRatio;
   autoPlay?: boolean;
+  voiceId: string;
 }) {
   const { playing, elapsed, total, active, progress, seek, toggle, restart, setPlaying } =
     useTimelinePlayback(scenes);
@@ -106,6 +108,7 @@ function PreviewPlayer({
     sceneLocalSeconds,
     syncKey: voiceSyncKey,
     browserVoice: true,
+    voiceId,
     onError: () => setSpeechBlocked(true),
   });
 
@@ -485,6 +488,7 @@ export function VideoPreviewModal({
           scenes={previewScenes}
           thumbUrl={sceneId ? undefined : thumb?.customUrl}
           aspectRatio={project.summary.aspectRatio}
+          voiceId={project.qwenVoice.voiceId}
           autoPlay={shouldAutoPlay}
         />
       )}

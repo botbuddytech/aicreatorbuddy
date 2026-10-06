@@ -7,7 +7,6 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Modal } from "@/components/ui/Modal";
 import { GenerateBar } from "@/components/create/GenerateBar";
-import { SavedTitleGlimpse } from "@/components/create/PriorStepGlimpse";
 import { OptionCard } from "@/components/create/OptionCard";
 import { PlaceholderImage } from "@/components/create/PlaceholderImage";
 import { StepFixModal } from "@/components/create/StepFixModal";
@@ -44,7 +43,7 @@ function thumbnailSourceLabel(provider: ThumbnailOption["provider"]): string {
 }
 
 export function ThumbnailStep() {
-  const { project, dispatch, savedTitle } = useVideoProject();
+  const { project, dispatch } = useVideoProject();
   const [promptOpen, setPromptOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
@@ -250,7 +249,6 @@ export function ThumbnailStep() {
 
   return (
     <div className="space-y-4">
-      <SavedTitleGlimpse commit={savedTitle} />
       <div className="rounded-2xl border border-border bg-surface p-5">
         <h3 className="font-display text-lg font-semibold text-foreground">
           Thumbnail generation

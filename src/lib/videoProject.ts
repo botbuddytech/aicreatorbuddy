@@ -275,7 +275,28 @@ export type ElevenLabsVoice = {
   name: string;
 };
 
+export type QwenVoice = {
+  voiceId: string;
+  name: string;
+};
+
+export const DEFAULT_QWEN_VOICE: QwenVoice = {
+  voiceId: "Ryan",
+  name: "Ryan (English)",
+};
+
 const ELEVENLABS_VOICE_ID = /^[A-Za-z0-9_-]{8,64}$/;
+const QWEN_VOICE_IDS = new Set([
+  "Ryan",
+  "Aiden",
+  "Vivian",
+  "Serena",
+  "Uncle_Fu",
+  "Dylan",
+  "Eric",
+  "Ono_Anna",
+  "Sohee",
+]);
 
 export function normalizeElevenLabsVoice(raw: unknown): ElevenLabsVoice | null {
   if (!raw || typeof raw !== "object") return null;
@@ -284,6 +305,16 @@ export function normalizeElevenLabsVoice(raw: unknown): ElevenLabsVoice | null {
   const voiceId = source.voiceId.trim();
   const name = source.name.trim();
   if (!ELEVENLABS_VOICE_ID.test(voiceId) || !name || name.length > 120) return null;
+  return { voiceId, name };
+}
+
+export function normalizeQwenVoice(raw: unknown): QwenVoice | null {
+  if (!raw || typeof raw !== "object") return null;
+  const source = raw as { voiceId?: unknown; name?: unknown };
+  if (typeof source.voiceId !== "string" || typeof source.name !== "string") return null;
+  const voiceId = source.voiceId.trim();
+  const name = source.name.trim();
+  if (!QWEN_VOICE_IDS.has(voiceId) || !name || name.length > 120) return null;
   return { voiceId, name };
 }
 
@@ -307,8 +338,10 @@ export interface VideoProject {
   /** Legacy local-draft field, normalized into scriptScore during hydration. */
   scriptVidiq?: VidIqScriptInsight;
   scenes: Scene[];
-  /** ElevenLabs voice chosen for this session. Separate from each scene's browser voice. */
+  /** ElevenLabs voice chosen for this session. Production voice. */
   elevenLabsVoice: ElevenLabsVoice | null;
+  /** Qwen voice used by Listen on every scene. Demo voice. */
+  qwenVoice: QwenVoice;
   description: string;
   tags: string[];
   providerByStep: Partial<Record<StepId, AiProvider>>;
@@ -965,6 +998,7 @@ export function createEmptyProject(partial?: {
     cursorScriptPrompt: null,
     scenes: [],
     elevenLabsVoice: null,
+    qwenVoice: DEFAULT_QWEN_VOICE,
     description: "",
     tags: [],
     providerByStep: {

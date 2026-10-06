@@ -17,6 +17,7 @@ import { TimelineStep } from "@/components/create/steps/TimelineStep";
 import { DescriptionStep } from "@/components/create/steps/DescriptionStep";
 import { RenderPanel } from "@/components/create/steps/RenderPanel";
 import { EditorStep } from "@/components/create/editor/EditorStep";
+import { PreviousSteps } from "@/components/create/PriorStepGlimpse";
 import { ProjectNameHeading } from "@/components/create/ProjectNameHeading";
 import { savesOnMarkApprove } from "@/lib/session/laterStepCommit";
 import { STEPS, type StepId } from "@/lib/videoProject";
@@ -124,6 +125,7 @@ export function CreateVideoWorkspace() {
             aria-labelledby={`create-tab-${step}`}
             className="min-w-0 space-y-6"
           >
+            <PreviousSteps step={step} />
             <StepBody step={step} />
           </div>
         </div>
