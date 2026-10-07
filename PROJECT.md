@@ -1,6 +1,6 @@
 # AI Creator Buddy
 
-Single source of truth for the product as it exists in this repository. Written from the codebase and the documentation that is actually checked in. Last reviewed against the working tree on 5 October 2026 (commit `331d47a`, plus the uncommitted create-pipeline and agent work in the tree).
+Single source of truth for the product as it exists in this repository. Written from the codebase and the documentation that is actually checked in. Last reviewed against the working tree on 7 October 2026 (the 5 October note still applies, plus the uncommitted editor, YouTube overview, and integrations-headline work described below).
 
 **`Project Context.md` is not in the repository root** (or anywhere else in this project). This file does not reconstruct a missing brief. Where marketing copy, demo data, and running code disagree, the code wins, and the disagreement is called out.
 
@@ -104,7 +104,8 @@ What the app actually does today:
 | Buddy floating chat | Confirmed. Live model if keys exist, otherwise a simulated specialist |
 | Create-step agent panel | Confirmed in development. Local Cursor SDK (`@cursor/sdk`), not the Cloud Agents API. Changes auto-apply |
 | Integrations page for provider credentials and usage | Confirmed |
-| Overview, monetization, library, scheduler | Confirmed UI, **demo data** |
+| Overview and content library | Confirmed. Lifetime views, likes, comments, and watch time come from the connected channel. Shares and the range line are YouTube Analytics for the selected period |
+| Monetization and scheduler | Confirmed UI. Monetization is locally computed. Scheduler calendar content is still demo data |
 | Profile settings save | UI only. Message: preferences are not persisted |
 | YouTube publish / upload | Scope is requested. No upload call exists |
 | Seedance video generation | Catalog entry and key probe message only |
@@ -118,7 +119,7 @@ The landing FAQ (`src/lib/content.ts`) still says the demo mocks integrations, c
 - YouTube OAuth, vidIQ OAuth, encrypted API keys, ElevenLabs, and Supabase uploads are real.
 - The demo user is still real: `prisma/seed.ts` upserts that email and password from `demoAuth` in `src/lib/dashboardContent.ts`.
 - Publish to YouTube is still not implemented.
-- Overview charts, library rows, scheduler calendar, monetization numbers, and notification items are still hard-coded.
+- Scheduler calendar, monetization numbers, and notification items are still hard-coded or locally computed. Overview and the content library are not.
 
 `src/lib/chat/persona.ts` also tells Buddy that the demo mocks most integrations and that publish does not hit a real YouTube account. Treat that as the chat persona’s instructions, not as a full description of the current backend.
 
@@ -334,7 +335,7 @@ No Dockerfile, `vercel.ts`, or CI workflow is in the repo.
 - Create drafts are local-first, then reconciled with server documents, so a refresh does not depend on the network for the latest keystrokes.
 - Cursor prompts are user-editable and stored on `CursorPromptSettings`, with code defaults in `src/features/cursor-title-generator/prompt.ts`.
 - Cursor CLI path and model live in gitignored `config/cursor-cli.local.json`, not in `.env`, because `.env` is committed. See [config/README.md](config/README.md).
-- Remotion is transpiled by Next (`next.config.ts`) and exports in the browser via WebCodecs. The server does not render video.
+- Remotion is transpiled by Next (`next.config.ts`, including `@remotion/google-fonts`) and exports in the browser via WebCodecs. The server does not render video. Clip titles and script captions load a fixed Google Font catalog from `src/remotion/fonts.ts`. Unknown font ids fall back to the system font.
 - ElevenLabs uses one server key (`sharedEnv: true`). Users cannot paste their own key on the integrations page.
 - ChatGPT and Gemini keys can be saved and probed, but the create steps do not call those keys. Buddy chat uses `OPENAI_API_KEY` and `GEMINI_API_KEY`, which are separate server env vars.
 - `.gitignore` states that `.env` is committed on purpose for this single-maintainer project, and that platform env vars still override it.
@@ -342,7 +343,7 @@ No Dockerfile, `vercel.ts`, or CI workflow is in the repo.
 ### Assumptions
 
 - One workspace per user. `VideoSession.workspaceId` defaults to `"default"` and is not a tenant table.
-- “Selected channel” (`User.activeChannelId`) is the channel new videos are aimed at. Overview and monetization pages do not query that channel’s analytics API.
+- “Selected channel” (`User.activeChannelId`) is the channel new videos are aimed at. Overview reads that channel from Postgres and from YouTube Analytics. Monetization still builds local numbers and does not call the Analytics API.
 - Estimated dollars on create steps (`src/lib/apiCost.ts`) are local formulas, not provider invoices. Cursor and vidIQ title fires in the title step record `usd: 0`.
 - Public Storage URLs are acceptable for thumbnails and scene clips. The code calls `getPublicUrl`. vidIQ’s thumbnail scorer rejects the Supabase host, so scoring downloads the object and sends a `data:image/...;base64,...` URI.
 
@@ -464,7 +465,7 @@ Steps in `STEPS` (`src/lib/videoProject.ts`):
 | Timeline | Split the saved script into labeled sections, edit beats, upload a clip, preview ElevenLabs | Split is local (`scenesFromScript`). Visual prompts are Cursor (dev). ElevenLabs preview is live when the server key and integration gate allow it. Browser speech is a separate voice picker |
 | Description | Generate copy and tags, then edit | `mockGenerate` in `src/lib/mockAi.ts` |
 | Render | Readiness checklist, Remotion MP4 download, low-effort check | Real browser export when scenes exist |
-| Editor | Opens after `renderedAt`. Trim, filters, transitions, overlays, music picker, captions | Music and stock lists are `mockMusicTracks` and `mockStockClips`. Confirm edit persists editor settings |
+| Editor | Opens when the timeline has at least one clip. Render is not required. Trim, filters, in/out transitions, overlays, fonts, music picker, optional script captions | Music and stock lists are `mockMusicTracks` and `mockStockClips`. Confirm edit persists editor settings |
 
 Providers shown on steps still include ChatGPT and Gemini (`TEXT_PROVIDERS`). Choosing them does not call the saved user API keys.
 
@@ -515,8 +516,8 @@ None on a schedule. The only automatic behaviors are: share linking on sign-in, 
 ### Feature dependencies
 
 - Timeline split depends on a script with labeled sections.
-- Editor depends on a successful render (`renderedAt`).
-- Render depends on at least one scene.
+- Editor depends on at least one timeline clip. It does not depend on `renderedAt`.
+- Render depends on at least one scene. Finishing a render can still jump to the editor, but the editor is usable before that.
 - One-shot Cursor steps depend on a local CLI and `agent login`. The create agent depends on `CURSOR_API_KEY` and Node `>=22.13`.
 - vidIQ steps depend on a connected account and credits. Recorded costs in `src/lib/vidiq/client.ts`: title score and title generate 5, thumbnail score 5, thumbnail generate 22, job poll 0. In development, if the logged-in user has no vidIQ OAuth token, calls fall back to the bearer token in `~/.cursor/mcp.json`. That token is not copied into the repo. The integrations page can show that fallback as connected and refresh `vidiq_balance` (remaining credits versus the plan cap).
 - ElevenLabs preview depends on `ELEVEN_LABS_API_KEY` and `authorizeElevenLabs`.
@@ -543,10 +544,10 @@ Dashboard pages sit behind the login redirect. They share `DashboardShell`: side
 
 ### `/dashboard` — Overview
 
-- **Purpose:** Pick the active channel, then show a performance overview.
-- **Components:** `ActiveChannelPicker` (live channels), `OverviewDashboard` (static stats, charts, recent uploads, scheduled table).
-- **Data:** `listChannels` from Postgres. Stats from `overviewPrimaryStats` and related constants. Refresh waits 700ms and does not refetch. Export is a button with no handler in the snippet that renders it.
-- **Navigation:** Upload links to `/dashboard/create`.
+- **Purpose:** Pick the active channel, then show a performance overview for that channel.
+- **Components:** `ActiveChannelPicker` (live channels), `OverviewDashboard`.
+- **Data:** `loadOverview` in `src/lib/youtube/present.ts`, via `GET /api/dashboard/youtube`. Views and subscribers are the channel’s lifetime YouTube Data API totals. Likes and comments are the sum of `likeCount` and `commentCount` on every synced video for that channel (the same totals the library shows). Watch time is all-time `estimatedMinutesWatched` from YouTube Analytics; under an hour it is shown in minutes. The line under likes, comments, and watch time is only the selected date range. Shares have no lifetime field on the video, so that card is the Analytics total for the range. Revenue stays blank with “Not in YouTube Partner Program” when the monetary report is unavailable. Refresh refetches. An old Analytics snapshot without `lifetimeWatchMinutes` is treated as stale and fetched again.
+- **Navigation:** Upload links to `/dashboard/create`. Export on this page is still a button without a download handler.
 
 ### `/dashboard/channels` — YouTube connections
 
@@ -588,7 +589,7 @@ Ranges are 7d, 28d, 90d. Changing range recomputes local data. It does not call 
 
 - **Purpose:** Browse a content library.
 - **Components:** `VideoLibraryView`, `PlaylistLibraryView`, `LibraryToolbar`.
-- **Data:** `libraryVideos` and playlist constants in `dashboardContent.ts`. Channel filter options are the four fake `workspaceChannels`, not connected YouTube channels.
+- **Data:** `loadLibrary` in `src/lib/youtube/present.ts`. Videos and playlists are synced `YoutubeVideo` and `YoutubePlaylist` rows for channels the user owns or that are shared with them. Likes and comments on a card are that video’s lifetime counts. Draft sessions are listed separately. The old `libraryVideos` constants in `dashboardContent.ts` are not what this page renders.
 - **Routes:** `/dashboard/library` (all), `/drafts`, `/scheduled`, `/playlists` (optional `status` query). Search query filters the static list.
 
 ### `/dashboard/scheduler`
@@ -604,6 +605,7 @@ Ranges are 7d, 28d, 90d. Changing range recomputes local data. It does not call 
 - **Components:** `IntegrationsClient`, `IntegrationCard`, `IntegrationUsageModal`.
 - **Data:** `UserIntegration` plus `IntegrationUsage`, merged with `INTEGRATION_CATALOG`. ElevenLabs quota is read from the shared key when refreshing.
 - **Interactions:** OAuth for YouTube (link out) and vidIQ. Paste key for ChatGPT (`sk-`), Gemini (`AIza`), and Seedance (saved, not probed). Remotion is `NONE` (no credential). Enable, disable, remove.
+- **Headline cards:** API calls MTD, Spend MTD, and average success rate are fixed at 0, `$0`, and `0%` until a live rollup exists. Connected is live (`connected / catalog length`). Charts farther down the page can still use catalog or per-provider usage figures.
 
 The large `Integration` fixtures in `dashboardContent.ts` are the older demo shape. The page itself loads `listUserIntegrations`.
 
@@ -768,7 +770,7 @@ No inbound product webhooks are implemented. OAuth callbacks are the redirect re
 
 - One Node server process. Cursor work is globally locked in that process.
 - YouTube sync walks the uploads playlist 50 items at a time inside the OAuth callback request.
-- Video session sync rewrites child collections in a transaction. `withWriteRetry` covers serialization conflicts only.
+- Video session sync rewrites child collections in one interactive transaction (`POST /api/create/sessions/:id/sync`). `withWriteRetry` covers serialization conflicts only. The transaction waits up to 10 seconds to start and may run for 20 seconds, because a full snapshot was exceeding Prisma’s default 5 second limit (`P2028`).
 - No cache layer, no read replica config, no queue.
 - Prisma client is cached on `globalThis` in development only.
 
@@ -799,7 +801,8 @@ Branch: `main`. Latest commit inspected: `331d47a` (video session documents, ref
 - vidIQ title generate and score, thumbnail image generation, and live thumbnail scoring.
 - ElevenLabs voice list and preview.
 - Supabase thumbnail and scene-clip upload.
-- Remotion player and browser MP4 download.
+- Remotion player and browser MP4 download. The editor preview is the same composition: Google Fonts on titles and captions, in and out transitions, and script captions only when the Text-rail switch is on.
+- Editor opens from a ready timeline. It does not wait for the render step. In plays at the start of the selected clip and Out at the end. The text track shows “Add text” until a title exists; clicking a text block opens the Text rail. Preview toolbar icons have hover labels. Script captions default to off and, when on, draw a short caption line rather than the whole scene script.
 - Buddy chat with provider fallback.
 - Predictive text on the topic field.
 - Unit tests listed in `npm test` (contracts, transcript, session commits, scene split, clip paths, timing, predictive text, suggestions, agent change parsing, vidIQ thumbnail job, balance, and score parsers).
@@ -815,7 +818,7 @@ Inferred from uncommitted files and TODOs, not from a ticket board:
 ### Pending (UI or schema without behavior)
 
 - Profile settings persistence.
-- Overview, monetization, library, scheduler, notifications: demo data.
+- Monetization, scheduler, and notifications: demo or locally computed data. Overview and the content library read the connected channel. Channel analytics (`ChannelAnalyticsPanel`) is still unused demo UI.
 - Best-time timeline, AI recommendations, and post history.
 - YouTube upload, despite the scope.
 - vidIQ thumbnail prompt route with no caller.
@@ -830,7 +833,8 @@ Inferred from uncommitted files and TODOs, not from a ticket board:
 - Description step still returns mock copy that includes the provider name in the text.
 - Editor music and stock are mocks.
 - Settings “save” does not write.
-- Overview “Refresh” does not reload YouTube.
+- Overview shares are period-only. A comment on a video does not increase shares.
+- Integrations headline spend and call counts are intentionally zero, not a live month-to-date sum.
 - `/api/chat` is unauthenticated.
 - Cursor cannot run in the production `NODE_ENV`.
 - Google suggest is unofficial.
