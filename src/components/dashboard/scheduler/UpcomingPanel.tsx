@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PlaceholderImage } from "@/components/create/PlaceholderImage";
-import { calendarEvents, type CalendarEventKind } from "@/lib/dashboardContent";
+import { type CalendarEvent, type CalendarEventKind } from "@/lib/dashboardContent";
 
 const kindClass: Record<CalendarEventKind, string> = {
   scheduled: "bg-chart-blue/15 text-chart-blue",
@@ -28,9 +28,9 @@ function formatWhen(year: number, month: number, day: number, time: string) {
   return `${weekday}, ${time}`;
 }
 
-function upcomingItems() {
+function upcomingItems(calendarEvents: CalendarEvent[]) {
   const featured = calendarEvents.filter((event) => event.panel);
-  if (featured.length > 0) return featured;
+  if (featured.length > 0) return featured.slice(0, 3);
   const today = startOfDay(new Date());
   return [...calendarEvents]
     .filter((event) => startOfDay(new Date(event.year, event.month, event.day)).getTime() >= today.getTime())
@@ -42,8 +42,8 @@ function upcomingItems() {
     .slice(0, 3);
 }
 
-export function UpcomingPanel() {
-  const items = upcomingItems();
+export function UpcomingPanel({ events }: { events: CalendarEvent[] }) {
+  const items = upcomingItems(events);
 
   return (
     <section className="rounded-2xl border border-border bg-surface p-5">
@@ -56,6 +56,9 @@ export function UpcomingPanel() {
           View All
         </Link>
       </div>
+      {items.length === 0 ? (
+        <p className="mt-4 text-sm text-muted">No videos are scheduled on this channel.</p>
+      ) : null}
       <ul className="mt-4 space-y-3">
         {items.map((item) => (
           <li key={item.id} className="rounded-2xl border border-border p-3">

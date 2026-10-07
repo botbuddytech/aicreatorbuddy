@@ -6,8 +6,18 @@ import { requireUser } from "@/lib/auth/session";
 import { decrypt, encrypt } from "@/lib/crypto";
 import { prisma } from "@/lib/db";
 import { getElevenLabsSnapshot } from "@/features/elevenlabs/account";
+import {
+  estimateHiggsfieldClip,
+  higgsfieldEstimateLabel,
+  parseHiggsfieldCredentials,
+} from "@/features/higgsfield/api";
 import { integrationCatalogItem } from "@/lib/integrations/catalog";
 import { callVidiqTool } from "@/lib/vidiq/client";
+import {
+  addHiggsfieldAccount,
+  removeHiggsfieldAccount,
+  setHiggsfieldAccountEnabled,
+} from "@/features/higgsfield/accounts";
 
 export type IntegrationActionResult =
   | { ok: true; message: string }
@@ -52,6 +62,10 @@ async function probeApiKey(
       break;
     case "SEEDANCE":
       return "Key saved. Seedance does not expose a safe account probe, so it will be verified on first use.";
+    case "HIGGSFIELD":
+      return higgsfieldEstimateLabel(
+        await estimateHiggsfieldClip(parseHiggsfieldCredentials(key)),
+      ).message;
     default:
       throw new Error("This provider does not use an API key.");
   }
@@ -90,7 +104,13 @@ export async function saveApiKeyAction(
       return { ok: false, error: `This key should start with ${item.keyPrefix}.` };
     }
 
-    const message = await probeApiKey(item.provider, apiKey);
+    const higgsfield =
+      item.provider === "HIGGSFIELD"
+        ? higgsfieldEstimateLabel(
+            await estimateHiggsfieldClip(parseHiggsfieldCredentials(apiKey)),
+          )
+        : null;
+    const message = higgsfield?.message ?? (await probeApiKey(item.provider, apiKey));
     await prisma.userIntegration.upsert({
       where: { userId_provider: { userId: user.id, provider: item.provider } },
       create: {
@@ -102,6 +122,8 @@ export async function saveApiKeyAction(
         apiKeyEnc: encrypt(apiKey),
         apiKeyLast4: apiKey.slice(-4),
         apiKeyAddedAt: new Date(),
+        plan: higgsfield?.plan ?? null,
+        accountLabel: higgsfield?.accountLabel ?? null,
       },
       update: {
         authKind: "API_KEY",
@@ -110,6 +132,8 @@ export async function saveApiKeyAction(
         apiKeyEnc: encrypt(apiKey),
         apiKeyLast4: apiKey.slice(-4),
         apiKeyAddedAt: new Date(),
+        plan: higgsfield?.plan ?? null,
+        accountLabel: higgsfield?.accountLabel ?? null,
         lastErrorCode: null,
         lastErrorMessage: null,
         lastErrorAt: null,
@@ -235,11 +259,18 @@ export async function testIntegrationAction(
       select: { id: true, apiKeyEnc: true },
     });
     if (!row?.apiKeyEnc) throw new Error("Add an API key first.");
-    const message = await probeApiKey(item.provider, decrypt(row.apiKeyEnc));
+    const secret = decrypt(row.apiKeyEnc);
+    const higgsfield =
+      item.provider === "HIGGSFIELD"
+        ? higgsfieldEstimateLabel(await estimateHiggsfieldClip(parseHiggsfieldCredentials(secret)))
+        : null;
+    const message = higgsfield?.message ?? (await probeApiKey(item.provider, secret));
     await prisma.userIntegration.update({
       where: { id: row.id },
       data: {
         status: "CONNECTED",
+        plan: higgsfield?.plan,
+        accountLabel: higgsfield?.accountLabel,
         lastErrorCode: null,
         lastErrorMessage: null,
         lastErrorAt: null,
@@ -262,5 +293,43 @@ export async function testIntegrationAction(
       revalidatePath("/dashboard/integrations");
     }
     return failure(error, "Connection test failed.");
+  }
+}
+
+export async function addHiggsfieldAccountAction(
+  email: string,
+  apiKey: string,
+): Promise<IntegrationActionResult> {
+  try {
+    const user = await requireUser();
+    const result = await addHiggsfieldAccount(user.id, email, apiKey);
+    return done(result.message);
+  } catch (error) {
+    return failure(error, "Could not connect that Higgsfield account.");
+  }
+}
+
+export async function setHiggsfieldAccountEnabledAction(
+  accountId: string,
+  enabled: boolean,
+): Promise<IntegrationActionResult> {
+  try {
+    const user = await requireUser();
+    await setHiggsfieldAccountEnabled(user.id, accountId, enabled);
+    return done(enabled ? "Higgsfield account enabled." : "Higgsfield account paused.");
+  } catch (error) {
+    return failure(error, "Could not update that Higgsfield account.");
+  }
+}
+
+export async function removeHiggsfieldAccountAction(
+  accountId: string,
+): Promise<IntegrationActionResult> {
+  try {
+    const user = await requireUser();
+    await removeHiggsfieldAccount(user.id, accountId);
+    return done("Higgsfield account disconnected.");
+  } catch (error) {
+    return failure(error, "Could not disconnect that Higgsfield account.");
   }
 }

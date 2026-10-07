@@ -75,6 +75,7 @@ enum IntegrationProvider {
   GEMINI
   ELEVENLABS
   SEEDANCE
+  HIGGSFIELD
   REMOTION
 }
 
@@ -110,6 +111,7 @@ model User {
   deletedVideoSessions DeletedVideoSession[]
   cursorPromptSettings CursorPromptSettings?
   integrations         UserIntegration[]
+  higgsfieldAccounts   HiggsfieldAccount[]
   activeChannelId      String?
   activeChannel        YoutubeChannel?       @relation("UserActiveChannel", fields: [activeChannelId], references: [id], onDelete: SetNull)
 
@@ -178,6 +180,26 @@ model UserIntegration {
 
   @@unique([userId, provider])
   @@index([provider, status])
+}
+
+model HiggsfieldAccount {
+  id               String                      @id @default(cuid())
+  userId           String
+  user             User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email            String
+  apiKeyEnc        String
+  apiKeyLast4      String
+  status           IntegrationConnectionStatus @default(CONNECTED)
+  enabled          Boolean                     @default(true)
+  estimateCredits  String?
+  estimateUsd      String?
+  lastErrorMessage String?
+  lastUsedAt       DateTime?
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
+
+  @@unique([userId, email])
+  @@index([userId, enabled])
 }
 
 model IntegrationUsage {
@@ -274,6 +296,8 @@ model YoutubeChannel {
   createdAt             DateTime                @default(now())
   updatedAt             DateTime                @updatedAt
   videos                YoutubeVideo[]
+  playlists             YoutubePlaylist[]
+  analyticsSnapshots    YoutubeAnalyticsSnapshot[]
   videoSessions         VideoSession[]
   shares                ChannelShare[]
   activeForUsers        User[]                  @relation("UserActiveChannel")
@@ -316,10 +340,47 @@ model YoutubeVideo {
   privacyStatus String         @default("private")
   /// status.uploadStatus: uploaded | processed | failed | rejected | deleted
   uploadStatus  String         @default("processed")
+  tags          String[]       @default([])
+  categoryId    String?
+  /// Set when YouTube will publish a private video later.
+  publishAt     DateTime?
   fetchedAt     DateTime       @default(now())
 
   @@unique([channelId, videoId])
   @@index([channelId, publishedAt(sort: Desc)])
+  @@index([channelId, publishAt])
+}
+
+model YoutubePlaylist {
+  id            String         @id @default(cuid())
+  playlistId    String
+  channelId     String
+  channel       YoutubeChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  title         String
+  description   String         @default("")
+  thumbnailUrl  String?
+  itemCount     Int            @default(0)
+  privacyStatus String         @default("private")
+  publishedAt   DateTime?
+  fetchedAt     DateTime       @default(now())
+
+  @@unique([channelId, playlistId])
+  @@index([channelId])
+}
+
+/// Cached YouTube Analytics report for one channel and date range.
+model YoutubeAnalyticsSnapshot {
+  id           String         @id @default(cuid())
+  channelId    String
+  channel      YoutubeChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  reportKey    String
+  rangeKey     String
+  payload      Json
+  errorMessage String?
+  fetchedAt    DateTime       @default(now())
+
+  @@unique([channelId, reportKey, rangeKey])
+  @@index([channelId, fetchedAt])
 }
 
 model VideoSession {
@@ -354,6 +415,8 @@ model VideoSession {
   lastActiveAt       DateTime                @default(now())
   renderedAt         DateTime?
   firstExportedAt    DateTime?
+  /// YouTube video id after a successful publish from this project.
+  youtubeVideoId     String?
   deletedAt          DateTime?
   user               User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
   channel            YoutubeChannel?         @relation(fields: [channelId], references: [id], onDelete: SetNull)
@@ -369,6 +432,7 @@ model VideoSession {
   @@index([userId, lastActiveAt(sort: Desc)])
   @@index([channelId])
   @@index([status])
+  @@index([youtubeVideoId])
 }
 
 model DeletedVideoSession {

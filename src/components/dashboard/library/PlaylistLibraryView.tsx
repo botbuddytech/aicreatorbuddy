@@ -9,7 +9,6 @@ import { PlaylistListRow } from "@/components/dashboard/library/LibraryListRow";
 import {
   downloadCsv,
   filterPlaylists,
-  libraryPlaylists,
   playlistsToCsv,
   playlistStatusCounts,
   type LibraryPlaylist,
@@ -26,14 +25,18 @@ function playlistStatusFromQuery(value: string | null): PlaylistLibraryStatus | 
   return "all";
 }
 
-export function PlaylistLibraryView() {
+export function PlaylistLibraryView({
+  playlists,
+  channels,
+}: {
+  playlists: LibraryPlaylist[];
+  channels: { id: string; name: string }[];
+}) {
   const searchParams = useSearchParams();
   const status = playlistStatusFromQuery(searchParams.get("status"));
   const [query, setQuery] = useState("");
   const [channelId, setChannelId] = useState("all");
   const [viewMode, setViewMode] = useState<LibraryViewMode>("grid");
-  const [playlists, setPlaylists] = useState<LibraryPlaylist[]>(libraryPlaylists);
-
   const counts = playlistStatusCounts(playlists);
   const visible = useMemo(
     () => filterPlaylists(playlists, { status, query, channelId }),
@@ -71,10 +74,6 @@ export function PlaylistLibraryView() {
     },
   ];
 
-  function removePlaylist(id: string) {
-    setPlaylists((current) => current.filter((playlist) => playlist.id !== id));
-  }
-
   return (
     <div className="space-y-6">
       <LibraryToolbar
@@ -88,6 +87,7 @@ export function PlaylistLibraryView() {
         onViewModeChange={setViewMode}
         onExport={() => downloadCsv("library-playlists.csv", playlistsToCsv(visible))}
         searchPlaceholder="Search playlists…"
+        channels={channels}
       />
 
       {visible.length === 0 ? (
@@ -98,21 +98,13 @@ export function PlaylistLibraryView() {
       ) : viewMode === "grid" ? (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {visible.map((playlist) => (
-            <PlaylistCard
-              key={playlist.id}
-              playlist={playlist}
-              onDelete={() => removePlaylist(playlist.id)}
-            />
+            <PlaylistCard key={playlist.id} playlist={playlist} />
           ))}
         </div>
       ) : (
         <div className="space-y-3">
           {visible.map((playlist) => (
-            <PlaylistListRow
-              key={playlist.id}
-              playlist={playlist}
-              onDelete={() => removePlaylist(playlist.id)}
-            />
+            <PlaylistListRow key={playlist.id} playlist={playlist} />
           ))}
         </div>
       )}

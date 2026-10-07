@@ -6,11 +6,15 @@ export function PlaylistCard({
   onDelete,
 }: {
   playlist: LibraryPlaylist;
-  onDelete: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <article className="overflow-hidden rounded-2xl border border-border bg-surface">
       <div className="relative aspect-video overflow-hidden bg-surface-soft">
+        {playlist.thumbnailUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={playlist.thumbnailUrl} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+        ) : (
         <div className="grid h-full grid-cols-2 grid-rows-2 gap-0.5">
           {playlist.thumbLabels.map((label, index) => (
             // eslint-disable-next-line @next/next/no-img-element
@@ -22,6 +26,7 @@ export function PlaylistCard({
             />
           ))}
         </div>
+        )}
         <span className="absolute right-3 bottom-3 inline-flex items-center gap-1 rounded-md bg-black/70 px-2 py-1 text-[11px] font-semibold text-white">
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
             <path d="M8 5v14l11-7z" />
@@ -71,6 +76,7 @@ export function PlaylistCard({
                 <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
               </svg>
             </button>
+            {onDelete ? (
             <button
               type="button"
               aria-label={`Delete ${playlist.title}`}
@@ -81,6 +87,7 @@ export function PlaylistCard({
                 <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" />
               </svg>
             </button>
+            ) : null}
           </div>
         </div>
       </div>

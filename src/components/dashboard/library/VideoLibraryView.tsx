@@ -9,9 +9,9 @@ import { VideoListRow } from "@/components/dashboard/library/LibraryListRow";
 import {
   downloadCsv,
   filterVideos,
-  libraryVideos,
   videoStatusCounts,
   videosToCsv,
+  type LibraryVideo,
   type LibraryViewMode,
   type VideoLibraryStatus,
 } from "@/lib/contentLibrary";
@@ -23,7 +23,13 @@ function videoStatusFromRoute(pathname: string, published: string | null): Video
   return "all";
 }
 
-export function VideoLibraryView() {
+export function VideoLibraryView({
+  videos: libraryVideos,
+  channels,
+}: {
+  videos: LibraryVideo[];
+  channels: { id: string; name: string }[];
+}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const status = videoStatusFromRoute(pathname, searchParams.get("status"));
@@ -87,6 +93,7 @@ export function VideoLibraryView() {
         onViewModeChange={setViewMode}
         onExport={() => downloadCsv("library-videos.csv", videosToCsv(videos))}
         searchPlaceholder="Search videos…"
+        channels={channels}
       />
 
       {videos.length === 0 ? (

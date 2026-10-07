@@ -65,17 +65,25 @@ function PlaceholderPanel({ title, body }: { title: string; body: string }) {
   );
 }
 
-export function BestTimeBoard() {
+export function BestTimeBoard({
+  heatmap,
+  slots,
+  insight,
+}: {
+  heatmap: Record<"sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat", number[]>;
+  slots: { rank: number; day: string; time: string; viewers: string; tone: "success" | "chart-blue" | "chart-amber" | "accent" }[];
+  insight: string;
+}) {
   const [tab, setTab] = useState<TabId>("heatmap");
 
   let content: ReactNode;
   if (tab === "heatmap") {
     content = (
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
-        <ActivityHeatmap />
+        <ActivityHeatmap cells={heatmap} />
         <div className="space-y-6">
-          <AiInsightsPanel />
-          <TopTimeSlots />
+          <AiInsightsPanel insight={insight} />
+          <TopTimeSlots slots={slots} />
         </div>
       </div>
     );

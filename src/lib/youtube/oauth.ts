@@ -8,7 +8,20 @@ export const YOUTUBE_SCOPES = [
   "https://www.googleapis.com/auth/userinfo.email",
   "https://www.googleapis.com/auth/youtube.readonly",
   "https://www.googleapis.com/auth/youtube.upload",
+  "https://www.googleapis.com/auth/youtube.force-ssl",
+  "https://www.googleapis.com/auth/yt-analytics.readonly",
+  "https://www.googleapis.com/auth/yt-analytics-monetary.readonly",
 ];
+
+const OPTIONAL_IDENTITY_SCOPES = new Set([
+  "openid",
+  "https://www.googleapis.com/auth/userinfo.email",
+]);
+
+export function missingYoutubeScopes(scope: string | null | undefined): string[] {
+  const granted = scope ?? "";
+  return YOUTUBE_SCOPES.filter((item) => !OPTIONAL_IDENTITY_SCOPES.has(item) && !granted.includes(item));
+}
 
 export const OAUTH_STATE_COOKIE = "yt_oauth_state";
 

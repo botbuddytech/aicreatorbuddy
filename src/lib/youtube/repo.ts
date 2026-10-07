@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import type { ChannelConnectionStatus } from "@/generated/prisma/enums";
 import type { SessionUser } from "@/lib/auth/session";
 import { channelAccessWhere } from "@/lib/youtube/access";
+import { missingYoutubeScopes } from "@/lib/youtube/oauth";
 
 /** Token-free, JSON-serializable channel shape for the UI. */
 export type ConnectedChannel = {
@@ -17,6 +18,7 @@ export type ConnectedChannel = {
   syncedVideoCount: number;
   googleEmail: string | null;
   status: ChannelConnectionStatus;
+  missingScopes: boolean;
   lastSyncedAt: string | null;
   createdAt: string;
   isOwner: boolean;
@@ -28,8 +30,10 @@ export type ChannelVideo = {
   id: string;
   videoId: string;
   title: string;
+  description: string;
   thumbnailUrl: string | null;
   publishedAt: string;
+  publishAt: string | null;
   durationSec: number | null;
   viewCount: number;
   likeCount: number;
@@ -55,6 +59,7 @@ const channelSelect = {
   viewCount: true,
   videoCount: true,
   googleEmail: true,
+  scope: true,
   status: true,
   lastSyncedAt: true,
   createdAt: true,
@@ -73,6 +78,7 @@ type ChannelRow = {
   viewCount: bigint;
   videoCount: number;
   googleEmail: string | null;
+  scope: string;
   status: ChannelConnectionStatus;
   lastSyncedAt: Date | null;
   createdAt: Date;
@@ -81,12 +87,13 @@ type ChannelRow = {
 };
 
 function toChannel(row: ChannelRow, viewerId: string): ConnectedChannel {
-  const { _count, user, userId, ...rest } = row;
+  const { _count, user, userId, scope, ...rest } = row;
   return {
     ...rest,
     subscriberCount: Number(row.subscriberCount),
     viewCount: Number(row.viewCount),
     syncedVideoCount: _count.videos,
+    missingScopes: missingYoutubeScopes(scope).length > 0,
     lastSyncedAt: row.lastSyncedAt?.toISOString() ?? null,
     createdAt: row.createdAt.toISOString(),
     isOwner: userId === viewerId,
@@ -138,8 +145,10 @@ export async function getChannelVideos(
     id: v.id,
     videoId: v.videoId,
     title: v.title,
+    description: v.description,
     thumbnailUrl: v.thumbnailUrl,
     publishedAt: v.publishedAt.toISOString(),
+    publishAt: v.publishAt?.toISOString() ?? null,
     durationSec: v.durationSec,
     viewCount: Number(v.viewCount),
     likeCount: Number(v.likeCount),

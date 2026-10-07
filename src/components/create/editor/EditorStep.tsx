@@ -13,13 +13,13 @@ export function EditorStep() {
   const confirmed = Boolean(project.editor.confirmedAt);
   const runtime = totalTimelineSeconds(project.scenes);
 
-  if (!project.renderedAt) {
+  if (project.scenes.length === 0) {
     return (
       <EmptyState
-        title="Render first"
-        description="The editor unlocks after Remotion finishes a cut. Complete the checklist on Render, then come back here."
+        title="Build the timeline first"
+        description="The editor opens once the timeline has clips. You can render the MP4 later."
         action={
-          <ActionButton onClick={() => setActiveStep("render")}>Go to Render</ActionButton>
+          <ActionButton onClick={() => setActiveStep("timeline")}>Go to Timeline</ActionButton>
         }
       />
     );

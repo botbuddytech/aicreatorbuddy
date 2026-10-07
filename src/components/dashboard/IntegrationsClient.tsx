@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BarList } from "@/components/dashboard/BarList";
 import { DonutChart } from "@/components/dashboard/DonutChart";
 import { IntegrationCard } from "@/components/dashboard/IntegrationCard";
+import { HiggsfieldCard } from "@/components/dashboard/HiggsfieldAccounts";
 import { IntegrationUsageModal } from "@/components/dashboard/IntegrationUsageModal";
 import { StatCard } from "@/components/dashboard/StatCard";
 import {
@@ -15,6 +16,7 @@ import {
   type Integration,
 } from "@/lib/dashboardContent";
 import type { UserIntegrationState } from "@/lib/integrations/repo";
+import type { HiggsfieldAccountView } from "@/features/higgsfield/accountView";
 
 type FilterId = "all" | "connected" | "attention" | "disconnected";
 
@@ -40,8 +42,10 @@ function statusFor(state: UserIntegrationState): Integration["status"] {
 
 export function IntegrationsClient({
   integrationStates,
+  higgsfieldAccounts,
 }: {
   integrationStates: UserIntegrationState[];
+  higgsfieldAccounts: HiggsfieldAccountView[];
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterId>("all");
@@ -97,6 +101,48 @@ export function IntegrationsClient({
         channelBreakdown: [],
       } satisfies Integration;
     }
+    if (state.integrationId === "youtube") {
+      const usage = state.usage;
+      return {
+        ...liveItem,
+        scopes:
+          state.status === "CONNECTED"
+            ? [
+                "youtube.readonly",
+                "youtube.upload",
+                "youtube.force-ssl",
+                "yt-analytics.readonly",
+                "yt-analytics-monetary.readonly",
+              ]
+            : [],
+        trend: usage?.trend ?? [],
+        quota: {
+          used: usage?.unitsMonth ?? 0,
+          limit: 0,
+          unit: "quota units recorded",
+          resetsOn: "—",
+          window: "This month, recorded by this app",
+        },
+        cost: {
+          monthToDate: 0,
+          projected: 0,
+          perUnitLabel: "Google does not return remaining project quota",
+          currency: "USD",
+        },
+        health: {
+          successRate: usage?.successRate ?? 0,
+          errorRate: usage?.successRate == null ? 0 : 100 - usage.successRate,
+          p95Latency: usage?.p95LatencyMs ?? 0,
+          avgLatency: usage?.averageLatencyMs ?? 0,
+          rateLimitEvents: usage?.recentCalls.filter((call) => call.status === 429).length ?? 0,
+          uptime: 0,
+        },
+        stepBreakdown: usage?.stepBreakdown ?? [],
+        channelBreakdown: usage?.channelBreakdown ?? [],
+        endpoints: usage?.endpoints ?? [],
+        recentCalls: usage?.recentCalls ?? [],
+      } satisfies Integration;
+    }
     if (state.integrationId !== "vidiq") return liveItem;
 
     const usage = state.usage;
@@ -131,16 +177,6 @@ export function IntegrationsClient({
   const totalCalls = displayIntegrations.reduce((acc, item) => acc + sumTrend(item.trend), 0);
   const totalSpend = displayIntegrations.reduce((acc, item) => acc + item.cost.monthToDate, 0);
   const connected = displayIntegrations.filter((item) => item.connected);
-  const connectedWithHealth = connected.filter((item) => {
-    const state = stateById.get(item.id as UserIntegrationState["integrationId"]);
-    if (state?.integrationId === "elevenlabs") return false;
-    return state?.integrationId !== "vidiq" || state.usage?.successRate != null;
-  });
-  const avgSuccess =
-    connectedWithHealth.length === 0
-      ? 0
-      : connectedWithHealth.reduce((acc, item) => acc + item.health.successRate, 0) /
-        connectedWithHealth.length;
 
   const spendSegments = displayIntegrations
     .filter((item) => item.cost.monthToDate > 0)
@@ -153,8 +189,21 @@ export function IntegrationsClient({
   const visible = (() => {
     const needle = query.trim().toLowerCase();
     return displayIntegrations.filter((item) => {
-      if (!matchesFilter(item, filter)) return false;
+      const higgsfieldConnected = higgsfieldAccounts.length > 0;
+      if (item.id === "higgsfield") {
+        if (filter === "connected" && !higgsfieldConnected) return false;
+        if (filter === "disconnected" && higgsfieldConnected) return false;
+        if (filter === "attention") return false;
+      } else if (!matchesFilter(item, filter)) {
+        return false;
+      }
       if (!needle) return true;
+      if (item.id === "higgsfield") {
+        return (
+          "higgsfield".includes(needle) ||
+          higgsfieldAccounts.some((account) => account.email.toLowerCase().includes(needle))
+        );
+      }
       return (
         item.name.toLowerCase().includes(needle) ||
         item.category.toLowerCase().includes(needle) ||
@@ -170,23 +219,23 @@ export function IntegrationsClient({
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="API calls MTD"
-          value={formatInt(totalCalls)}
-          delta="+18%"
+          value={formatInt(0)}
+          delta="0%"
           positive
           accentClass="from-accent/25"
         />
         <StatCard
           label="Spend MTD"
-          value={formatUsd(totalSpend)}
-          delta="+9%"
+          value={formatUsd(0)}
+          delta="0%"
           positive
           accentClass="from-chart-amber/25"
         />
         <StatCard
           label="Avg. success rate"
-          value={`${avgSuccess.toFixed(1)}%`}
-          delta="-0.4%"
-          positive={false}
+          value="0%"
+          delta="0%"
+          positive
           accentClass="from-success/25"
         />
         <StatCard
@@ -227,22 +276,20 @@ export function IntegrationsClient({
         </div>
       </div>
 
-      {visible.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-surface px-5 py-12 text-center text-sm text-muted">
-          No integrations match this filter.
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((item) => (
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {visible.map((item) =>
+          item.id === "higgsfield" ? (
+            <HiggsfieldCard key={item.id} accounts={higgsfieldAccounts} />
+          ) : (
             <IntegrationCard
               key={item.id}
               integration={item}
               liveState={stateById.get(item.id as UserIntegrationState["integrationId"]) ?? null}
               onViewUsage={() => setActiveId(item.id)}
             />
-          ))}
-        </div>
-      )}
+          ),
+        )}
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <DonutChart

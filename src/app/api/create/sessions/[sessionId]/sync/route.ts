@@ -290,7 +290,7 @@ export async function POST(request: Request, { params }: RouteContext) {
           },
         });
       }
-    }));
+    }, { maxWait: 10_000, timeout: 20_000 }));
 
     return Response.json({ ok: true });
   } catch (error) {

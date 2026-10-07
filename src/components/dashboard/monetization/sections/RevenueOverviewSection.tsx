@@ -204,7 +204,10 @@ export function RevenueOverviewSection({ data }: { data: OverviewData }) {
       ) : null}
 
       {tab === "overview" || tab === "memberships" ? (
-        <Panel title="Channel memberships" subtitle="Active member breakdown">
+        <Panel title="Channel memberships" subtitle="YouTube Analytics does not include memberships, Super Chats, or payouts">
+          {data.memberships.length === 0 ? (
+            <p className="text-sm text-muted">No membership data is available from the connected YouTube reports.</p>
+          ) : null}
           <div className="grid gap-2 md:grid-cols-3">
             {data.memberships.map((tier) => (
               <ListRow
@@ -221,7 +224,10 @@ export function RevenueOverviewSection({ data }: { data: OverviewData }) {
       ) : null}
 
       {tab === "overview" || tab === "supers" ? (
-        <Panel title="Super Chat top supporters" subtitle="This month's top contributors">
+        <Panel title="Super Chat top supporters" subtitle="Not available from YouTube Analytics">
+          {data.supporters.length === 0 ? (
+            <p className="text-sm text-muted">Super Chat activity is not part of the connected reports.</p>
+          ) : null}
           <div className="grid gap-2 md:grid-cols-2">
             {data.supporters.map((row) => (
               <ListRow
@@ -240,7 +246,10 @@ export function RevenueOverviewSection({ data }: { data: OverviewData }) {
       ) : null}
 
       {tab === "overview" || tab === "merch" ? (
-        <Panel title="Recent transactions" subtitle="Latest revenue activity">
+        <Panel title="Recent transactions" subtitle="Payouts are not returned by YouTube Analytics">
+          {data.transactions.length === 0 ? (
+            <p className="mb-2 text-sm text-muted">No payout or merch transactions are available.</p>
+          ) : null}
           <div className="space-y-2">
             {data.transactions
               .filter((row) => (tab === "merch" ? row.kind === "merch" || row.kind === "fee" : true))

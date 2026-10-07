@@ -12,7 +12,7 @@ import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { measureVideoSeconds } from "@/lib/clipPoster";
 import { useSyncedSceneVoiceover } from "@/lib/sceneVoiceover";
 import { useClipUrls } from "@/lib/useClipUrl";
-import { sceneDuration, sceneRuntimeSeconds } from "@/lib/videoProject";
+import { sceneDuration, sceneRuntimeSeconds, sceneTimeRange } from "@/lib/videoProject";
 import {
   buildInputProps,
   FACELESS_FPS,
@@ -188,6 +188,41 @@ export function EditorWorkspace() {
     if (voiceUnlocked) setVoiceSyncKey((value) => value + 1);
   }
 
+  const selectedTransition = selected
+    ? `${selected.editing.transitionIn}:${selected.editing.transitionInSeconds}:${selected.editing.transition}:${selected.editing.transitionSeconds}`
+    : "";
+  const previousTransition = useRef(selectedTransition);
+  const sawTransition = useRef(false);
+  const transitionClipId = useRef(selectedId);
+  useEffect(() => {
+    const clipChanged = transitionClipId.current !== selectedId;
+    transitionClipId.current = selectedId;
+    const previous = previousTransition.current;
+    previousTransition.current = selectedTransition;
+    if (!sawTransition.current) {
+      sawTransition.current = true;
+      return;
+    }
+    if (clipChanged || !selected) return;
+    const [prevIn, prevInSeconds, prevOut, prevOutSeconds] = previous.split(":");
+    const inChanged =
+      prevIn !== selected.editing.transitionIn ||
+      prevInSeconds !== String(selected.editing.transitionInSeconds);
+    const outChanged =
+      prevOut !== selected.editing.transition ||
+      prevOutSeconds !== String(selected.editing.transitionSeconds);
+    const index = project.scenes.findIndex((scene) => scene.id === selected.id);
+    if (index < 0) return;
+    const range = sceneTimeRange(project.scenes, index);
+    if (inChanged && selected.editing.transitionIn !== "none") {
+      seekSeconds(range.start);
+    } else if (outChanged && selected.editing.transition !== "none") {
+      seekSeconds(Math.max(range.start, range.end - selected.editing.transitionSeconds * 0.35));
+    }
+    // Seek only when this clip's transition changes, not when the playhead moves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, selectedTransition]);
+
   function togglePlay() {
     const player = playerRef.current;
     if (!player || total <= 0) return;
@@ -277,6 +312,18 @@ export function EditorWorkspace() {
         total={total}
         onSelect={(id) => {
           setSelectedId(id);
+          const index = project.scenes.findIndex((scene) => scene.id === id);
+          if (index < 0) return;
+          let start = 0;
+          for (let i = 0; i < index; i += 1) {
+            const scene = project.scenes[i];
+            if (scene) start += sceneRuntimeSeconds(scene);
+          }
+          seekSeconds(start);
+        }}
+        onOpenText={(id) => {
+          setSelectedId(id);
+          setRail("text");
           const index = project.scenes.findIndex((scene) => scene.id === id);
           if (index < 0) return;
           let start = 0;

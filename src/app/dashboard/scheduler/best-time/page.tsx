@@ -2,7 +2,8 @@ import { Topbar } from "@/components/dashboard/Topbar";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { BestTimeBoard } from "@/components/dashboard/scheduler/BestTimeBoard";
 import { SchedulerStatCard } from "@/components/dashboard/scheduler/SchedulerStatCard";
-import { bestTimeStatCards } from "@/lib/dashboardContent";
+import { requireUser } from "@/lib/auth/session";
+import { loadScheduler } from "@/lib/youtube/present";
 
 function StatSub({ cardId, text }: { cardId: string; text?: string }) {
   if (!text) return null;
@@ -21,12 +22,13 @@ function StatSub({ cardId, text }: { cardId: string; text?: string }) {
   return <p>{text}</p>;
 }
 
-export default function BestTimeToPostPage() {
+export default async function BestTimeToPostPage() {
+  const schedule = await loadScheduler(await requireUser());
   return (
     <>
       <Topbar
         title="Best Time To Post"
-        subtitle="Best time to post your content by AI Powered"
+        subtitle="Publish times ranked by views on this channel, in UTC"
         actions={
           <ActionButton variant="secondary" type="button">
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -38,7 +40,7 @@ export default function BestTimeToPostPage() {
       />
       <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {bestTimeStatCards.map((card) => (
+          {schedule.bestTimeCards.map((card) => (
             <SchedulerStatCard
               key={card.id}
               icon={card.icon}
@@ -49,7 +51,7 @@ export default function BestTimeToPostPage() {
             />
           ))}
         </div>
-        <BestTimeBoard />
+        <BestTimeBoard heatmap={schedule.heatmap} slots={schedule.slots} insight={schedule.insight} />
       </div>
     </>
   );

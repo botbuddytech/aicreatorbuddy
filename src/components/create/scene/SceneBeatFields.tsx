@@ -18,7 +18,7 @@ const MAX_CLIP_BYTES = 100 * 1024 * 1024;
 const CLIP_ACCEPT = "image/*,video/*";
 const FRAME_ACCEPT = "image/jpeg,image/png,image/webp";
 
-type MediaConfirm = "delete-clip" | "replace-clip" | "delete-frame" | "replace-frame";
+type MediaConfirm = "delete-clip" | "replace-clip" | "delete-frame" | "replace-frame" | "higgsfield-replace";
 
 function halt(event: SyntheticEvent) {
   event.stopPropagation();
@@ -116,6 +116,10 @@ export function SceneBeatFields({
   onElevenLabsPreview,
   onGenerate = () => {},
   onGenerateImage = () => {},
+  onGenerateVideo,
+  generatingVideo = false,
+  generateVideoDisabled = false,
+  videoNote = null,
   onPreview = () => {},
 }: {
   scene: Scene;
@@ -140,6 +144,10 @@ export function SceneBeatFields({
   onElevenLabsPreview?: () => void;
   onGenerate?: () => void;
   onGenerateImage?: () => void;
+  onGenerateVideo?: () => void;
+  generatingVideo?: boolean;
+  generateVideoDisabled?: boolean;
+  videoNote?: string | null;
   onPreview?: () => void;
 }) {
   const { project, dispatch } = useVideoProject();
@@ -152,7 +160,7 @@ export function SceneBeatFields({
   const [mediaConfirm, setMediaConfirm] = useState<MediaConfirm | null>(null);
   const [deletingClip, setDeletingClip] = useState(false);
   const [deletingFrame, setDeletingFrame] = useState(false);
-  const generateLabel = "Generate visuals";
+  const generateLabel = "Generate prompt";
   const clipName = scene.visuals.uploadedClipName;
   const frameName = scene.visuals.startFrameName;
   const hasFrame = Boolean(frameName || scene.visuals.startFrameStoragePath || scene.visuals.startFrameUrl);
@@ -561,8 +569,32 @@ export function SceneBeatFields({
               disabled={generateDisabled}
               onClick={onGenerate}
             >
-              {clipSource === "still" ? "Generate clip" : labeled ? generateLabel : "Generate"}
+              {generateLabel}
             </ActionButton>
+            {onGenerateVideo ? (
+              <button
+                type="button"
+                disabled={
+                  generateVideoDisabled ||
+                  generatingVideo ||
+                  !scene.visuals.description.trim()
+                }
+                onClick={() => {
+                  if (clipName || scene.visuals.uploadedClipStoragePath || scene.visuals.uploadedClipUrl) {
+                    setMediaConfirm("higgsfield-replace");
+                    return;
+                  }
+                  onGenerateVideo();
+                }}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#111111] px-3 text-xs font-semibold text-[#d6ff3f] hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" aria-hidden>
+                  <rect width="16" height="16" rx="4" fill="currentColor" />
+                  <path d="M8 2.4 9.15 6.85 13.6 8 9.15 9.15 8 13.6 6.85 9.15 2.4 8 6.85 6.85Z" className="fill-[#111111]" />
+                </svg>
+                {generatingVideo ? "Generating…" : "Generate"}
+              </button>
+            ) : null}
             <ActionButton
               size="sm"
               variant="secondary"
@@ -653,11 +685,14 @@ export function SceneBeatFields({
       {hideActions || !uploadError ? null : (
         <p className="text-[11px] text-accent">{uploadError}</p>
       )}
+      {hideActions || column === "script" || !videoNote ? null : (
+        <p className="text-[11px] text-muted">{videoNote}</p>
+      )}
       {column === "script" ? null : (
         <ConfirmModal
           open={mediaConfirm !== null}
           title={
-            mediaConfirm === "replace-clip"
+            mediaConfirm === "replace-clip" || mediaConfirm === "higgsfield-replace"
               ? "Replace this clip?"
               : mediaConfirm === "delete-frame"
                 ? "Delete this start image?"
@@ -666,7 +701,9 @@ export function SceneBeatFields({
                   : "Delete this clip?"
           }
           description={
-            mediaConfirm === "replace-clip"
+            mediaConfirm === "higgsfield-replace"
+              ? "Higgsfield will generate a new silent clip from this scene’s prompt. The current video is deleted from storage and cannot be retrieved."
+              : mediaConfirm === "replace-clip"
               ? "The current video will be permanently deleted from storage and from this scene, then replaced with the new file. The old clip cannot be retrieved."
               : mediaConfirm === "delete-frame"
                 ? "This permanently deletes the start image from this scene and from storage. It cannot be retrieved."
@@ -675,7 +712,9 @@ export function SceneBeatFields({
                   : "This permanently deletes the video from this scene, from storage, and from the database. It cannot be retrieved."
           }
           confirmLabel={
-            mediaConfirm === "replace-clip"
+            mediaConfirm === "higgsfield-replace"
+              ? "Generate clip"
+              : mediaConfirm === "replace-clip"
               ? "Replace clip"
               : mediaConfirm === "delete-frame"
                 ? "Delete image"
@@ -689,6 +728,7 @@ export function SceneBeatFields({
             setMediaConfirm(null);
             if (action === "delete-clip") void onRemoveClip();
             if (action === "replace-clip") fileRef.current?.click();
+            if (action === "higgsfield-replace") onGenerateVideo?.();
             if (action === "delete-frame") void onRemoveFrame();
             if (action === "replace-frame") frameRef.current?.click();
           }}

@@ -21,7 +21,30 @@ export function ChannelVideosPanel({
   const [items, setItems] = useState<ChannelVideo[]>(initialPage.items);
   const [cursor, setCursor] = useState<string | null>(initialPage.nextCursor);
   const [error, setError] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [comments, setComments] = useState<{ id: string; author: string; text: string; likeCount: number; publishedAt: string; replyCount: number }[]>([]);
+  const [commentsError, setCommentsError] = useState("");
+  const [commentsLoading, setCommentsLoading] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  async function openComments(video: ChannelVideo) {
+    setOpenId(video.id);
+    setComments([]);
+    setCommentsError("");
+    setCommentsLoading(true);
+    try {
+      const response = await fetch(
+        `/api/youtube/videos/${encodeURIComponent(video.videoId)}/comments?channelId=${encodeURIComponent(channel.id)}`,
+      );
+      const body = (await response.json()) as { comments?: typeof comments; error?: string };
+      if (!response.ok) throw new Error(body.error || "Could not load comments.");
+      setComments(body.comments ?? []);
+    } catch (err) {
+      setCommentsError(err instanceof Error ? err.message : "Could not load comments.");
+    } finally {
+      setCommentsLoading(false);
+    }
+  }
 
   function loadMore() {
     if (!cursor) return;
@@ -130,6 +153,11 @@ export function ChannelVideosPanel({
                         <span className="block max-w-[360px] truncate font-medium text-foreground">
                           {video.title}
                         </span>
+                        {video.description ? (
+                          <span className="mt-0.5 block max-w-[360px] truncate text-xs text-muted">
+                            {video.description}
+                          </span>
+                        ) : null}
                       </span>
                     </a>
                   </td>
@@ -147,7 +175,15 @@ export function ChannelVideosPanel({
                   <td className="whitespace-nowrap px-3 py-3 text-muted">{formatDate(video.publishedAt)}</td>
                   <td className="px-3 py-3 text-right text-foreground">{formatInt(video.viewCount)}</td>
                   <td className="px-3 py-3 text-right text-foreground">{formatInt(video.likeCount)}</td>
-                  <td className="px-3 py-3 text-right text-foreground">{formatInt(video.commentCount)}</td>
+                  <td className="px-3 py-3 text-right">
+                    <button
+                      type="button"
+                      onClick={() => void openComments(video)}
+                      className="font-semibold text-accent hover:text-accent-dark"
+                    >
+                      {formatInt(video.commentCount)}
+                    </button>
+                  </td>
                   <td className="px-5 py-3 text-right text-muted">{formatDuration(video.durationSec)}</td>
                 </tr>
               ))}
@@ -155,6 +191,30 @@ export function ChannelVideosPanel({
           </table>
         </div>
       )}
+
+      {openId ? (
+        <div className="border-t border-border px-5 py-4">
+          <h3 className="text-sm font-semibold text-foreground">Comments</h3>
+          {commentsLoading ? <p className="mt-2 text-sm text-muted">Loading comments…</p> : null}
+          {commentsError ? <p className="mt-2 text-sm text-accent">{commentsError}</p> : null}
+          {!commentsLoading && !commentsError && comments.length === 0 ? (
+            <p className="mt-2 text-sm text-muted">No comments on this video.</p>
+          ) : null}
+          <ul className="mt-3 space-y-3">
+            {comments.map((comment) => (
+              <li key={comment.id} className="rounded-xl border border-border px-3 py-2">
+                <p className="text-xs font-semibold text-foreground">
+                  {comment.author} · {formatDate(comment.publishedAt)}
+                </p>
+                <p className="mt-1 text-sm text-muted">{comment.text}</p>
+                <p className="mt-1 text-[11px] text-muted">
+                  {formatInt(comment.likeCount)} likes · {formatInt(comment.replyCount)} replies
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {error ? <p className="px-5 pb-4 text-sm text-accent">{error}</p> : null}
 

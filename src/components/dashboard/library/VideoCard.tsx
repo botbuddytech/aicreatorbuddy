@@ -20,8 +20,9 @@ export function VideoCard({ video }: { video: LibraryVideo }) {
       <div className="group relative aspect-video overflow-hidden bg-surface-soft">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={libraryThumbUrl(video.thumbLabel, video.id)}
+          src={video.thumbnailUrl || libraryThumbUrl(video.thumbLabel, video.id)}
           alt=""
+          referrerPolicy="no-referrer"
           className="h-full w-full object-cover"
         />
         <Badge tone={statusTone[video.status]} size="sm" className="absolute top-3 left-3">
@@ -63,18 +64,20 @@ export function VideoCard({ video }: { video: LibraryVideo }) {
 
         <div className="grid grid-cols-2 gap-2">
           <Link
-            href="/dashboard/create"
+            href={video.editHref ?? video.watchHref ?? "/dashboard/create"}
             className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-white/5"
           >
             <PencilIcon />
             Edit
           </Link>
           <Link
-            href="/dashboard/analytics"
+            href={video.watchHref ?? "/dashboard/analytics"}
+            target={video.watchHref ? "_blank" : undefined}
+            rel={video.watchHref ? "noreferrer" : undefined}
             className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent px-3 py-2 text-sm font-semibold text-white hover:bg-accent-dark"
           >
             <ChartIcon />
-            Analytics
+            {video.watchHref ? "Watch" : "Analytics"}
           </Link>
         </div>
       </div>

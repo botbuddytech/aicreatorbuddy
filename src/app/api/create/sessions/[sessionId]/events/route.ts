@@ -52,6 +52,8 @@ async function persistExport(
     update: {
       status,
       fileName: base.fileName,
+      runtimeSec: base.runtimeSec,
+      sceneCount: base.sceneCount,
       durationMs: base.durationMs,
       errorMessage: base.errorMessage,
       finishedAt: base.finishedAt,

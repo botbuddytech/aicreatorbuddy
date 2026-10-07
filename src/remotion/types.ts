@@ -1,4 +1,11 @@
-import type { AspectRatio, FilterId, OverlayPosition } from "@/lib/videoProject";
+import type {
+  AspectRatio,
+  FilterId,
+  TextOverlay,
+  TransitionId,
+  VideoFontId,
+  VideoFontWeight,
+} from "@/lib/videoProject";
 
 export const FACELESS_FPS = 30;
 
@@ -12,7 +19,11 @@ export type FacelessSceneProps = {
   filter: FilterId;
   volume: number;
   speed: number;
-  textOverlay: { text: string; position: OverlayPosition } | null;
+  transitionIn: TransitionId;
+  transitionInSeconds: number;
+  transition: TransitionId;
+  transitionSeconds: number;
+  textOverlay: TextOverlay | null;
   clipUrl: string | null;
   posterUrl: string | null;
   clipKind: "image" | "video" | null;
@@ -23,6 +34,9 @@ export type FacelessSceneProps = {
 export type FacelessVideoProps = {
   aspectRatio: AspectRatio;
   captions: boolean;
+  captionFontId: VideoFontId | null;
+  captionFontWeight: VideoFontWeight;
+  captionFontSize: number;
   scenes: FacelessSceneProps[];
 };
 

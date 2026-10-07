@@ -67,7 +67,7 @@ export function PlaylistListRow({
   onDelete,
 }: {
   playlist: LibraryPlaylist;
-  onDelete: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <article className="flex flex-col gap-3 rounded-2xl border border-border bg-surface p-3 sm:flex-row sm:items-center">
@@ -101,13 +101,15 @@ export function PlaylistListRow({
         >
           Edit
         </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          className="rounded-xl bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-dark"
-        >
-          Delete
-        </button>
+        {onDelete ? (
+          <button
+            type="button"
+            onClick={onDelete}
+            className="rounded-xl bg-accent px-3 py-1.5 text-xs font-semibold text-white hover:bg-accent-dark"
+          >
+            Delete
+          </button>
+        ) : null}
       </div>
     </article>
   );

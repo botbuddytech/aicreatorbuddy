@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { PlaceholderImage } from "@/components/create/PlaceholderImage";
-import { recentUploads, type UploadStatus } from "@/lib/dashboardContent";
+import { type RecentUpload, type UploadStatus } from "@/lib/dashboardContent";
 
 const FILTERS: { id: "all" | UploadStatus; label: string }[] = [
   { id: "all", label: "All" },
@@ -13,12 +13,12 @@ const FILTERS: { id: "all" | UploadStatus; label: string }[] = [
   { id: "draft", label: "Drafts" },
 ];
 
-export function RecentUploads() {
+export function RecentUploads({ uploads }: { uploads: RecentUpload[] }) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
 
   const items = useMemo(
-    () => (filter === "all" ? recentUploads : recentUploads.filter((item) => item.status === filter)),
-    [filter],
+    () => (filter === "all" ? uploads : uploads.filter((item) => item.status === filter)),
+    [filter, uploads],
   );
 
   return (
@@ -87,15 +87,17 @@ export function RecentUploads() {
                     <span>{video.views} views</span>
                     <span>{video.likes} likes</span>
                     <span>{video.comments} comments</span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 font-semibold ${
-                        video.vsAvgPositive
-                          ? "bg-success/15 text-success"
-                          : "bg-chart-amber/15 text-chart-amber"
-                      }`}
-                    >
-                      {video.vsAvg} vs avg
-                    </span>
+                    {video.vsAvg ? (
+                      <span
+                        className={`rounded-full px-2 py-0.5 font-semibold ${
+                          video.vsAvgPositive
+                            ? "bg-success/15 text-success"
+                            : "bg-chart-amber/15 text-chart-amber"
+                        }`}
+                      >
+                        {video.vsAvg} vs avg
+                      </span>
+                    ) : null}
                   </div>
                 ) : null}
                 {video.status === "live" ? (

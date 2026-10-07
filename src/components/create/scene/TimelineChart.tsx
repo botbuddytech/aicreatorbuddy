@@ -26,6 +26,9 @@ export function TimelineChart({
   onSelect,
   onGenerateVisuals,
   onGenerateImage,
+  onGenerateVideo,
+  videoBusyId,
+  videoNote,
   onPreviewScript,
   onPreviewVisuals,
   scriptPlayingId,
@@ -44,6 +47,9 @@ export function TimelineChart({
   onSelect: (id: string) => void;
   onGenerateVisuals: (id: string) => void;
   onGenerateImage: (id: string) => void;
+  onGenerateVideo: (id: string) => void;
+  videoBusyId: string | null;
+  videoNote: { id: string; text: string } | null;
   onPreviewScript: (id: string) => void;
   onPreviewVisuals: (id: string) => void;
   scriptPlayingId: string | null;
@@ -172,6 +178,9 @@ export function TimelineChart({
                       previewDisabled={!sceneVisualPreviewSrc(scene.visuals)}
                       onGenerate={() => onGenerateVisuals(scene.id)}
                       onGenerateImage={() => onGenerateImage(scene.id)}
+                      onGenerateVideo={() => onGenerateVideo(scene.id)}
+                      generatingVideo={videoBusyId === scene.id}
+                      videoNote={videoNote?.id === scene.id ? videoNote.text : null}
                       onPreview={() => onPreviewVisuals(scene.id)}
                     />
                   </td>

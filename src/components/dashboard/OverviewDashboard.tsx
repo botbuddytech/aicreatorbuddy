@@ -3,19 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { BarList } from "@/components/dashboard/BarList";
+import { ExportDurationCard } from "@/components/dashboard/ExportDurationCard";
 import { OverviewStatCard } from "@/components/dashboard/OverviewStatCard";
 import { PerformanceCharts } from "@/components/dashboard/PerformanceCharts";
 import { RecentUploads } from "@/components/dashboard/RecentUploads";
 import { ScheduledVideosTable } from "@/components/dashboard/ScheduledVideosTable";
 import { ActionButton } from "@/components/ui/ActionButton";
-import {
-  chartRangeOptions,
-  overviewPrimaryStats,
-  overviewSecondaryStats,
-  topCountries,
-  trafficSources,
-  type ChartRange,
-} from "@/lib/dashboardContent";
+import { chartRangeOptions, type ChartRange } from "@/lib/dashboardContent";
+import type { OverviewPayload } from "@/lib/youtube/present";
 
 const TRAFFIC_ICONS: Record<string, string> = {
   Search: "⌕",
@@ -25,13 +20,48 @@ const TRAFFIC_ICONS: Record<string, string> = {
   Direct: "◎",
 };
 
-export function OverviewDashboard() {
+function AnalyticsNotice({ message }: { message: string }) {
+  const parts = message.split(/(https:\/\/\S+)/);
+  return (
+    <p className="rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted">
+      {parts.map((part, index) =>
+        part.startsWith("https://") ? (
+          <a key={part} href={part} target="_blank" rel="noreferrer" className="font-semibold text-accent underline">
+            Enable YouTube Analytics API
+          </a>
+        ) : (
+          <span key={`${index}-${part.slice(0, 12)}`}>{part}</span>
+        ),
+      )}
+    </p>
+  );
+}
+
+export function OverviewDashboard({ initial }: { initial: OverviewPayload }) {
   const [range, setRange] = useState<ChartRange>("28d");
+  const [payload, setPayload] = useState(initial);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load(nextRange: ChartRange, refresh = false) {
+    setRefreshing(true);
+    setError(null);
+    try {
+      const response = await fetch(
+        `/api/dashboard/youtube?range=${encodeURIComponent(nextRange)}${refresh ? "&refresh=1" : ""}`,
+      );
+      const body = (await response.json()) as OverviewPayload & { error?: string };
+      if (!response.ok) throw new Error(body.error || "Could not load YouTube data.");
+      setPayload(body);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load YouTube data.");
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   function refresh() {
-    setRefreshing(true);
-    window.setTimeout(() => setRefreshing(false), 700);
+    void load(range, true);
   }
 
   return (
@@ -43,7 +73,11 @@ export function OverviewDashboard() {
         <select
           id="overview-range"
           value={range}
-          onChange={(event) => setRange(event.target.value as ChartRange)}
+          onChange={(event) => {
+            const next = event.target.value as ChartRange;
+            setRange(next);
+            void load(next);
+          }}
           className="col-span-2 rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-accent/50 sm:col-auto"
         >
           {chartRangeOptions.map((option) => (
@@ -73,14 +107,40 @@ export function OverviewDashboard() {
         </Link>
       </div>
 
+      <ExportDurationCard />
+
+      {!payload.channel ? (
+        <div className="rounded-2xl border border-dashed border-border bg-surface px-5 py-10 text-center">
+          <p className="font-display text-lg font-semibold text-foreground">Connect a YouTube channel</p>
+          <p className="mt-2 text-sm text-muted">Overview numbers come from the channel selected above.</p>
+          <Link
+            href="/api/youtube/connect"
+            className="mt-4 inline-flex rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-white hover:bg-accent-dark"
+          >
+            Connect YouTube
+          </Link>
+        </div>
+      ) : null}
+
+      {payload.channel?.missingScopes ? (
+        <p className="rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
+          Reconnect YouTube to load watch time, revenue, and traffic.{" "}
+          <a href="/api/youtube/connect" className="font-semibold underline">
+            Reconnect
+          </a>
+        </p>
+      ) : null}
+      {payload.analyticsError ? <AnalyticsNotice message={payload.analyticsError} /> : null}
+      {error ? <p className="text-sm text-accent">{error}</p> : null}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {overviewPrimaryStats.map((stat) => (
+        {payload.primary.map((stat) => (
           <OverviewStatCard key={stat.id} stat={stat} />
         ))}
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-        {overviewSecondaryStats.map((stat) => (
+        {payload.secondary.map((stat) => (
           <div key={stat.label} className="rounded-2xl border border-border bg-surface p-4">
             <p className="text-xs text-muted">{stat.label}</p>
             <p className="mt-2 font-display text-xl font-semibold text-foreground">{stat.value}</p>
@@ -96,7 +156,7 @@ export function OverviewDashboard() {
           title="Traffic sources"
           subtitle="Where viewers find your videos"
           href="/dashboard/analytics"
-          items={trafficSources.map((item) => ({
+          items={payload.traffic.map((item) => ({
             ...item,
             icon: <span aria-hidden>{TRAFFIC_ICONS[item.label] ?? "●"}</span>,
           }))}
@@ -105,16 +165,24 @@ export function OverviewDashboard() {
           title="Top countries"
           subtitle="Views by geography"
           href="/dashboard/analytics"
-          items={topCountries.map((item) => ({
+          items={payload.countries.map((item) => ({
             ...item,
             icon: <span aria-hidden>{item.flag}</span>,
           }))}
         />
       </div>
 
-      <RecentUploads />
-      <ScheduledVideosTable />
-      <PerformanceCharts range={range} onRangeChange={setRange} />
+      <RecentUploads uploads={payload.uploads} />
+      <ScheduledVideosTable videos={payload.scheduled} />
+      <PerformanceCharts
+        range={range}
+        onRangeChange={(next) => {
+          setRange(next);
+          void load(next);
+        }}
+        series={payload.series}
+        audience={payload.audience}
+      />
     </div>
   );
 }

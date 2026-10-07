@@ -3,13 +3,8 @@
 import { useMemo, useState } from "react";
 import { DonutChart } from "@/components/dashboard/DonutChart";
 import { Tabs } from "@/components/ui/Tabs";
-import {
-  audienceAge,
-  chartRangeOptions,
-  engagementSeries,
-  type ChartMetric,
-  type ChartRange,
-} from "@/lib/dashboardContent";
+import { chartRangeOptions, type ChartMetric, type ChartRange } from "@/lib/dashboardContent";
+import type { OverviewPayload } from "@/lib/youtube/present";
 
 const METRIC_TABS: { id: ChartMetric; label: string }[] = [
   { id: "views", label: "Views" },
@@ -18,7 +13,10 @@ const METRIC_TABS: { id: ChartMetric; label: string }[] = [
 ];
 
 function formatAxis(metric: ChartMetric, value: number): string {
-  if (metric === "revenue") return `$${value}K`;
+  if (metric === "revenue") {
+    if (value >= 1000) return `$${(value / 1000).toFixed(1)}K`;
+    return `$${Math.round(value)}`;
+  }
   if (value >= 1000) return `${(value / 1000).toFixed(value >= 10000 ? 0 : 1)}K`;
   return String(value);
 }
@@ -102,12 +100,19 @@ function AreaChart({
 export function PerformanceCharts({
   range,
   onRangeChange,
+  series: seriesByMetric,
+  audience,
 }: {
   range: ChartRange;
   onRangeChange: (range: ChartRange) => void;
+  series: OverviewPayload["series"];
+  audience: OverviewPayload["audience"];
 }) {
   const [metric, setMetric] = useState<ChartMetric>("views");
-  const series = useMemo(() => engagementSeries[metric][range], [metric, range]);
+  const series = useMemo(
+    () => seriesByMetric[metric] ?? { labels: [], values: [] },
+    [metric, seriesByMetric],
+  );
 
   return (
     <div className="grid gap-4 lg:grid-cols-5">
@@ -147,8 +152,8 @@ export function PerformanceCharts({
         <DonutChart
           title="Audience"
           subtitle="Age mix of returning viewers"
-          total={audienceAge.total}
-          segments={audienceAge.segments}
+          total={audience.total}
+          segments={audience.segments}
           formatValue={(value) => `${value}%`}
           totalCaption="subs"
         />

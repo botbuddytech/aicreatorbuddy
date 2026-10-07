@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { workspaceChannels } from "@/lib/dashboardContent";
 import type { LibraryViewMode } from "@/lib/contentLibrary";
 import { Input } from "@/components/ui/Input";
 import { ActionButton } from "@/components/ui/ActionButton";
@@ -26,6 +25,7 @@ export function LibraryToolbar({
   onViewModeChange,
   onExport,
   searchPlaceholder = "Search…",
+  channels = [],
 }: {
   chips: LibraryChip[];
   activeId: string;
@@ -37,6 +37,7 @@ export function LibraryToolbar({
   onViewModeChange: (mode: LibraryViewMode) => void;
   onExport: () => void;
   searchPlaceholder?: string;
+  channels?: { id: string; name: string }[];
 }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -117,7 +118,7 @@ export function LibraryToolbar({
               >
                 All channels
               </button>
-              {workspaceChannels.map((channel) => (
+              {channels.map((channel) => (
                 <button
                   key={channel.id}
                   type="button"

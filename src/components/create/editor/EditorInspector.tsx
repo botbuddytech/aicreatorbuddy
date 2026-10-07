@@ -58,7 +58,7 @@ function TrimField({
 }
 
 export function EditorInspector({ scene }: { scene: Scene | null }) {
-  const { project, dispatch } = useVideoProject();
+  const { dispatch } = useVideoProject();
 
   if (!scene) {
     return (
@@ -135,32 +135,20 @@ export function EditorInspector({ scene }: { scene: Scene | null }) {
         </p>
       </div>
 
-      <label className="flex items-center justify-between gap-2 text-sm">
-        <span>Captions</span>
-        <input
-          type="checkbox"
-          checked={project.editor.captions}
-          onChange={(event) =>
-            dispatch({ type: "UPDATE_EDITOR", patch: { captions: event.target.checked } })
-          }
-        />
-      </label>
-
       <div>
-        <FieldLabel>Fade / transition</FieldLabel>
-        <input
-          type="range"
-          min={0}
-          max={2}
-          step={0.1}
-          className="mt-2 w-full"
-          value={scene.editing.transitionSeconds}
-          onChange={(event) =>
-            patchEditing({ transitionSeconds: Number(event.target.value) })
-          }
-        />
+        <FieldLabel>In</FieldLabel>
         <p className="mt-1 text-xs tabular-nums text-muted">
-          {scene.editing.transitionSeconds.toFixed(1)}s {scene.editing.transition}
+          {scene.editing.transitionIn === "none"
+            ? "None"
+            : `${scene.editing.transitionInSeconds.toFixed(1)}s ${scene.editing.transitionIn}`}
+        </p>
+        <div className="mt-2">
+          <FieldLabel>Out</FieldLabel>
+        </div>
+        <p className="mt-1 text-xs tabular-nums text-muted">
+          {scene.editing.transition === "none"
+            ? "None"
+            : `${scene.editing.transitionSeconds.toFixed(1)}s ${scene.editing.transition}`}
         </p>
       </div>
 

@@ -10,6 +10,7 @@ import {
   INTEGRATION_CATALOG,
   type IntegrationId,
 } from "@/lib/integrations/catalog";
+import { missingYoutubeScopes } from "@/lib/youtube/oauth";
 
 export type UserIntegrationState = {
   id: string;
@@ -44,8 +45,9 @@ export type UserIntegrationState = {
     trendDates: string[];
     stepBreakdown: Array<{ label: string; value: number; color: string }>;
     channelBreakdown: Array<{ label: string; value: number; color: string }>;
+    unitsMonth: number | null;
     endpoints: Array<{
-      method: "POST";
+      method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
       path: string;
       calls: number;
       avgLatency: number;
@@ -54,7 +56,7 @@ export type UserIntegrationState = {
     recentCalls: Array<{
       id: string;
       time: string;
-      method: "POST";
+      method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
       path: string;
       status: number;
       latency: number;
@@ -74,18 +76,22 @@ const BREAKDOWN_COLORS = [
   "bg-success",
 ] as const;
 
-async function getVidiqUsage(userId: string): Promise<NonNullable<UserIntegrationState["usage"]>> {
+async function getProviderUsage(
+  userId: string,
+  provider: "VIDIQ" | "YOUTUBE",
+): Promise<NonNullable<UserIntegrationState["usage"]>> {
   const now = new Date();
   const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
   const trendStart = new Date(today);
   trendStart.setUTCDate(trendStart.getUTCDate() - 29);
   const rows = await prisma.integrationUsage.findMany({
-    where: { userId, provider: "VIDIQ", at: { gte: trendStart } },
+    where: { userId, provider, at: { gte: trendStart } },
     orderBy: { at: "desc" },
     select: {
       id: true,
       operation: true,
+      method: true,
       httpStatus: true,
       ok: true,
       latencyMs: true,
@@ -136,8 +142,8 @@ async function getVidiqUsage(userId: string): Promise<NonNullable<UserIntegratio
     hasData: rows.length > 0,
     callsToday: rows.length ? todayRows.length : null,
     callsMonth: rows.length ? monthRows.length : null,
-    // vidIQ reports credits, not the user's plan price or a dollar amount per call.
     spendMonthUsd: null,
+    unitsMonth: rows.length ? monthRows.reduce((sum, row) => sum + row.units, 0) : null,
     successRate: rows.length
       ? Math.round((rows.filter((row) => row.ok).length / rows.length) * 1000) / 10
       : null,
@@ -150,7 +156,7 @@ async function getVidiqUsage(userId: string): Promise<NonNullable<UserIntegratio
     stepBreakdown: breakdown(stepGroups),
     channelBreakdown: breakdown(channelGroups),
     endpoints: [...endpointGroups.entries()].map(([path, calls]) => ({
-      method: "POST" as const,
+      method: httpMethod(calls[0]?.method),
       path,
       calls: calls.length,
       avgLatency: calls.some((call) => call.latencyMs != null)
@@ -166,7 +172,7 @@ async function getVidiqUsage(userId: string): Promise<NonNullable<UserIntegratio
     recentCalls: rows.slice(0, 50).map((row) => ({
       id: row.id,
       time: row.at.toLocaleString(),
-      method: "POST" as const,
+      method: httpMethod(row.method),
       path: row.operation,
       status: row.httpStatus ?? (row.ok ? 200 : 500),
       latency: row.latencyMs ?? 0,
@@ -244,10 +250,15 @@ export async function listUserIntegrations(
 ): Promise<UserIntegrationState[]> {
   await ensureUserIntegrationRows(userId);
   await refreshVidiqCredits(userId);
-  const [rows, vidiqUsage, elevenLabs] = await Promise.all([
+  const [rows, vidiqUsage, youtubeUsage, elevenLabs, youtubeChannels] = await Promise.all([
     prisma.userIntegration.findMany({ where: { userId } }),
-    getVidiqUsage(userId),
+    getProviderUsage(userId, "VIDIQ"),
+    getProviderUsage(userId, "YOUTUBE"),
     getElevenLabsSnapshot(),
+    prisma.youtubeChannel.findMany({
+      where: { userId },
+      select: { scope: true, status: true },
+    }),
   ]);
   const byProvider = new Map(rows.map((row) => [row.provider, row]));
 
@@ -284,13 +295,18 @@ export async function listUserIntegrations(
         status === "CONNECTED" || status === "NEEDS_REAUTH"
           ? (elevenLabsState?.accountCreatedAt ?? row.createdAt.toISOString())
           : null,
-      lastErrorMessage: elevenLabsState?.lastErrorMessage ?? row.lastErrorMessage,
+      lastErrorMessage:
+        item.provider === "YOUTUBE" && youtubeChannels.some((channel) => missingYoutubeScopes(channel.scope).length > 0)
+          ? "Reconnect YouTube to grant Analytics and comment access."
+          : elevenLabsState?.lastErrorMessage ?? row.lastErrorMessage,
       usage:
         item.provider === "VIDIQ"
           ? vidiqUsage
-          : item.provider === "ELEVENLABS"
-            ? elevenLabsState?.usage ?? null
-            : null,
+          : item.provider === "YOUTUBE"
+            ? youtubeUsage
+            : item.provider === "ELEVENLABS"
+              ? elevenLabsState?.usage ?? null
+              : null,
     };
   }));
 }
@@ -356,6 +372,7 @@ async function connectSharedElevenLabs(
       callsToday: snapshot.callsToday,
       callsMonth: snapshot.daily.length ? callsMonth : null,
       spendMonthUsd: snapshot.spendMonthUsd,
+      unitsMonth: null,
       successRate: null,
       averageLatencyMs: null,
       p95LatencyMs: null,
@@ -368,6 +385,13 @@ async function connectSharedElevenLabs(
       daily: snapshot.daily,
     },
   };
+}
+
+function httpMethod(value: string | null | undefined): "GET" | "POST" | "PUT" | "PATCH" | "DELETE" {
+  if (value === "GET" || value === "PUT" || value === "PATCH" || value === "DELETE" || value === "POST") {
+    return value;
+  }
+  return "POST";
 }
 
 function clampInt(value: number | null): number | null {

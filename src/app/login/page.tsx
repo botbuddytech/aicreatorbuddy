@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/LoginForm";
+import { auth } from "@/lib/auth";
 import { isGoogleAuthEnabled } from "@/lib/auth/google";
 
 export const metadata: Metadata = {
@@ -24,6 +26,10 @@ export default async function LoginPage({
   searchParams: LoginSearchParams;
 }) {
   const params = await searchParams;
+  const session = await auth();
+  if (session?.user?.id) {
+    redirect(safeNextPath(params.next));
+  }
   return (
     <LoginForm
       googleEnabled={isGoogleAuthEnabled()}

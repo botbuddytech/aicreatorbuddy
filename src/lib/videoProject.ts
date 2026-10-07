@@ -1,5 +1,16 @@
 import type { BadgeTone } from "@/components/ui/Badge";
 import type { VisualStyleId, VisualStylePromptMap } from "@/lib/visualStyles";
+import {
+  clampFontSize,
+  DEFAULT_CAPTION_FONT_SIZE,
+  DEFAULT_CAPTION_FONT_WEIGHT,
+  DEFAULT_OVERLAY_FONT_SIZE,
+  DEFAULT_OVERLAY_FONT_WEIGHT,
+  normalizeVideoFontId,
+  normalizeVideoFontWeight,
+  type VideoFontId,
+  type VideoFontWeight,
+} from "@/remotion/fontCatalog";
 
 export type AiProvider = "chatgpt" | "gemini" | "elevenlabs";
 
@@ -77,7 +88,16 @@ export type OverlayPosition = "top" | "center" | "bottom";
 export type TextOverlay = {
   text: string;
   position: OverlayPosition;
+  /** Null keeps the system font until a Google face is chosen. */
+  fontId: VideoFontId | null;
+  fontWeight: VideoFontWeight;
+  fontSize: number;
 };
+
+export type {
+  VideoFontId,
+  VideoFontWeight,
+} from "@/remotion/fontCatalog";
 
 export type SceneEditing = {
   notes: string;
@@ -86,6 +106,10 @@ export type SceneEditing = {
   scriptDurationSeconds: number | null;
   /** In-point inside the source clip, in source seconds. Head trim, not a timeline offset. */
   trimStartSeconds: number;
+  /** Plays as this clip begins. */
+  transitionIn: TransitionId;
+  transitionInSeconds: number;
+  /** Plays as this clip ends. Older drafts stored this as `transition`. */
   transition: TransitionId;
   transitionSeconds: number;
   filter: FilterId;
@@ -105,6 +129,9 @@ export type EditorSettings = {
   musicTrackId: string | null;
   musicVolume: number;
   captions: boolean;
+  captionFontId: VideoFontId | null;
+  captionFontWeight: VideoFontWeight;
+  captionFontSize: number;
   confirmedAt: string | null;
   exportedAt: string | null;
 };
@@ -703,6 +730,8 @@ export function emptyEditing(): SceneEditing {
     durationSeconds: null,
     scriptDurationSeconds: null,
     trimStartSeconds: 0,
+    transitionIn: "none",
+    transitionInSeconds: 0.5,
     transition: "none",
     transitionSeconds: 0.5,
     filter: "none",
@@ -718,7 +747,10 @@ export function emptyEditorSettings(): EditorSettings {
   return {
     musicTrackId: null,
     musicVolume: 40,
-    captions: true,
+    captions: false,
+    captionFontId: null,
+    captionFontWeight: DEFAULT_CAPTION_FONT_WEIGHT,
+    captionFontSize: DEFAULT_CAPTION_FONT_SIZE,
     confirmedAt: null,
     exportedAt: null,
   };
@@ -766,6 +798,10 @@ export function normalizeEditing(raw: unknown): SceneEditing {
     typeof source.volume === "number" && Number.isFinite(source.volume)
       ? Math.min(100, Math.max(0, source.volume))
       : base.volume;
+  const transitionInSeconds =
+    typeof source.transitionInSeconds === "number" && source.transitionInSeconds >= 0
+      ? Math.min(2, source.transitionInSeconds)
+      : base.transitionInSeconds;
   const transitionSeconds =
     typeof source.transitionSeconds === "number" && source.transitionSeconds >= 0
       ? Math.min(2, source.transitionSeconds)
@@ -776,13 +812,28 @@ export function normalizeEditing(raw: unknown): SceneEditing {
     const position = isOverlayPosition(source.textOverlay.position)
       ? source.textOverlay.position
       : "bottom";
-    if (text.trim()) textOverlay = { text, position };
+    if (text.trim()) {
+      const fontId = normalizeVideoFontId(source.textOverlay.fontId);
+      textOverlay = {
+        text,
+        position,
+        fontId,
+        fontWeight: normalizeVideoFontWeight(
+          fontId,
+          source.textOverlay.fontWeight,
+          DEFAULT_OVERLAY_FONT_WEIGHT,
+        ),
+        fontSize: clampFontSize(source.textOverlay.fontSize, DEFAULT_OVERLAY_FONT_SIZE),
+      };
+    }
   }
   return {
     notes: typeof source.notes === "string" ? source.notes : "",
     durationSeconds,
     scriptDurationSeconds,
     trimStartSeconds,
+    transitionIn: isTransitionId(source.transitionIn) ? source.transitionIn : base.transitionIn,
+    transitionInSeconds,
     transition: isTransitionId(source.transition) ? source.transition : base.transition,
     transitionSeconds,
     filter: isFilterId(source.filter) ? source.filter : base.filter,
@@ -808,6 +859,13 @@ export function normalizeEditorSettings(raw: unknown): EditorSettings {
         ? Math.min(100, Math.max(0, source.musicVolume))
         : base.musicVolume,
     captions: typeof source.captions === "boolean" ? source.captions : base.captions,
+    captionFontId: normalizeVideoFontId(source.captionFontId),
+    captionFontWeight: normalizeVideoFontWeight(
+      normalizeVideoFontId(source.captionFontId),
+      source.captionFontWeight,
+      DEFAULT_CAPTION_FONT_WEIGHT,
+    ),
+    captionFontSize: clampFontSize(source.captionFontSize, DEFAULT_CAPTION_FONT_SIZE),
     confirmedAt: typeof source.confirmedAt === "string" ? source.confirmedAt : null,
     exportedAt: typeof source.exportedAt === "string" ? source.exportedAt : null,
   };
@@ -1224,11 +1282,12 @@ export function inferStepStatus(project: VideoProject): Record<StepId, StepStatu
     timeline: project.scenes.length ? "generated" : "not-started",
     description: project.description.trim() ? "generated" : "not-started",
     render: project.renderedAt ? "generated" : renderReady ? "draft" : "not-started",
-    editor: !project.renderedAt
-      ? "not-started"
-      : project.editor?.confirmedAt
-        ? "approved"
-        : "draft",
+    editor:
+      project.scenes.length === 0
+        ? "not-started"
+        : project.editor?.confirmedAt
+          ? "approved"
+          : "draft",
   };
 
   const next = { ...inferred };

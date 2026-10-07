@@ -10,11 +10,9 @@ import {
   SIDEBAR_COLLAPSED_KEY,
   demoProfile,
   navItems,
-  upcomingProcessingCount,
   type NavChild,
   type NavItem,
 } from "@/lib/dashboardContent";
-import { draftVideoCount } from "@/lib/contentLibrary";
 import { BrandMark } from "@/components/ui/BrandMark";
 
 const icons: Record<string, ReactNode> = {
@@ -140,12 +138,12 @@ function navActive(href: string, pathname: string, exact?: boolean) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function childBadge(child: NavChild) {
-  if (child.badge === "drafts" && draftVideoCount > 0) {
-    return { count: draftVideoCount, className: "bg-chart-amber/15 text-chart-amber" };
+function childBadge(child: NavChild, counts: { drafts: number; upcoming: number }) {
+  if (child.badge === "drafts" && counts.drafts > 0) {
+    return { count: counts.drafts, className: "bg-chart-amber/15 text-chart-amber" };
   }
-  if (child.badge === "upcoming" && upcomingProcessingCount > 0) {
-    return { count: upcomingProcessingCount, className: "bg-chart-blue/15 text-chart-blue" };
+  if (child.badge === "upcoming" && counts.upcoming > 0) {
+    return { count: counts.upcoming, className: "bg-chart-blue/15 text-chart-blue" };
   }
   return null;
 }
@@ -165,7 +163,15 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
-function NavDropdown({ item, pathname }: { item: NavItem; pathname: string }) {
+function NavDropdown({
+  item,
+  pathname,
+  counts,
+}: {
+  item: NavItem;
+  pathname: string;
+  counts: { drafts: number; upcoming: number };
+}) {
   const submenuId = useId();
   const sectionActive = navActive(item.href, pathname, item.exact);
   const [open, setOpen] = useState(sectionActive);
@@ -207,7 +213,7 @@ function NavDropdown({ item, pathname }: { item: NavItem; pathname: string }) {
           <div className="mt-1 ml-5 space-y-0.5 border-l border-border pl-3">
             {children.map((child) => {
               const childActive = navActive(child.href, pathname, child.exact);
-              const badge = childBadge(child);
+              const badge = childBadge(child, counts);
               return (
                 <Link
                   key={child.href}
@@ -262,7 +268,7 @@ function writeCollapsed(next: boolean) {
   collapsedListeners.forEach((listener) => listener());
 }
 
-function SidebarNav() {
+function SidebarNav({ counts = { drafts: 0, upcoming: 0 } }: { counts?: { drafts: number; upcoming: number } }) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const ui = useDashboardUi();
@@ -349,6 +355,7 @@ function SidebarNav() {
                   key={`${item.href}:${navActive(item.href, pathname, item.exact) ? "in" : "out"}`}
                   item={item}
                   pathname={pathname}
+                  counts={counts}
                 />
               );
             }

@@ -43,20 +43,28 @@ function IconButton({
   children: ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      disabled={disabled}
-      onClick={onClick}
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-35 ${
-        danger
-          ? "text-muted hover:bg-accent/15 hover:text-accent"
-          : "text-muted hover:bg-white/5 hover:text-foreground"
-      }`}
-    >
-      {children}
-    </button>
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        title={title}
+        aria-label={title}
+        disabled={disabled}
+        onClick={onClick}
+        className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-35 ${
+          danger
+            ? "text-muted hover:bg-accent/15 hover:text-accent"
+            : "text-muted hover:bg-white/5 hover:text-foreground"
+        }`}
+      >
+        {children}
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute top-[calc(100%+6px)] left-1/2 z-30 -translate-x-1/2 whitespace-nowrap rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-[#12141a] opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
+      >
+        {title}
+      </span>
+    </span>
   );
 }
 
@@ -119,19 +127,19 @@ export function EditorCanvas({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-surface">
-      <div className="flex shrink-0 items-center justify-center gap-0.5 border-b border-border bg-surface-soft px-2 py-1.5">
-        <IconButton title="Split" disabled={!display} onClick={onSplit}>
+      <div className="relative z-20 flex shrink-0 items-center justify-center gap-0.5 border-b border-border bg-surface-soft px-2 py-1.5">
+        <IconButton title="Split clip at the playhead" disabled={!display} onClick={onSplit}>
           <Icon d="M8 3.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zm0 12a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM11.2 9.1 20 4.2l.9 1.6-8.2 4.6 2.4 3.3L21 11v1.8l-7.6 4.2-2.8-3.8-1.5 1a2.6 2.6 0 0 1-3.6-1.2l1.5-1 1.8-1.2A2.6 2.6 0 0 1 11.2 9.1z" />
         </IconButton>
         <IconButton
-          title="Duplicate"
+          title="Duplicate clip"
           disabled={!display}
           onClick={() => display && dispatch({ type: "DUPLICATE_SCENE", id: display.id })}
         >
           <Icon d="M8 7h11v13H8V7zm-3-3h11v2H7v12H5V4z" />
         </IconButton>
         <IconButton
-          title="Delete"
+          title="Delete clip"
           danger
           disabled={!display || project.scenes.length < 2}
           onClick={() => display && dispatch({ type: "DELETE_SCENE", id: display.id })}
@@ -140,7 +148,7 @@ export function EditorCanvas({
         </IconButton>
         <span className="mx-1 h-4 w-px bg-border" />
         <IconButton
-          title="Move left"
+          title="Move clip earlier"
           disabled={!display || display.order === 0}
           onClick={() =>
             display && dispatch({ type: "MOVE_SCENE", id: display.id, direction: "up" })
@@ -149,7 +157,7 @@ export function EditorCanvas({
           <Icon d="M14.5 6 8 12l6.5 6 1.4-1.4L10.8 12l5.1-4.6L14.5 6z" />
         </IconButton>
         <IconButton
-          title="Move right"
+          title="Move clip later"
           disabled={!display || display.order === project.scenes.length - 1}
           onClick={() =>
             display && dispatch({ type: "MOVE_SCENE", id: display.id, direction: "down" })

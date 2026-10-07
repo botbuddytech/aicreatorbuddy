@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
     "@remotion/player",
     "@remotion/media",
     "@remotion/web-renderer",
+    "@remotion/google-fonts",
   ],
 };
 

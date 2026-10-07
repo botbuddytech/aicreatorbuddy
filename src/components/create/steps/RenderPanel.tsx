@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/Badge";
 import { LowEffortCheck } from "@/components/create/LowEffortCheck";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { ExportVoiceModal } from "@/components/create/ExportVoiceModal";
+import { PublishToYoutube } from "@/components/create/PublishToYoutube";
 import { exportProjectWithRemotion } from "@/lib/exportRemotion";
 import { buildSceneVoiceovers, type ExportVoiceProvider } from "@/lib/exportVoiceover";
 import { deriveReadiness, newId } from "@/lib/videoProject";
@@ -18,6 +19,7 @@ export function RenderPanel() {
   const [voiceNote, setVoiceNote] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [renderedFile, setRenderedFile] = useState<{ blob: Blob; fileName: string; mimeType: string } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const items = deriveReadiness(project);
@@ -53,12 +55,13 @@ export function RenderPanel() {
         }),
         keepStatus: true,
       });
-      await exportProjectWithRemotion(project, {
+      const exported = await exportProjectWithRemotion(project, {
         signal: controller.signal,
         voiceoverUrls: voiceovers.bySceneId,
         voiceoverSeconds: voiceovers.seconds,
         onProgress: ({ progress: next }) => setProgress(next),
       });
+      setRenderedFile({ blob: exported.blob, fileName: exported.fileName, mimeType: exported.mimeType });
       dispatch({ type: "MARK_RENDERED" });
       dispatch({
         type: "UPDATE_EDITOR",
@@ -175,6 +178,7 @@ export function RenderPanel() {
         ) : null}
       </div>
       {error ? <p className="mt-3 text-sm text-accent">{error}</p> : null}
+      <PublishToYoutube file={renderedFile} />
       <ExportVoiceModal
         open={chooseOpen}
         qwenName={project.qwenVoice.name}

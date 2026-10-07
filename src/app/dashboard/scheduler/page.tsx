@@ -4,7 +4,8 @@ import { BarList } from "@/components/dashboard/BarList";
 import { ContentCalendar } from "@/components/dashboard/scheduler/ContentCalendar";
 import { SchedulerStatCard } from "@/components/dashboard/scheduler/SchedulerStatCard";
 import { UpcomingPanel } from "@/components/dashboard/scheduler/UpcomingPanel";
-import { bestTimeBars, calendarStatCards } from "@/lib/dashboardContent";
+import { requireUser } from "@/lib/auth/session";
+import { loadScheduler } from "@/lib/youtube/present";
 
 function ScheduleVideoLink({ label }: { label: string }) {
   return (
@@ -20,17 +21,18 @@ function ScheduleVideoLink({ label }: { label: string }) {
   );
 }
 
-export default function SchedulerCalendarPage() {
+export default async function SchedulerCalendarPage() {
+  const schedule = await loadScheduler(await requireUser());
   return (
     <>
       <Topbar
         title="Content Calendar"
-        subtitle="Plan and schedule your video uploads"
+        subtitle={schedule.channelTitle ? `Schedule for ${schedule.channelTitle}` : "Connect a channel to see scheduled videos"}
         actions={<ScheduleVideoLink label="Schedule Video" />}
       />
       <div className="space-y-6 px-4 py-5 sm:px-6 sm:py-6">
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {calendarStatCards.map((card) => (
+          {schedule.calendarCards.map((card) => (
             <SchedulerStatCard
               key={card.id}
               icon={card.icon}
@@ -42,18 +44,18 @@ export default function SchedulerCalendarPage() {
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
-          <ContentCalendar />
+          <ContentCalendar events={schedule.events} />
           <div className="space-y-6">
-            <UpcomingPanel />
+            <UpcomingPanel events={schedule.events} />
             <BarList
               title="Best Time to Post"
               badge={
                 <span className="rounded-full bg-chart-purple/15 px-2 py-0.5 text-[11px] font-semibold text-chart-purple">
-                  AI Suggested
+                  From uploads
                 </span>
               }
-              footer="Based on your audience activity."
-              items={bestTimeBars}
+              footer="Publish hour weighted by views. Times are UTC."
+              items={schedule.bars}
               maxValue={100}
             />
           </div>

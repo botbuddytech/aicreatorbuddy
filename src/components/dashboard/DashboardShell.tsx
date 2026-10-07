@@ -12,9 +12,11 @@ import { SidebarSkeleton } from "@/components/ui/skeletons/SidebarSkeleton";
 export function DashboardShell({
   children,
   channelNav,
+  navCounts = { drafts: 0, upcoming: 0 },
 }: {
   children: ReactNode;
   channelNav: DashboardChannelNav;
+  navCounts?: { drafts: number; upcoming: number };
 }) {
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -52,7 +54,7 @@ export function DashboardShell({
     <DashboardUiContext.Provider value={value}>
       <div className="flex min-h-screen bg-background">
         <Suspense fallback={<SidebarSkeleton />}>
-          <Sidebar />
+          <Sidebar counts={navCounts} />
         </Suspense>
         <div className="min-w-0 flex-1 overflow-x-hidden">
           <DashboardTopNav channelNav={channelNav} />

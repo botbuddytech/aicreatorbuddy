@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { PlaceholderImage } from "@/components/create/PlaceholderImage";
-import { scheduledVideos, type ScheduledVideo } from "@/lib/dashboardContent";
+import { type ScheduledVideo } from "@/lib/dashboardContent";
 
 const statusClass: Record<ScheduledVideo["status"], string> = {
   scheduled: "bg-chart-blue/15 text-chart-blue",
@@ -43,7 +43,7 @@ function IconButton({
   );
 }
 
-export function ScheduledVideosTable() {
+export function ScheduledVideosTable({ videos }: { videos: ScheduledVideo[] }) {
   return (
     <section className="rounded-2xl border border-border bg-surface p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -71,7 +71,14 @@ export function ScheduledVideosTable() {
             </tr>
           </thead>
           <tbody>
-            {scheduledVideos.map((video) => (
+            {videos.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="py-8 text-center text-sm text-muted">
+                  No videos are scheduled on this channel.
+                </td>
+              </tr>
+            ) : null}
+            {videos.map((video) => (
               <tr key={video.id} className="border-b border-border/60 odd:bg-white/[0.02] last:border-0">
                 <td className="py-3">
                   <div className="flex items-center gap-3">
@@ -100,7 +107,7 @@ export function ScheduledVideosTable() {
                   <span
                     className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${scoreClass[video.aiLabel]}`}
                   >
-                    {video.aiScore} {video.aiLabel}
+                    {video.aiScore > 0 ? `${video.aiScore} ${video.aiLabel}` : "—"}
                   </span>
                 </td>
                 <td className="py-3">

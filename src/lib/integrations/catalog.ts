@@ -10,6 +10,7 @@ export type IntegrationId =
   | "gemini"
   | "elevenlabs"
   | "seedance"
+  | "higgsfield"
   | "remotion";
 
 export type IntegrationCatalogItem = {
@@ -39,6 +40,7 @@ export const INTEGRATION_CATALOG: readonly IntegrationCatalogItem[] = [
   { id: "gemini", provider: "GEMINI", authKind: "API_KEY", keyPrefix: "AIza" },
   { id: "elevenlabs", provider: "ELEVENLABS", authKind: "API_KEY", sharedEnv: true },
   { id: "seedance", provider: "SEEDANCE", authKind: "API_KEY" },
+  { id: "higgsfield", provider: "HIGGSFIELD", authKind: "API_KEY" },
   { id: "remotion", provider: "REMOTION", authKind: "NONE" },
 ] as const;
 

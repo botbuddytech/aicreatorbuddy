@@ -18,6 +18,8 @@ import { useElevenLabsPreview } from "@/features/elevenlabs/useElevenLabsPreview
 import { MAX_PREVIEW_CHARS } from "@/features/elevenlabs/contract";
 import { StylePromptEditor } from "@/features/cursor-visual-prompts/StylePromptEditor";
 import { useCursorVisualPromptGeneration } from "@/features/cursor-visual-prompts/VisualPromptActions";
+import { HiggsfieldAccountPicker } from "@/components/create/scene/HiggsfieldAccountPicker";
+import { generateHiggsfieldSceneClip } from "@/features/higgsfield/generateSceneClip";
 import type { CursorVisualPromptRequest } from "@/features/cursor-visual-prompts/contract";
 import { CursorPromptEditor } from "@/features/cursor-title-generator/CursorPromptEditor";
 import {
@@ -240,6 +242,15 @@ export function TimelineStep() {
   const [breaking, setBreaking] = useState(false);
   const visualGeneration = useCursorVisualPromptGeneration();
   const [visualPart, setVisualPart] = useState<"clip" | "image" | "all">("clip");
+  const [videoBusyId, setVideoBusyId] = useState<string | null>(null);
+  const [videoError, setVideoError] = useState<string | null>(null);
+  const [videoNote, setVideoNote] = useState<{ id: string; text: string } | null>(null);
+  const [higgsfieldSceneId, setHiggsfieldSceneId] = useState<string | null>(null);
+  const projectRef = useRef(project);
+  const videoLock = useRef(false);
+  useEffect(() => {
+    projectRef.current = project;
+  }, [project]);
   const generateLocked = visualGeneration.generating;
   const chartBusy =
     visualGeneration.generatingId === "all"
@@ -394,6 +405,86 @@ export function TimelineStep() {
         usd: 0,
       },
     });
+  }
+
+  async function generateHiggsfieldVideo(id: string, accountId: string, modelId: string) {
+    const scene = projectRef.current.scenes.find((item) => item.id === id);
+    const prompt = scene?.visuals.description.trim() ?? "";
+    if (!scene || !prompt || videoLock.current) return;
+    videoLock.current = true;
+    let started = false;
+    setVideoError(null);
+    setVideoNote(null);
+    setVideoBusyId(id);
+    try {
+      const clip = await generateHiggsfieldSceneClip({
+        sessionId: projectRef.current.id,
+        sceneId: scene.id,
+        accountId,
+        modelId,
+        prompt,
+        durationSeconds: clipSeconds(scene),
+        aspectRatio: projectRef.current.summary.aspectRatio,
+        previousStoragePath: scene.visuals.uploadedClipStoragePath,
+        onStarted: () => {
+          started = true;
+          setHiggsfieldSceneId(null);
+        },
+      });
+      const previousLocalId = scene.visuals.uploadedClipId;
+      dispatch({
+        type: "SET_SCENES",
+        generated: true,
+        keepStatus: true,
+        scenes: projectRef.current.scenes.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                visuals: {
+                  ...item.visuals,
+                  uploadedClipId: clip.clipId,
+                  uploadedClipName: "Higgsfield clip.mp4",
+                  uploadedClipStoragePath: clip.storagePath,
+                  uploadedClipUrl: clip.url,
+                  uploadedClipKind: "video",
+                  uploadedClipDurationSeconds: clip.durationSeconds,
+                  needsCustomFootage: true,
+                },
+                editing: {
+                  ...item.editing,
+                  trimStartSeconds: 0,
+                  clipMuted: true,
+                },
+              }
+            : item,
+        ),
+      });
+      if (clip.note) setVideoNote({ id, text: clip.note });
+      else setVideoNote(null);
+      trackSessionEvent(projectRef.current.id, {
+        type: "asset.clip_added",
+        step: "timeline",
+        payload: {
+          sceneKey: id,
+          localClipId: clip.clipId,
+          storagePath: clip.storagePath,
+          fileName: "Higgsfield clip.mp4",
+          mimeType: "video/mp4",
+          sizeBytes: null,
+          durationSec: clip.durationSeconds,
+        },
+      });
+      if (previousLocalId && previousLocalId !== clip.clipId) {
+        await deleteClip(previousLocalId);
+      }
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Could not generate that clip.";
+      setVideoError(message);
+      if (!started) throw new Error(message);
+    } finally {
+      videoLock.current = false;
+      setVideoBusyId(null);
+    }
   }
 
   async function generateAllVisuals() {
@@ -719,7 +810,7 @@ export function TimelineStep() {
                 onClick={() => void generateAllVisuals()}
               >
                 <SparkIcon />
-                Generate all visuals
+                Generate all prompts
               </ActionButton>
               <CursorPromptEditor
                 kind="visualPromptGeneration"
@@ -767,6 +858,9 @@ export function TimelineStep() {
               {visualGeneration.error}
             </p>
           ) : null}
+          {videoError ? (
+            <p className="rounded-xl bg-accent/10 px-3 py-2 text-sm text-accent">{videoError}</p>
+          ) : null}
 
           {view === "chart" ? (
             <TimelineChart
@@ -777,6 +871,9 @@ export function TimelineStep() {
               onSelect={setSelectedId}
               onGenerateVisuals={(id) => void generateVisuals(id, "clip")}
               onGenerateImage={(id) => void generateVisuals(id, "image")}
+              onGenerateVideo={(id) => setHiggsfieldSceneId(id)}
+              videoBusyId={videoBusyId}
+              videoNote={videoNote}
               onPreviewScript={previewVoiceover}
               onPreviewVisuals={previewVisual}
               scriptPlayingId={voiceover.playingId}
@@ -882,6 +979,9 @@ export function TimelineStep() {
                 previewDisabled={!sceneVisualPreviewSrc(selected.visuals)}
                 onGenerate={() => void generateVisuals(selected.id, "clip")}
                 onGenerateImage={() => void generateVisuals(selected.id, "image")}
+                onGenerateVideo={() => setHiggsfieldSceneId(selected.id)}
+                generatingVideo={videoBusyId === selected.id}
+                videoNote={videoNote?.id === selected.id ? videoNote.text : null}
                 onPreview={() => previewVisual(selected.id)}
               />
             </div>
@@ -889,6 +989,25 @@ export function TimelineStep() {
         </>
       )}
 
+      <HiggsfieldAccountPicker
+        open={higgsfieldSceneId !== null}
+        prompt={
+          project.scenes.find((scene) => scene.id === higgsfieldSceneId)?.visuals.description ?? ""
+        }
+        durationSeconds={(() => {
+          const scene = project.scenes.find((item) => item.id === higgsfieldSceneId);
+          return scene ? clipSeconds(scene) : 5;
+        })()}
+        aspectRatio={project.summary.aspectRatio}
+        busy={videoBusyId !== null}
+        onClose={() => {
+          if (!videoLock.current) setHiggsfieldSceneId(null);
+        }}
+        onChoose={async (accountId, modelId) => {
+          if (!higgsfieldSceneId) return;
+          await generateHiggsfieldVideo(higgsfieldSceneId, accountId, modelId);
+        }}
+      />
       <VideoPreviewModal
         open={preview?.mode === "cut"}
         sceneId={preview?.mode === "cut" ? preview.sceneId : undefined}

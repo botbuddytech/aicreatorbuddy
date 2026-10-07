@@ -1,13 +1,16 @@
+import { redirect } from "next/navigation";
 import { ActiveChannelPicker } from "@/components/dashboard/ActiveChannelPicker";
 import { OverviewDashboard } from "@/components/dashboard/OverviewDashboard";
-import { requireUser } from "@/lib/auth/session";
+import { getSessionUser } from "@/lib/auth/session";
 import { resolveActiveChannelId } from "@/lib/youtube/activeChannel";
+import { loadOverview } from "@/lib/youtube/present";
 import { listChannels, type ConnectedChannel } from "@/lib/youtube/repo";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardOverviewPage() {
-  const user = await requireUser();
+  const user = await getSessionUser();
+  if (!user) redirect("/api/auth/clear-session");
   let channels: ConnectedChannel[] = [];
   let activeChannelId: string | null = null;
   try {
@@ -30,7 +33,26 @@ export default async function DashboardOverviewPage() {
           <ActiveChannelPicker channels={channels} activeChannelId={activeChannelId} />
         </div>
       </section>
-      <OverviewDashboard />
+      <OverviewDashboard initial={await loadOverview(user).catch((err) => {
+        console.error("[dashboard] youtube overview failed", err);
+        return {
+          channel: null,
+          analyticsError: "YouTube data could not be loaded.",
+          monetaryAvailable: false,
+          primary: [],
+          secondary: [],
+          traffic: [],
+          countries: [],
+          uploads: [],
+          scheduled: [],
+          series: {
+            views: { labels: [], values: [] },
+            engagement: { labels: [], values: [] },
+            revenue: { labels: [], values: [] },
+          },
+          audience: { total: "0", segments: [] },
+        };
+      })} />
     </>
   );
 }

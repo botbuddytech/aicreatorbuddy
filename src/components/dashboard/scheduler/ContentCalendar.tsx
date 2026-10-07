@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { ActionButton } from "@/components/ui/ActionButton";
-import { calendarEvents, type CalendarEventKind } from "@/lib/dashboardContent";
+import { type CalendarEvent, type CalendarEventKind } from "@/lib/dashboardContent";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -24,8 +24,8 @@ function monthLabel(year: number, month: number) {
   return new Date(year, month, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-function eventsOn(year: number, month: number, day: number) {
-  return calendarEvents.filter((event) => event.year === year && event.month === month && event.day === day);
+function eventsOn(events: CalendarEvent[], year: number, month: number, day: number) {
+  return events.filter((event) => event.year === year && event.month === month && event.day === day);
 }
 
 function monthCells(year: number, month: number) {
@@ -54,7 +54,7 @@ function monthCells(year: number, month: number) {
   return cells;
 }
 
-export function ContentCalendar() {
+export function ContentCalendar({ events }: { events: CalendarEvent[] }) {
   const today = useMemo(() => startOfDay(new Date()), []);
   const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
   const [view, setView] = useState<"month" | "week">("month");
@@ -176,8 +176,8 @@ export function ContentCalendar() {
         ))}
         {grid.map((cell) => {
           const current = isSameDay(cell.date, today);
-          const events = eventsOn(cell.date.getFullYear(), cell.date.getMonth(), cell.date.getDate());
-          const kinds = [...new Set(events.map((event) => event.kind))];
+          const dayEvents = eventsOn(events, cell.date.getFullYear(), cell.date.getMonth(), cell.date.getDate());
+          const kinds = [...new Set(dayEvents.map((event) => event.kind))];
           return (
             <div
               key={cell.date.toISOString()}
@@ -196,10 +196,10 @@ export function ContentCalendar() {
               >
                 {cell.date.getDate()}
               </span>
-              {events.length > 0 ? (
+              {dayEvents.length > 0 ? (
                 <div className="mt-2 space-y-1">
                   {view === "week"
-                    ? events.slice(0, 3).map((event) => (
+                    ? dayEvents.slice(0, 3).map((event) => (
                         <p key={event.id} className="truncate text-[11px] font-medium text-foreground">
                           {event.time} · {event.title}
                         </p>

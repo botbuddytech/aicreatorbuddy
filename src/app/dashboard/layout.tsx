@@ -9,6 +9,7 @@ import {
   getDashboardChannelNav,
   type DashboardChannelNav,
 } from "@/lib/youtube/activeChannel";
+import { countNavBadges } from "@/lib/youtube/present";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -18,19 +19,22 @@ export const metadata: Metadata = {
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const session = await auth();
   if (!session?.user) {
-    redirect("/login");
+    redirect("/api/auth/clear-session");
   }
 
   let channelNav: DashboardChannelNav = { activeChannelId: null, channels: [] };
+  let navCounts = { drafts: 0, upcoming: 0 };
   try {
-    channelNav = await getDashboardChannelNav(await requireUser());
+    const user = await requireUser();
+    channelNav = await getDashboardChannelNav(user);
+    navCounts = await countNavBadges(user);
   } catch (err) {
     console.error("[dashboard] failed to load selected channel", err);
   }
 
   return (
     <AuthSessionProvider session={session}>
-      <DashboardShell channelNav={channelNav}>{children}</DashboardShell>
+      <DashboardShell channelNav={channelNav} navCounts={navCounts}>{children}</DashboardShell>
     </AuthSessionProvider>
   );
 }

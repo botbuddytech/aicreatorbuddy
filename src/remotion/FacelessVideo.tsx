@@ -2,9 +2,19 @@
 
 import type { CSSProperties } from "react";
 import { Audio, Video } from "@remotion/media";
-import { AbsoluteFill, Img, Sequence } from "remotion";
+import { AbsoluteFill, Img, Sequence, useCurrentFrame } from "remotion";
+import type { VideoFontId, VideoFontWeight } from "@/lib/videoProject";
 import { FILTER_CSS } from "@/lib/videoProject";
 import {
+  cutProgress,
+  enterStyle,
+  entranceProgress,
+  leaveStyle,
+  transitionSpanFrames,
+} from "@/remotion/cutTransition";
+import { remotionFontFamily } from "@/remotion/fonts";
+import {
+  FACELESS_FPS,
   framesForSeconds,
   framesFromSeconds,
   type FacelessSceneProps,
@@ -49,13 +59,110 @@ function PlaceholderFill({ label }: { label: string }) {
   );
 }
 
+function textStyle(
+  fontId: VideoFontId | null,
+  fontWeight: VideoFontWeight,
+  fontSize: number,
+): CSSProperties {
+  return {
+    fontFamily: remotionFontFamily(fontId),
+    fontWeight: Number(fontWeight),
+    fontSize,
+  };
+}
+
+const CAPTION_WORDS = 6;
+
+/** A short line of the script for the current moment, not the whole scene. */
+export function captionLine(script: string, frame: number, durationFrames: number): string {
+  const words = script.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "";
+  const progress = durationFrames <= 1 ? 1 : Math.min(1, Math.max(0, frame / (durationFrames - 1)));
+  const index = Math.min(words.length - 1, Math.floor(progress * words.length));
+  const start = Math.max(0, index - Math.floor(CAPTION_WORDS / 2));
+  return words.slice(start, start + CAPTION_WORDS).join(" ");
+}
+
+function CaptionLine({
+  script,
+  frame,
+  durationFrames,
+  fontId,
+  fontWeight,
+  fontSize,
+}: {
+  script: string;
+  frame: number;
+  durationFrames: number;
+  fontId: VideoFontId | null;
+  fontWeight: VideoFontWeight;
+  fontSize: number;
+}) {
+  const line = captionLine(script, frame, durationFrames);
+  if (!line) return null;
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <div
+        style={{
+          position: "absolute",
+          left: "8%",
+          right: "8%",
+          bottom: "8%",
+          display: "flex",
+          justifyContent: "center",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "92%",
+            padding: "0.35em 0.7em",
+            borderRadius: 14,
+            background: "rgba(0,0,0,0.78)",
+            color: "#fff",
+            textAlign: "center",
+            lineHeight: 1.25,
+            ...textStyle(fontId, fontWeight, fontSize),
+          }}
+        >
+          {line}
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
 function SceneLayer({
   scene,
   captions,
+  captionFontId,
+  captionFontWeight,
+  captionFontSize,
 }: {
   scene: FacelessSceneProps;
   captions: boolean;
+  captionFontId: VideoFontId | null;
+  captionFontWeight: VideoFontWeight;
+  captionFontSize: number;
 }) {
+  const frame = useCurrentFrame();
+  const durationFrames = framesForSeconds(scene.durationSeconds);
+  const half = Math.max(1, Math.floor((durationFrames - 1) / 2));
+  const inSpan =
+    scene.transitionIn === "none"
+      ? 0
+      : Math.min(
+          transitionSpanFrames(scene.durationSeconds, scene.transitionInSeconds, FACELESS_FPS),
+          half,
+        );
+  const outSpan =
+    scene.transition === "none"
+      ? 0
+      : Math.min(
+          transitionSpanFrames(scene.durationSeconds, scene.transitionSeconds, FACELESS_FPS),
+          half,
+        );
+  const entering = entranceProgress(frame, inSpan);
+  const leaving = cutProgress(frame, durationFrames, outSpan);
   const filter = FILTER_CSS[scene.filter] ?? "none";
   const mediaStyle: CSSProperties = {
     width: "100%",
@@ -63,8 +170,21 @@ function SceneLayer({
     filter,
   };
 
+  const motionStyle: CSSProperties | undefined =
+    entering === null && leaving === null
+      ? undefined
+      : {
+          ...(entering === null ? {} : enterStyle(scene.transitionIn, entering)),
+          ...(leaving === null ? {} : leaveStyle(scene.transition, leaving)),
+        };
+
   return (
-    <AbsoluteFill>
+    <AbsoluteFill style={{ overflow: "hidden" }}>
+      {scene.voiceoverUrl ? (
+        <Audio src={scene.voiceoverUrl} disallowFallbackToHtml5Audio />
+      ) : null}
+
+      <AbsoluteFill style={motionStyle}>
       {scene.clipKind === "video" && scene.clipUrl ? (
         <AbsoluteFill>
           <Video
@@ -89,10 +209,6 @@ function SceneLayer({
         <PlaceholderFill label={scene.description || scene.sectionLabel || "Scene"} />
       )}
 
-      {scene.voiceoverUrl ? (
-        <Audio src={scene.voiceoverUrl} disallowFallbackToHtml5Audio />
-      ) : null}
-
       <AbsoluteFill
         style={{
           background:
@@ -109,10 +225,12 @@ function SceneLayer({
               ...overlayStyle(scene.textOverlay.position),
               textAlign: "center",
               color: "#fff",
-              fontSize: 48,
-              fontWeight: 600,
-              fontFamily: "system-ui, sans-serif",
               textShadow: "0 2px 12px rgba(0,0,0,0.65)",
+              ...textStyle(
+                scene.textOverlay.fontId,
+                scene.textOverlay.fontWeight,
+                scene.textOverlay.fontSize,
+              ),
             }}
           >
             {scene.textOverlay.text}
@@ -120,33 +238,29 @@ function SceneLayer({
         </AbsoluteFill>
       ) : null}
 
-      {captions && scene.finalScript.trim() ? (
-        <AbsoluteFill style={{ pointerEvents: "none" }}>
-          <div
-            style={{
-              position: "absolute",
-              left: "8%",
-              right: "8%",
-              bottom: "10%",
-              textAlign: "center",
-              color: "#fff",
-              fontSize: 36,
-              fontWeight: 500,
-              fontFamily: "system-ui, sans-serif",
-              textShadow: "0 2px 10px rgba(0,0,0,0.7)",
-              maxHeight: "4.5em",
-              overflow: "hidden",
-            }}
-          >
-            {scene.finalScript}
-          </div>
-        </AbsoluteFill>
+      {captions ? (
+        <CaptionLine
+          script={scene.finalScript}
+          frame={frame}
+          durationFrames={durationFrames}
+          fontId={captionFontId}
+          fontWeight={captionFontWeight}
+          fontSize={captionFontSize}
+        />
       ) : null}
+      </AbsoluteFill>
     </AbsoluteFill>
   );
 }
 
-export function FacelessVideo({ aspectRatio: _aspect, captions, scenes }: FacelessVideoProps) {
+export function FacelessVideo({
+  aspectRatio: _aspect,
+  captions,
+  captionFontId,
+  captionFontWeight,
+  captionFontSize,
+  scenes,
+}: FacelessVideoProps) {
   void _aspect;
 
   if (scenes.length === 0) {
@@ -172,7 +286,13 @@ export function FacelessVideo({ aspectRatio: _aspect, captions, scenes }: Facele
           durationInFrames={framesForSeconds(scene.durationSeconds)}
           name={scene.sectionLabel || scene.id}
         >
-          <SceneLayer scene={scene} captions={captions} />
+          <SceneLayer
+            scene={scene}
+            captions={captions}
+            captionFontId={captionFontId}
+            captionFontWeight={captionFontWeight}
+            captionFontSize={captionFontSize}
+          />
         </Sequence>
       ))}
     </AbsoluteFill>

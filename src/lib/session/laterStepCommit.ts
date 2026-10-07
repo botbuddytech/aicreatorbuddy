@@ -321,6 +321,9 @@ function editorSignature(editor: EditorSettings): string {
     musicTrackId: editor.musicTrackId,
     musicVolume: editor.musicVolume,
     captions: editor.captions,
+    captionFontId: editor.captionFontId,
+    captionFontWeight: editor.captionFontWeight,
+    captionFontSize: editor.captionFontSize,
     exportedAt: editor.exportedAt,
   });
 }

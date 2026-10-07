@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { PlaceholderImage } from "@/components/create/PlaceholderImage";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Input } from "@/components/ui/Input";
-import { upcomingUploads, type UpcomingUploadStatus } from "@/lib/dashboardContent";
+import { type UpcomingUpload, type UpcomingUploadStatus } from "@/lib/dashboardContent";
 
 const FILTERS: { id: "all" | UpcomingUploadStatus; label: string }[] = [
   { id: "all", label: "All" },
@@ -19,19 +19,19 @@ const statusClass: Record<UpcomingUploadStatus, string> = {
   ready: "bg-success/15 text-success",
 };
 
-export function UpcomingUploadsBoard() {
+export function UpcomingUploadsBoard({ uploads }: { uploads: UpcomingUpload[] }) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const items = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return upcomingUploads.filter((item) => {
+    return uploads.filter((item) => {
       const matchStatus = filter === "all" || item.status === filter;
       const matchQuery = q.length === 0 || item.title.toLowerCase().includes(q);
       return matchStatus && matchQuery;
     });
-  }, [filter, query]);
+  }, [filter, query, uploads]);
 
   return (
     <section className="space-y-4">
@@ -39,7 +39,7 @@ export function UpcomingUploadsBoard() {
         <div className="flex flex-wrap items-center gap-2">
           {FILTERS.map((item) => {
             const active = filter === item.id;
-            const count = item.id === "all" ? upcomingUploads.length : upcomingUploads.filter((video) => video.status === item.id).length;
+            const count = item.id === "all" ? uploads.length : uploads.filter((video) => video.status === item.id).length;
             return (
               <button
                 key={item.id}

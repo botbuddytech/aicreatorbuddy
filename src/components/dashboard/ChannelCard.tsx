@@ -146,6 +146,11 @@ export function ChannelCard({
       </div>
 
       <p className="mt-2 text-[11px] text-muted">Synced {timeAgo(channel.lastSyncedAt)}</p>
+      {channel.missingScopes && channel.status === "ACTIVE" && channel.isOwner ? (
+        <a href="/api/youtube/connect" className="mt-1 block text-[11px] font-semibold text-accent hover:text-accent-dark">
+          Reconnect to enable analytics and comments
+        </a>
+      ) : null}
 
       <div className="mt-2.5 space-y-1.5">
         {onOpenVideos ? (

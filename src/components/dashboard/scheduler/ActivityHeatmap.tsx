@@ -1,14 +1,18 @@
-import { activityHeatmap, heatmapDays, heatmapHours } from "@/lib/dashboardContent";
+import { heatmapDays, heatmapHours } from "@/lib/dashboardContent";
 
 const heatClass = ["bg-accent/10", "bg-accent/25", "bg-accent/45", "bg-accent/70", "bg-accent"] as const;
 
-export function ActivityHeatmap() {
+export function ActivityHeatmap({
+  cells,
+}: {
+  cells: Record<"sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat", number[]>;
+}) {
   return (
     <section className="rounded-2xl border border-border bg-surface p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h3 className="font-display text-lg font-semibold text-foreground">Audience Activity Heatmap</h3>
-          <p className="mt-1 text-sm text-muted">Your audience&apos;s online activity pattern (last 30 days)</p>
+          <p className="mt-1 text-sm text-muted">Publish hour of this channel&apos;s videos, weighted by views (UTC)</p>
         </div>
         <label className="sr-only" htmlFor="heatmap-range">
           Heatmap range
@@ -45,7 +49,7 @@ export function ActivityHeatmap() {
                     </svg>
                   ) : null}
                 </span>
-                {activityHeatmap[day.key].map((value, index) => (
+                {(cells[day.key] ?? []).map((value, index) => (
                   <span
                     key={`${day.key}-${heatmapHours[index]}`}
                     title={`${day.label} ${heatmapHours[index]}`}

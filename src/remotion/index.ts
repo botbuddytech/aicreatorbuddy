@@ -42,6 +42,9 @@ export function buildInputProps(
   return {
     aspectRatio: project.summary.aspectRatio,
     captions: project.editor.captions,
+    captionFontId: project.editor.captionFontId,
+    captionFontWeight: project.editor.captionFontWeight,
+    captionFontSize: project.editor.captionFontSize,
     scenes: project.scenes.map((scene, index) => {
       const clipId = scene.visuals.uploadedClipId;
       const clipUrl =
@@ -64,6 +67,10 @@ export function buildInputProps(
         filter: scene.editing.filter,
         volume: scene.editing.clipMuted === false ? scene.editing.volume : 0,
         speed: scene.editing.speed,
+        transitionIn: scene.editing.transitionIn,
+        transitionInSeconds: scene.editing.transitionInSeconds,
+        transition: scene.editing.transition,
+        transitionSeconds: scene.editing.transitionSeconds,
         textOverlay: scene.editing.textOverlay,
         clipUrl,
         posterUrl,

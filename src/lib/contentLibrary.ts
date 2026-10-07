@@ -16,6 +16,9 @@ export type LibraryVideo = {
   comments: string;
   revenue: string;
   thumbLabel: string;
+  thumbnailUrl?: string | null;
+  editHref?: string;
+  watchHref?: string;
 };
 
 export type LibraryPlaylist = {
@@ -31,6 +34,7 @@ export type LibraryPlaylist = {
   watchTime: string;
   updatedLabel: string;
   thumbLabels: [string, string, string, string];
+  thumbnailUrl?: string | null;
 };
 
 function thumbSvg(label: string, seed: string): string {

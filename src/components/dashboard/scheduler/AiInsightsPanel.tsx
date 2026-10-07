@@ -1,4 +1,4 @@
-import { aiInsights, type InsightTone } from "@/lib/dashboardContent";
+import { type InsightTone } from "@/lib/dashboardContent";
 
 const toneClass: Record<InsightTone, string> = {
   success: "border-success/20 bg-success/10",
@@ -44,7 +44,7 @@ function InsightIcon({ tone }: { tone: InsightTone }) {
   );
 }
 
-export function AiInsightsPanel() {
+export function AiInsightsPanel({ insight }: { insight: string }) {
   return (
     <section className="rounded-2xl border border-border bg-surface p-5">
       <div className="flex items-start gap-3">
@@ -56,23 +56,18 @@ export function AiInsightsPanel() {
         </span>
         <div>
           <h3 className="font-display text-lg font-semibold text-foreground">AI Insights</h3>
-          <p className="mt-0.5 text-sm text-muted">Personalized recommendations.</p>
+          <p className="mt-0.5 text-sm text-muted">Based on this channel&apos;s published videos.</p>
         </div>
       </div>
       <ul className="mt-4 space-y-3">
-        {aiInsights.map((insight) => (
-          <li key={insight.id} className={`rounded-xl border p-3 ${toneClass[insight.tone]}`}>
-            <div className="flex items-start gap-2.5">
-              <span className="mt-0.5">
-                <InsightIcon tone={insight.tone} />
-              </span>
-              <div>
-                <p className="text-sm font-semibold text-foreground">{insight.title}</p>
-                <p className="mt-1 text-xs leading-relaxed text-muted">{insight.body}</p>
-              </div>
-            </div>
-          </li>
-        ))}
+        <li className={`rounded-xl border p-3 ${toneClass.success}`}>
+          <div className="flex items-start gap-2.5">
+            <span className="mt-0.5">
+              <InsightIcon tone="success" />
+            </span>
+            <p className="text-sm leading-relaxed text-foreground">{insight}</p>
+          </div>
+        </li>
       </ul>
     </section>
   );

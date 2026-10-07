@@ -98,6 +98,9 @@ export type EditorStepPayload = {
   musicTrackId: string | null;
   musicVolume: number;
   captions: boolean;
+  captionFontId?: string | null;
+  captionFontWeight?: string | null;
+  captionFontSize?: number | null;
   confirmedAt: string | null;
   exportedAt: string | null;
 };
@@ -303,6 +306,9 @@ export function buildStepPayloads(project: VideoProject): {
       musicTrackId: project.editor.musicTrackId,
       musicVolume: project.editor.musicVolume,
       captions: project.editor.captions,
+      captionFontId: project.editor.captionFontId,
+      captionFontWeight: project.editor.captionFontWeight,
+      captionFontSize: project.editor.captionFontSize,
       confirmedAt: project.editor.confirmedAt,
       exportedAt: project.editor.exportedAt,
     },
@@ -522,6 +528,9 @@ export function projectFromSessionDocuments(docs: SessionDocuments): VideoProjec
         musicTrackId: payload.musicTrackId,
         musicVolume: payload.musicVolume,
         captions: payload.captions,
+        captionFontId: payload.captionFontId,
+        captionFontWeight: payload.captionFontWeight,
+        captionFontSize: payload.captionFontSize,
         confirmedAt: payload.confirmedAt,
         exportedAt: payload.exportedAt,
       });

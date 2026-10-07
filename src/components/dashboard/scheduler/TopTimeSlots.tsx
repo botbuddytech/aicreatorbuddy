@@ -1,4 +1,5 @@
-import { topTimeSlots, type SchedulerBadgeTone } from "@/lib/dashboardContent";
+import { type SchedulerBadgeTone } from "@/lib/dashboardContent";
+import type { SchedulerPayload } from "@/lib/youtube/present";
 
 const toneClass: Record<SchedulerBadgeTone, string> = {
   accent: "bg-accent/15 text-accent",
@@ -43,12 +44,12 @@ function RankIcon({ rank }: { rank: number }) {
   return <span className="text-xs font-bold">{rank}</span>;
 }
 
-export function TopTimeSlots() {
+export function TopTimeSlots({ slots }: { slots: SchedulerPayload["slots"] }) {
   return (
     <section className="rounded-2xl border border-border bg-surface p-5">
       <h3 className="font-display text-lg font-semibold text-foreground">Top Performing Time Slots</h3>
       <ul className="mt-4 space-y-3">
-        {topTimeSlots.map((slot) => (
+        {slots.map((slot) => (
           <li key={`${slot.day}-${slot.time}`} className="flex items-center gap-3">
             <span className={`flex h-9 w-9 items-center justify-center rounded-xl ${toneClass[slot.tone]}`}>
               <RankIcon rank={slot.rank} />

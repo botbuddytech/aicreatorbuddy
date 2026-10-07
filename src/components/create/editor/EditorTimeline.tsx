@@ -56,6 +56,7 @@ export function EditorTimeline({
   elapsed,
   total,
   onSelect,
+  onOpenText,
   onSeek,
 }: {
   scenes: Scene[];
@@ -63,6 +64,7 @@ export function EditorTimeline({
   elapsed: number;
   total: number;
   onSelect: (id: string) => void;
+  onOpenText: (id: string) => void;
   onSeek: (seconds: number) => void;
 }) {
   const { project, dispatch } = useVideoProject();
@@ -227,10 +229,10 @@ export function EditorTimeline({
                   flex={runtime}
                   selected={scene.id === selectedId}
                   tone="text"
-                  label={overlay ? overlay : "Text"}
+                  ghost={!overlay}
+                  label={overlay || "Add text"}
                   duration={runtime}
-                  onSelect={() => onSelect(scene.id)}
-                  {...trimHandlers(scene)}
+                  onSelect={() => onOpenText(scene.id)}
                 />
               );
             })}
@@ -256,9 +258,20 @@ export function EditorTimeline({
                     onSelect={() => onSelect(scene.id)}
                     {...trimHandlers(scene)}
                   />
-                  {next && scene.editing.transition !== "none" ? (
-                    <span className="pointer-events-none absolute -right-2 top-1/2 z-10 -translate-y-1/2 rounded bg-chart-purple px-1 py-px text-[9px] font-bold uppercase text-white">
-                      {scene.editing.transition}
+                  {scene.editing.transitionIn !== "none" ? (
+                    <span
+                      title={`In: ${scene.editing.transitionIn}`}
+                      className="pointer-events-none absolute left-1 top-1 z-10 rounded bg-chart-purple px-1 py-px text-[9px] font-bold uppercase text-white"
+                    >
+                      in
+                    </span>
+                  ) : null}
+                  {scene.editing.transition !== "none" ? (
+                    <span
+                      title={next ? `Out into ${next.sectionLabel}` : "Out"}
+                      className="pointer-events-none absolute right-1 top-1 z-10 rounded bg-chart-purple px-1 py-px text-[9px] font-bold uppercase text-white"
+                    >
+                      out
                     </span>
                   ) : null}
                 </div>
@@ -396,6 +409,7 @@ function ClipBlock({
   duration,
   waveform = false,
   trimmed = false,
+  ghost = false,
   endLocked = false,
   onSelect,
   onTrimStart,
@@ -408,6 +422,7 @@ function ClipBlock({
   duration: number;
   waveform?: boolean;
   trimmed?: boolean;
+  ghost?: boolean;
   endLocked?: boolean;
   onSelect: () => void;
   onTrimStart?: (event: ReactPointerEvent) => void;
@@ -435,7 +450,9 @@ function ClipBlock({
         event.stopPropagation();
         onSelect();
       }}
-      className={`relative h-full min-w-0 w-full overflow-hidden rounded-md text-left ${tones[tone].bg} ${
+      className={`relative h-full min-w-0 w-full overflow-hidden rounded-md text-left ${
+        ghost ? "border border-dashed border-white/15 bg-transparent" : tones[tone].bg
+      } ${
         selected
           ? "ring-1 ring-accent shadow-[0_0_0_1px_rgba(255,59,78,0.35)]"
           : "ring-1 ring-transparent hover:ring-white/15"
@@ -443,10 +460,14 @@ function ClipBlock({
       style={{ flexGrow: flex, flexBasis: 0 }}
       onPointerDown={(event) => event.stopPropagation()}
     >
-      <span className={`absolute inset-y-0 left-0 w-[3px] ${tones[tone].strip}`} />
+      {ghost ? null : <span className={`absolute inset-y-0 left-0 w-[3px] ${tones[tone].strip}`} />}
       {waveform ? <Waveform className="absolute inset-y-1 left-3 right-1 opacity-70" /> : null}
       <span className="relative z-10 flex h-full items-center justify-between gap-2 py-1 pl-3.5 pr-3">
-        <span className="min-w-0 truncate text-[11px] font-semibold text-foreground">
+        <span
+          className={`min-w-0 truncate text-[11px] font-semibold ${
+            ghost ? "text-muted" : "text-foreground"
+          }`}
+        >
           {trimmed ? "✂ " : ""}
           {label}
         </span>
