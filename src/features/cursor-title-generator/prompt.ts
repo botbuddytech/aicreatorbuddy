@@ -206,6 +206,96 @@ export function applyScriptPromptVariables(template: string, input: ScriptPrompt
   return filled;
 }
 
+export const DESCRIPTION_PROMPT_TOPIC = SCRIPT_PROMPT_TOPIC;
+export const DESCRIPTION_PROMPT_TITLE = SCRIPT_PROMPT_TITLE;
+export const DESCRIPTION_PROMPT_LENGTH = SCRIPT_PROMPT_LENGTH;
+export const DESCRIPTION_PROMPT_ORIENTATION = SCRIPT_PROMPT_ORIENTATION;
+export const DESCRIPTION_PROMPT_VIDEO_TYPE = SCRIPT_PROMPT_VIDEO_TYPE;
+export const DESCRIPTION_PROMPT_REFERENCES = SCRIPT_PROMPT_REFERENCES;
+export const DESCRIPTION_PROMPT_SCRIPT = "{{script}}";
+export const DESCRIPTION_PROMPT_SUMMARY = "{{summary}}";
+
+export const DEFAULT_CURSOR_DESCRIPTION_PROMPT = `You are an expert YouTube SEO copywriter.
+
+Write a complete YouTube description for this video plus a short list of tags.
+
+Video introduction:
+{{summary}}
+
+Selected title:
+{{title}}
+
+Full spoken script:
+{{script}}
+
+Topic / idea: {{topic}}
+Length: {{length}}
+Orientation: {{orientation}}
+Video type: {{videoType}}
+
+Reference videos:
+{{references}}
+
+Rules:
+- Open with two strong lines that work above the fold in YouTube search.
+- Summarize what the viewer learns without repeating the title word-for-word.
+- Mention chapters only if the script clearly has distinct sections; use plausible timestamps from the video length.
+- End with a light call to subscribe or watch next when it fits the script.
+- Suggest 8–15 tags: mix broad and specific; no hashtag spam in the tag list.
+- Do not invent sponsors, links, or tools that are not implied by the script or introduction.`;
+
+export type DescriptionPromptValues = {
+  topic: string;
+  title: string;
+  length: string;
+  orientation: string;
+  videoType: string;
+  script: string;
+  summary: string;
+  references: readonly { title: string; transcript: string }[];
+};
+
+const DESCRIPTION_PROMPT_FIELDS: Array<{
+  token: string;
+  label: string;
+  key: Exclude<keyof DescriptionPromptValues, "references">;
+}> = [
+  { token: DESCRIPTION_PROMPT_TOPIC, label: "Topic / idea", key: "topic" },
+  { token: DESCRIPTION_PROMPT_TITLE, label: "Selected title", key: "title" },
+  { token: DESCRIPTION_PROMPT_LENGTH, label: "Length", key: "length" },
+  { token: DESCRIPTION_PROMPT_ORIENTATION, label: "Orientation", key: "orientation" },
+  { token: DESCRIPTION_PROMPT_VIDEO_TYPE, label: "Video type", key: "videoType" },
+  { token: DESCRIPTION_PROMPT_SCRIPT, label: "Full script", key: "script" },
+  { token: DESCRIPTION_PROMPT_SUMMARY, label: "Video introduction", key: "summary" },
+];
+
+/** Replaces description tokens. Missing tokens are appended so an older prompt still receives the video. */
+export function applyDescriptionPromptVariables(
+  template: string,
+  input: DescriptionPromptValues,
+): string {
+  const values = Object.fromEntries(
+    DESCRIPTION_PROMPT_FIELDS.map((field) => [
+      field.key,
+      input[field.key].trim() || "Not provided",
+    ]),
+  ) as Omit<DescriptionPromptValues, "references">;
+  const references = formatReferenceTranscripts(input.references);
+  let filled = template;
+  for (const field of DESCRIPTION_PROMPT_FIELDS) {
+    filled = filled.replaceAll(field.token, values[field.key]);
+  }
+  filled = filled.replaceAll(DESCRIPTION_PROMPT_REFERENCES, references);
+  const extras = DESCRIPTION_PROMPT_FIELDS.filter((field) => !template.includes(field.token)).map(
+    (field) => `${field.label}:\n${values[field.key]}`,
+  );
+  if (!template.includes(DESCRIPTION_PROMPT_REFERENCES)) {
+    extras.push(`Reference videos:\n${references}`);
+  }
+  if (extras.length) filled = `${filled.trim()}\n\n${extras.join("\n\n")}`;
+  return filled;
+}
+
 export const VISUAL_PROMPT_SECTION = "{{section}}";
 export const VISUAL_PROMPT_SCRIPT = "{{script}}";
 export const VISUAL_PROMPT_DURATION = "{{duration}}";
@@ -283,6 +373,7 @@ export type CursorPromptKind =
   | "scriptLowEffort"
   | "thumbnailPromptGeneration"
   | "scriptGeneration"
+  | "descriptionGeneration"
   | "visualPromptGeneration";
 
 export const CURSOR_PROMPT_LIMIT = 6_000;
@@ -294,5 +385,6 @@ export const CURSOR_PROMPT_DEFAULTS: Record<CursorPromptKind, string> = {
   scriptLowEffort: DEFAULT_CURSOR_SCRIPT_LOW_EFFORT_PROMPT,
   thumbnailPromptGeneration: DEFAULT_CURSOR_THUMBNAIL_PROMPT,
   scriptGeneration: DEFAULT_CURSOR_SCRIPT_PROMPT,
+  descriptionGeneration: DEFAULT_CURSOR_DESCRIPTION_PROMPT,
   visualPromptGeneration: DEFAULT_CURSOR_VISUAL_PROMPT,
 };

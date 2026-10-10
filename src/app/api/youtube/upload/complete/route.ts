@@ -1,7 +1,7 @@
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { requireChannelAccess } from "@/lib/youtube/access";
 import { getAuthedClientForChannel } from "@/lib/youtube/oauth";
+import { resolveUploadChannel } from "@/lib/youtube/resolveUploadChannel";
 import { rememberUploadedVideo, setYoutubeThumbnail } from "@/lib/youtube/upload";
 import { runWithYoutubeUsage } from "@/lib/youtube/usage";
 
@@ -37,17 +37,16 @@ export async function POST(request: Request) {
     const sessionId = typeof body.sessionId === "string" ? body.sessionId : "";
     const channelId = typeof body.channelId === "string" ? body.channelId : "";
     const videoId = typeof body.videoId === "string" ? body.videoId : "";
-    if (!sessionId || !channelId || !videoId) return json({ error: "Missing upload result." }, 400);
+    if (!sessionId || !videoId) return json({ error: "Missing upload result." }, 400);
     const session = await prisma.videoSession.findFirst({
       where: { id: sessionId, userId: user.id, deletedAt: null },
       select: { id: true },
     });
     if (!session) return json({ error: "Project not found." }, 404);
-    await requireChannelAccess(user, channelId);
-    const channel = await prisma.youtubeChannel.findUniqueOrThrow({ where: { id: channelId } });
+    const channel = await resolveUploadChannel(user, channelId);
     const auth = await getAuthedClientForChannel(channel);
     let thumbnailWarning: string | null = null;
-    await runWithYoutubeUsage({ userId: user.id, channelId, sessionId }, async () => {
+    await runWithYoutubeUsage({ userId: user.id, channelId: channel.id, sessionId }, async () => {
       if (typeof body.thumbnailBase64 === "string" && body.thumbnailBase64) {
         try {
           const bytes = Buffer.from(body.thumbnailBase64, "base64");
@@ -58,7 +57,7 @@ export async function POST(request: Request) {
           thumbnailWarning = error instanceof Error ? error.message : "Thumbnail was not set.";
         }
       }
-      await rememberUploadedVideo({ channelDbId: channelId, auth, youtubeVideoId: videoId, sessionId });
+      await rememberUploadedVideo({ channelDbId: channel.id, auth, youtubeVideoId: videoId, sessionId });
     });
     return json({
       videoId,

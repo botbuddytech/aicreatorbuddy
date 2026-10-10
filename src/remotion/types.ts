@@ -6,6 +6,7 @@ import type {
   VideoFontId,
   VideoFontWeight,
 } from "@/lib/videoProject";
+import { transitionSpanFrames } from "@/remotion/cutTransition";
 
 export const FACELESS_FPS = 30;
 
@@ -58,10 +59,27 @@ export function framesFromSeconds(seconds: number): number {
   return Math.max(0, Math.round(Math.max(0, seconds) * FACELESS_FPS));
 }
 
+export function joinTransitionFrames(
+  scene: FacelessSceneProps,
+): number {
+  if (scene.transition === "none") return 0;
+  return transitionSpanFrames(
+    scene.durationSeconds,
+    scene.transitionSeconds,
+    FACELESS_FPS,
+  );
+}
+
+/** Total length with @remotion/transitions overlap between scenes. */
 export function durationInFramesFromProps(props: FacelessVideoProps): number {
   if (props.scenes.length === 0) return FACELESS_FPS;
-  return Math.max(
-    1,
-    props.scenes.reduce((sum, scene) => sum + framesForSeconds(scene.durationSeconds), 0),
-  );
+  let frames = 0;
+  for (let index = 0; index < props.scenes.length; index += 1) {
+    const scene = props.scenes[index];
+    frames += framesForSeconds(scene.durationSeconds);
+    if (index < props.scenes.length - 1) {
+      frames -= joinTransitionFrames(scene);
+    }
+  }
+  return Math.max(1, frames);
 }

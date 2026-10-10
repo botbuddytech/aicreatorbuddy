@@ -27,6 +27,7 @@ import {
   formatReferenceTranscripts,
 } from "@/features/cursor-title-generator/prompt";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
+import { useFilteredGenerators } from "@/components/create/useFilteredGenerators";
 
 const SCRIPT_FILE_ACCEPT = ".txt,.md,text/plain";
 const SCRIPT_GENERATORS = ["chatgpt", "gemini", "cursor", "vidiq"] as const;
@@ -57,6 +58,7 @@ export function ScriptStep() {
   const [missingProvider, setMissingProvider] = useState<Exclude<ScriptGenerator, "cursor"> | null>(
     null,
   );
+  const scriptGenerators = useFilteredGenerators(SCRIPT_GENERATORS, generator, setGenerator);
   const title = selectedTitle(project)?.text.trim() ?? "";
   const references = project.summary.references
     .filter((reference) => reference.title.trim() || reference.transcript.trim())
@@ -131,7 +133,7 @@ export function ScriptStep() {
         </p>
         <div className="mt-4">
           <GenerateBar
-            providers={SCRIPT_GENERATORS}
+            providers={scriptGenerators}
             provider={generator}
             providerLabels={SCRIPT_GENERATOR_LABELS}
             showProviderIcons

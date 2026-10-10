@@ -1,18 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PlayerRef } from "@remotion/player";
 import { EditorCanvas } from "@/components/create/editor/EditorCanvas";
 import { EditorInspector } from "@/components/create/editor/EditorInspector";
-import { EditorLeftRail, type EditorRailId } from "@/components/create/editor/EditorLeftRail";
+import {
+  EditorLeftRail,
+  type EditorRailId,
+} from "@/components/create/editor/EditorLeftRail";
+import type { TimelineTrackId } from "@/components/create/editor/EditorTimeline";
 import { EditorTimeline } from "@/components/create/editor/EditorTimeline";
+import { useEditorKeyboard } from "@/components/create/editor/useEditorKeyboard";
 import { ExportButton } from "@/components/create/ExportButton";
 import { activeSceneAt } from "@/components/create/useTimelinePlayback";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { measureVideoSeconds } from "@/lib/clipPoster";
 import { useSyncedSceneVoiceover } from "@/lib/sceneVoiceover";
 import { useClipUrls } from "@/lib/useClipUrl";
-import { sceneDuration, sceneRuntimeSeconds, sceneTimeRange } from "@/lib/videoProject";
+import {
+  sceneDuration,
+  sceneTimeRange,
+  sceneTimelineStart,
+} from "@/lib/videoProject";
 import {
   buildInputProps,
   FACELESS_FPS,
@@ -25,11 +34,13 @@ function round1(seconds: number) {
 
 export function EditorWorkspace() {
   const { project, dispatch } = useVideoProject();
-  const [rail, setRail] = useState<EditorRailId>("assets");
+  const [rail, setRail] = useState<EditorRailId>("text");
   const [selectedId, setSelectedId] = useState(project.scenes[0]?.id ?? "");
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [timelineZoom, setTimelineZoom] = useState(1);
+  const [timelineTrack, setTimelineTrack] = useState<TimelineTrackId>("video");
   const workspaceRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<PlayerRef>(null);
 
@@ -258,6 +269,20 @@ export function EditorWorkspace() {
     dispatch({ type: "SPLIT_SCENE", id: active.scene.id, atSeconds });
   }
 
+  const stepFrame = useCallback(
+    (delta: number) => {
+      seekSeconds(elapsed + delta / FACELESS_FPS);
+    },
+    [elapsed, total],
+  );
+
+  useEditorKeyboard(true, {
+    onTogglePlay: togglePlay,
+    onStepFrame: stepFrame,
+    onSeekStart: () => seekSeconds(0),
+    onSeekEnd: () => seekSeconds(total),
+  });
+
   return (
     <div
       ref={workspaceRef}
@@ -308,30 +333,34 @@ export function EditorWorkspace() {
       <EditorTimeline
         scenes={project.scenes}
         selectedId={selected?.id ?? null}
+        selectedTrack={timelineTrack}
         elapsed={elapsed}
         total={total}
-        onSelect={(id) => {
+        timelineZoom={timelineZoom}
+        onTimelineZoom={setTimelineZoom}
+        onFocusTrack={setTimelineTrack}
+        onSelectVideo={(id) => {
           setSelectedId(id);
+          setTimelineTrack("video");
           const index = project.scenes.findIndex((scene) => scene.id === id);
           if (index < 0) return;
-          let start = 0;
-          for (let i = 0; i < index; i += 1) {
-            const scene = project.scenes[i];
-            if (scene) start += sceneRuntimeSeconds(scene);
-          }
-          seekSeconds(start);
+          seekSeconds(sceneTimelineStart(project.scenes, index));
         }}
-        onOpenText={(id) => {
+        onSelectAudio={(id) => {
           setSelectedId(id);
+          setTimelineTrack("audio");
+          setRail("audio");
+          const index = project.scenes.findIndex((scene) => scene.id === id);
+          if (index < 0) return;
+          seekSeconds(sceneTimelineStart(project.scenes, index));
+        }}
+        onSelectText={(id) => {
+          setSelectedId(id);
+          setTimelineTrack("text");
           setRail("text");
           const index = project.scenes.findIndex((scene) => scene.id === id);
           if (index < 0) return;
-          let start = 0;
-          for (let i = 0; i < index; i += 1) {
-            const scene = project.scenes[i];
-            if (scene) start += sceneRuntimeSeconds(scene);
-          }
-          seekSeconds(start);
+          seekSeconds(sceneTimelineStart(project.scenes, index));
         }}
         onSeek={seekSeconds}
       />

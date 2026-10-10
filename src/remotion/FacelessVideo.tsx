@@ -1,8 +1,9 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { Fragment, type CSSProperties } from "react";
 import { Audio, Video } from "@remotion/media";
-import { AbsoluteFill, Img, Sequence, useCurrentFrame } from "remotion";
+import { linearTiming, TransitionSeries } from "@remotion/transitions";
+import { AbsoluteFill, Img, useCurrentFrame } from "remotion";
 import type { VideoFontId, VideoFontWeight } from "@/lib/videoProject";
 import { FILTER_CSS } from "@/lib/videoProject";
 import {
@@ -13,10 +14,12 @@ import {
   transitionSpanFrames,
 } from "@/remotion/cutTransition";
 import { remotionFontFamily } from "@/remotion/fonts";
+import { remotionTransitionPresentation } from "@/remotion/transitionPresentation";
 import {
   FACELESS_FPS,
   framesForSeconds,
   framesFromSeconds,
+  joinTransitionFrames,
   type FacelessSceneProps,
   type FacelessVideoProps,
 } from "@/remotion/types";
@@ -137,12 +140,18 @@ function SceneLayer({
   captionFontId,
   captionFontWeight,
   captionFontSize,
+  suppressJoinEnter,
+  suppressJoinExit,
 }: {
   scene: FacelessSceneProps;
   captions: boolean;
   captionFontId: VideoFontId | null;
   captionFontWeight: VideoFontWeight;
   captionFontSize: number;
+  /** Outgoing @remotion/transitions join from the previous clip. */
+  suppressJoinEnter: boolean;
+  /** Incoming @remotion/transitions join into the next clip. */
+  suppressJoinExit: boolean;
 }) {
   const frame = useCurrentFrame();
   const durationFrames = framesForSeconds(scene.durationSeconds);
@@ -161,8 +170,14 @@ function SceneLayer({
           transitionSpanFrames(scene.durationSeconds, scene.transitionSeconds, FACELESS_FPS),
           half,
         );
-  const entering = entranceProgress(frame, inSpan);
-  const leaving = cutProgress(frame, durationFrames, outSpan);
+  const entering =
+    suppressJoinEnter || scene.transitionIn === "none"
+      ? null
+      : entranceProgress(frame, inSpan);
+  const leaving =
+    suppressJoinExit || scene.transition === "none"
+      ? null
+      : cutProgress(frame, durationFrames, outSpan);
   const filter = FILTER_CSS[scene.filter] ?? "none";
   const mediaStyle: CSSProperties = {
     width: "100%",
@@ -271,30 +286,43 @@ export function FacelessVideo({
     );
   }
 
-  const starts = scenes.map((_, index) =>
-    scenes
-      .slice(0, index)
-      .reduce((sum, scene) => sum + framesForSeconds(scene.durationSeconds), 0),
-  );
-
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
-      {scenes.map((scene, index) => (
-        <Sequence
-          key={scene.id}
-          from={starts[index] ?? 0}
-          durationInFrames={framesForSeconds(scene.durationSeconds)}
-          name={scene.sectionLabel || scene.id}
-        >
-          <SceneLayer
-            scene={scene}
-            captions={captions}
-            captionFontId={captionFontId}
-            captionFontWeight={captionFontWeight}
-            captionFontSize={captionFontSize}
-          />
-        </Sequence>
-      ))}
+      <TransitionSeries>
+        {scenes.map((scene, index) => {
+          const previous = index > 0 ? scenes[index - 1] : null;
+          const joinFrames = previous ? joinTransitionFrames(previous) : 0;
+          const presentation =
+            previous && joinFrames > 0
+              ? remotionTransitionPresentation(previous.transition)
+              : null;
+
+          return (
+            <Fragment key={scene.id}>
+              {presentation ? (
+                <TransitionSeries.Transition
+                  presentation={presentation}
+                  timing={linearTiming({ durationInFrames: joinFrames })}
+                />
+              ) : null}
+              <TransitionSeries.Sequence
+                durationInFrames={framesForSeconds(scene.durationSeconds)}
+                name={scene.sectionLabel || scene.id}
+              >
+                <SceneLayer
+                  scene={scene}
+                  captions={captions}
+                  captionFontId={captionFontId}
+                  captionFontWeight={captionFontWeight}
+                  captionFontSize={captionFontSize}
+                  suppressJoinEnter={Boolean(previous && joinFrames > 0)}
+                  suppressJoinExit={joinTransitionFrames(scene) > 0}
+                />
+              </TransitionSeries.Sequence>
+            </Fragment>
+          );
+        })}
+      </TransitionSeries>
     </AbsoluteFill>
   );
 }

@@ -1,8 +1,9 @@
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { requireChannelAccess } from "@/lib/youtube/access";
 import { getAuthedClientForChannel } from "@/lib/youtube/oauth";
+import { resolveUploadChannel } from "@/lib/youtube/resolveUploadChannel";
 import { createResumableUpload, type UploadPrivacy } from "@/lib/youtube/upload";
+import { createUploadTransfer } from "@/lib/youtube/uploadTransfer";
 import { runWithYoutubeUsage } from "@/lib/youtube/usage";
 
 export const runtime = "nodejs";
@@ -50,19 +51,21 @@ export async function POST(request: Request) {
     const publishAt = typeof body.publishAt === "string" && body.publishAt ? body.publishAt : null;
     const contentLength = typeof body.contentLength === "number" ? body.contentLength : 0;
     const contentType = typeof body.contentType === "string" ? body.contentType : "video/mp4";
-    if (!sessionId || !channelId || !title || contentLength < 1) {
-      return json({ error: "Title, channel, and video file are required." }, 400);
+    if (!sessionId || !title || contentLength < 1) {
+      return json({ error: "Title and video file are required." }, 400);
     }
     const session = await prisma.videoSession.findFirst({
       where: { id: sessionId, userId: user.id, deletedAt: null },
       select: { id: true },
     });
     if (!session) return json({ error: "Project not found." }, 404);
-    await requireChannelAccess(user, channelId);
-    const channel = await prisma.youtubeChannel.findUniqueOrThrow({ where: { id: channelId } });
-    if (channel.status !== "ACTIVE") return json({ error: "Reconnect this YouTube channel first." }, 409);
+    const channel = await resolveUploadChannel(user, channelId);
+    await prisma.videoSession.update({
+      where: { id: sessionId },
+      data: { channelId: channel.id },
+    });
     const auth = await getAuthedClientForChannel(channel);
-    const uploadUrl = await runWithYoutubeUsage({ userId: user.id, channelId, sessionId }, () =>
+    const uploadUrl = await runWithYoutubeUsage({ userId: user.id, channelId: channel.id, sessionId }, () =>
       createResumableUpload(auth, {
         title,
         description,
@@ -73,7 +76,12 @@ export async function POST(request: Request) {
         contentType,
       }),
     );
-    return json({ uploadUrl });
+    const transferId = createUploadTransfer({
+      userId: user.id,
+      uploadUrl,
+      contentType,
+    });
+    return json({ transferId, channelId: channel.id });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not start the YouTube upload.";
     const status = message === "UNAUTHORIZED" ? 401 : message === "CHANNEL_NOT_FOUND" ? 404 : 500;

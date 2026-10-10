@@ -111,6 +111,7 @@ function summarySignature(summary: VideoSummary): string {
     format: summary.format,
     aspectRatio: summary.aspectRatio,
     intent: summary.intent,
+    intentCategory: summary.intentCategory,
     durationSeconds: summary.durationSeconds,
     references: summary.references.map((reference) => ({
       id: reference.id,

@@ -110,6 +110,6 @@ export async function rememberUploadedVideo(input: {
   }
   await prisma.videoSession.update({
     where: { id: input.sessionId },
-    data: { youtubeVideoId: input.youtubeVideoId },
+    data: { youtubeVideoId: input.youtubeVideoId, channelId: input.channelDbId },
   });
 }

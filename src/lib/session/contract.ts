@@ -99,6 +99,7 @@ export type SessionSnapshot = {
   format: string;
   aspectRatio: string;
   intent: string;
+  intentCategory?: string | null;
   targetDurationSec: number;
   referenceCount: number;
   sceneCount: number;
@@ -171,6 +172,7 @@ export function parseSessionSnapshot(raw: unknown): SessionSnapshot | null {
     typeof raw.format !== "string" ||
     typeof raw.aspectRatio !== "string" ||
     typeof raw.intent !== "string" ||
+    (raw.intentCategory != null && typeof raw.intentCategory !== "string") ||
     !isIsoDate(raw.createdAt) ||
     !isIsoDate(raw.lastActiveAt) ||
     !Array.isArray(raw.steps) ||

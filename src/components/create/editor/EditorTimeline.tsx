@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { mockMusicTracks } from "@/lib/mockAi";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import {
   sceneDuration,
@@ -50,26 +49,41 @@ function Waveform({ className = "" }: { className?: string }) {
   );
 }
 
+const PX_PER_SECOND = 48;
+
+export type TimelineTrackId = "text" | "video" | "audio";
+
 export function EditorTimeline({
   scenes,
   selectedId,
+  selectedTrack,
   elapsed,
   total,
-  onSelect,
-  onOpenText,
+  timelineZoom,
+  onTimelineZoom,
+  onFocusTrack,
+  onSelectVideo,
+  onSelectAudio,
+  onSelectText,
   onSeek,
 }: {
   scenes: Scene[];
   selectedId: string | null;
+  selectedTrack: TimelineTrackId;
   elapsed: number;
   total: number;
-  onSelect: (id: string) => void;
-  onOpenText: (id: string) => void;
+  timelineZoom: number;
+  onTimelineZoom: (zoom: number) => void;
+  onFocusTrack: (track: TimelineTrackId) => void;
+  onSelectVideo: (id: string) => void;
+  onSelectAudio: (id: string) => void;
+  onSelectText: (id: string) => void;
   onSeek: (seconds: number) => void;
 }) {
   const { project, dispatch } = useVideoProject();
   const trackRef = useRef<HTMLDivElement>(null);
-  const music = mockMusicTracks.find((track) => track.id === project.editor.musicTrackId);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const trackMinWidth = Math.max(320, total * PX_PER_SECOND * timelineZoom);
   const playhead = total > 0 ? Math.min(elapsed / total, 1) : 0;
   const step = rulerStep(total);
   const ticks: number[] = [];
@@ -168,36 +182,79 @@ export function EditorTimeline({
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface">
-      <div className="flex items-center justify-between border-b border-border px-3 py-1.5 text-[11px] text-muted">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-1.5 text-[11px] text-muted">
         <p className="font-semibold uppercase tracking-wide">Timeline</p>
-        <p className="font-mono tabular-nums">{clock(total)}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="hidden text-[10px] text-muted sm:inline">
+            Space/K play · J/L step · Home/End
+          </span>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-soft p-0.5">
+            <button
+              type="button"
+              title="Zoom out"
+              aria-label="Zoom out"
+              className="rounded px-2 py-0.5 text-[10px] font-semibold hover:bg-white/5"
+              onClick={() => onTimelineZoom(Math.max(0.5, timelineZoom - 0.25))}
+            >
+              −
+            </button>
+            <span className="min-w-[3rem] text-center font-mono tabular-nums text-[10px]">
+              {Math.round(timelineZoom * 100)}%
+            </span>
+            <button
+              type="button"
+              title="Zoom in"
+              aria-label="Zoom in"
+              className="rounded px-2 py-0.5 text-[10px] font-semibold hover:bg-white/5"
+              onClick={() => onTimelineZoom(Math.min(3, timelineZoom + 0.25))}
+            >
+              +
+            </button>
+            <button
+              type="button"
+              title="Fit timeline"
+              aria-label="Fit timeline"
+              className="rounded px-2 py-0.5 text-[10px] font-semibold hover:bg-white/5"
+              onClick={() => onTimelineZoom(1)}
+            >
+              Fit
+            </button>
+          </div>
+          <p className="font-mono tabular-nums">{clock(total)}</p>
+        </div>
       </div>
-      <div className="flex">
+      <div ref={scrollRef} className="overflow-x-auto">
+      <div className="flex" style={{ minWidth: trackMinWidth }}>
         <div className={`${GUTTER} shrink-0 border-r border-border bg-surface-soft`}>
           <div className="h-7 border-b border-border" />
           <TrackHeader
             label="Text"
             icon="M5 5h14v3h-5v11h-4V8H5V5z"
             className="h-10"
+            active={selectedTrack === "text"}
+            onClick={() => onFocusTrack("text")}
           />
           <TrackHeader
             label="Video"
             icon="M3 6h13v12H3V6zm15 1.5h3v4h-3v-4zm0 5.5h3v4h-3v-4z"
             className="h-12"
             alt
+            active={selectedTrack === "video"}
+            onClick={() => onFocusTrack("video")}
           />
           <TrackHeader
-            label="Audio"
+            label="Voice"
             icon="M5 13h2.2v5H5v-5zm4-3h2.2v8H9v-8zm4-4h2.2v12H13V6zm4 2h2.2v10H17V8z"
             className="h-11"
+            active={selectedTrack === "audio"}
+            onClick={() => onFocusTrack("audio")}
           />
         </div>
-        <div
-          ref={trackRef}
-          className="relative min-w-0 flex-1 select-none"
-          onPointerDown={startSeek}
-        >
-          <div className="relative h-7 overflow-hidden border-b border-border bg-surface-soft">
+        <div ref={trackRef} className="relative min-w-0 flex-1 select-none">
+          <div
+            className="relative h-7 overflow-hidden border-b border-border bg-surface-soft"
+            onPointerDown={startSeek}
+          >
             {ticks.map((tick) => {
               const pct = total > 0 ? (tick / total) * 100 : 0;
               return (
@@ -219,7 +276,7 @@ export function EditorTimeline({
             })}
           </div>
 
-          <TrackRow className="h-10">
+          <TrackRow className="h-10" onBackgroundSeek={startSeek}>
             {scenes.map((scene) => {
               const runtime = sceneRuntimeSeconds(scene);
               const overlay = scene.editing.textOverlay?.text.trim();
@@ -227,18 +284,18 @@ export function EditorTimeline({
                 <ClipBlock
                   key={`text-${scene.id}`}
                   flex={runtime}
-                  selected={scene.id === selectedId}
+                  selected={scene.id === selectedId && selectedTrack === "text"}
                   tone="text"
                   ghost={!overlay}
                   label={overlay || "Add text"}
                   duration={runtime}
-                  onSelect={() => onOpenText(scene.id)}
+                  onSelect={() => onSelectText(scene.id)}
                 />
               );
             })}
           </TrackRow>
 
-          <TrackRow className="h-12 bg-white/[0.025]">
+          <TrackRow className="h-12 bg-white/[0.025]" onBackgroundSeek={startSeek}>
             {scenes.map((scene, index) => {
               const runtime = sceneRuntimeSeconds(scene);
               const next = scenes[index + 1];
@@ -250,12 +307,12 @@ export function EditorTimeline({
                 >
                   <ClipBlock
                     flex={1}
-                    selected={scene.id === selectedId}
+                    selected={scene.id === selectedId && selectedTrack === "video"}
                     tone="video"
                     label={`${String(scene.order + 1).padStart(2, "0")} ${scene.sectionLabel}`}
                     duration={runtime}
                     trimmed={scene.editing.trimStartSeconds > 0}
-                    onSelect={() => onSelect(scene.id)}
+                    onSelect={() => onSelectVideo(scene.id)}
                     {...trimHandlers(scene)}
                   />
                   {scene.editing.transitionIn !== "none" ? (
@@ -279,32 +336,33 @@ export function EditorTimeline({
             })}
           </TrackRow>
 
-          <TrackRow className="h-11">
-            {music ? (
-              <div
-                className="relative flex h-10 min-w-0 items-center overflow-hidden rounded-md bg-chart-blue/20 px-2"
-                style={{ flexGrow: 1 }}
-              >
-                <Waveform className="absolute inset-x-2 inset-y-1 opacity-80" />
-                <p className="relative z-10 truncate text-[11px] font-semibold text-foreground drop-shadow">
-                  {music.title}
-                </p>
-              </div>
-            ) : (
-              scenes.map((scene) => (
+          <TrackRow className="h-11" onBackgroundSeek={startSeek}>
+            {scenes.map((scene) => {
+              const runtime = sceneRuntimeSeconds(scene);
+              const hasVo =
+                scene.voiceover.status === "ready" || Boolean(scene.finalScript.trim());
+              const clipAudio =
+                scene.visuals.uploadedClipKind === "video" && !scene.editing.clipMuted;
+              const label = hasVo
+                ? `VO · ${scene.sectionLabel}`
+                : clipAudio
+                  ? `Clip · ${scene.sectionLabel}`
+                  : `Silent · ${scene.sectionLabel}`;
+              return (
                 <ClipBlock
                   key={`audio-${scene.id}`}
-                  flex={sceneRuntimeSeconds(scene)}
-                  selected={scene.id === selectedId}
+                  flex={runtime}
+                  selected={scene.id === selectedId && selectedTrack === "audio"}
                   tone="audio"
-                  label={scene.finalScript.trim() ? "VO" : "—"}
-                  duration={sceneRuntimeSeconds(scene)}
-                  waveform
-                  onSelect={() => onSelect(scene.id)}
+                  label={label}
+                  duration={runtime}
+                  waveform={hasVo || clipAudio}
+                  ghost={!hasVo && !clipAudio}
+                  onSelect={() => onSelectAudio(scene.id)}
                   {...trimHandlers(scene)}
                 />
-              ))
-            )}
+              );
+            })}
           </TrackRow>
 
           <div
@@ -326,6 +384,7 @@ export function EditorTimeline({
           </div>
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -335,35 +394,48 @@ function TrackHeader({
   icon,
   className,
   alt = false,
+  active = false,
+  onClick,
 }: {
   label: string;
   icon: string;
   className?: string;
   alt?: boolean;
+  active?: boolean;
+  onClick?: () => void;
 }) {
   return (
-    <div
-      className={`flex flex-col items-center justify-center gap-0.5 border-b border-border px-1 text-center ${
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full flex-col items-center justify-center gap-0.5 border-b border-border px-1 text-center transition-colors ${
         alt ? "bg-white/[0.025]" : ""
-      } ${className ?? ""}`}
+      } ${active ? "bg-accent/10 text-accent" : "text-muted hover:bg-white/5 hover:text-foreground"} ${
+        className ?? ""
+      }`}
     >
-      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-muted" fill="currentColor" aria-hidden="true">
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
         <path d={icon} />
       </svg>
-      <span className="text-[9px] font-semibold uppercase tracking-wide text-muted">{label}</span>
-    </div>
+      <span className="text-[9px] font-semibold uppercase tracking-wide">{label}</span>
+    </button>
   );
 }
 
 function TrackRow({
   children,
   className = "",
+  onBackgroundSeek,
 }: {
   children: ReactNode;
   className?: string;
+  onBackgroundSeek?: (event: ReactPointerEvent) => void;
 }) {
   return (
-    <div className={`flex items-center gap-0.5 border-b border-border/80 px-0.5 py-1 ${className}`}>
+    <div
+      className={`flex items-center gap-0.5 border-b border-border/80 px-0.5 py-1 ${className}`}
+      onPointerDown={onBackgroundSeek}
+    >
       <div className="flex h-full min-w-0 flex-1 items-stretch gap-0.5">{children}</div>
     </div>
   );

@@ -1,5 +1,6 @@
 import type { BadgeTone } from "@/components/ui/Badge";
 import type { VisualStyleId, VisualStylePromptMap } from "@/lib/visualStyles";
+import { transitionSpanFrames } from "@/remotion/cutTransition";
 import {
   clampFontSize,
   DEFAULT_CAPTION_FONT_SIZE,
@@ -11,6 +12,7 @@ import {
   type VideoFontId,
   type VideoFontWeight,
 } from "@/remotion/fontCatalog";
+import { FACELESS_FPS } from "@/remotion/types";
 
 export type AiProvider = "chatgpt" | "gemini" | "elevenlabs";
 
@@ -30,6 +32,62 @@ export type SceneStatus = "draft" | "generated" | "approved";
 export type VideoFormat = "shorts" | "long-form";
 export type AspectRatio = "9:16" | "16:9";
 export type VideoIntent = "educational" | "entertainment";
+
+export type IntentCategory = {
+  id: string;
+  label: string;
+};
+
+export const INTENT_CATEGORIES: Record<VideoIntent, readonly IntentCategory[]> = {
+  educational: [
+    { id: "explainer", label: "Explainer" },
+    { id: "whiteboard", label: "Whiteboard" },
+    { id: "presentation", label: "Presentation / Slides" },
+    { id: "talking-head", label: "Talking Head" },
+    { id: "screen-recording", label: "Screen Recording" },
+    { id: "tutorial", label: "Tutorial / How-To" },
+    { id: "animated-education", label: "Animated Education" },
+    { id: "infographic", label: "Infographic" },
+    { id: "documentary", label: "Documentary / Educational Story" },
+    { id: "news", label: "News / Current Affairs" },
+    { id: "course", label: "Course / Lecture" },
+    { id: "quiz", label: "Quiz / Trivia" },
+    { id: "case-study", label: "Case Study" },
+    { id: "language-learning", label: "Language Learning" },
+  ],
+  entertainment: [
+    { id: "ugc", label: "UGC" },
+    { id: "storytelling", label: "Storytelling" },
+    { id: "comedy", label: "Comedy" },
+    { id: "meme", label: "Meme" },
+    { id: "reaction", label: "Reaction" },
+    { id: "faceless", label: "Faceless" },
+    { id: "cinematic", label: "Cinematic" },
+    { id: "character-animation", label: "Character / AI Animation" },
+    { id: "shorts", label: "Shorts / Reels" },
+    { id: "list", label: "List / Top X" },
+    { id: "facts", label: "Facts" },
+    { id: "mystery", label: "Mystery / Horror" },
+    { id: "celebrity", label: "Celebrity / Pop Culture" },
+    { id: "gaming", label: "Gaming" },
+    { id: "music", label: "Music" },
+    { id: "travel", label: "Travel / Lifestyle" },
+    { id: "sports", label: "Sports" },
+    { id: "asmr", label: "ASMR / Satisfying" },
+  ],
+};
+
+export function normalizeIntentCategory(intent: VideoIntent, value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const id = value.trim();
+  if (!id) return null;
+  return INTENT_CATEGORIES[intent].some((item) => item.id === id) ? id : null;
+}
+
+export function intentCategoryLabel(intent: VideoIntent, category: string | null): string | null {
+  if (!category) return null;
+  return INTENT_CATEGORIES[intent].find((item) => item.id === category)?.label ?? null;
+}
 
 export const MAX_REFERENCE_TITLE_CHARS = 200;
 
@@ -69,6 +127,7 @@ export type VideoSummary = {
   format: VideoFormat;
   aspectRatio: AspectRatio;
   intent: VideoIntent;
+  intentCategory: string | null;
   durationSeconds: number;
   references: ReferenceVideo[];
 };
@@ -81,8 +140,32 @@ export const PROVIDER_LABELS: Record<AiProvider, string> = {
   elevenlabs: "ElevenLabs",
 };
 
-export type TransitionId = "none" | "fade" | "dissolve" | "slide" | "wipe" | "zoom";
-export type FilterId = "none" | "warm" | "cool" | "mono" | "vivid";
+export type TransitionId =
+  | "none"
+  | "fade"
+  | "dissolve"
+  | "slide"
+  | "wipe"
+  | "zoom"
+  | "flip";
+export type FilterId =
+  | "none"
+  | "warm"
+  | "cool"
+  | "mono"
+  | "vivid"
+  | "cinematic"
+  | "golden"
+  | "teal"
+  | "noir"
+  | "faded"
+  | "punch"
+  | "midnight"
+  | "sepia"
+  | "highkey"
+  | "lowkey"
+  | "bleach"
+  | "forest";
 export type OverlayPosition = "top" | "center" | "bottom";
 
 export type TextOverlay = {
@@ -134,31 +217,59 @@ export type EditorSettings = {
   captionFontSize: number;
   confirmedAt: string | null;
   exportedAt: string | null;
+  /** Successful MP4 exports. The next file is this count plus one. */
+  exportCount: number;
 };
 
 export const TRANSITION_OPTIONS: { id: TransitionId; label: string }[] = [
   { id: "none", label: "None" },
-  { id: "fade", label: "Fade" },
-  { id: "dissolve", label: "Dissolve" },
-  { id: "slide", label: "Slide" },
-  { id: "wipe", label: "Wipe" },
-  { id: "zoom", label: "Zoom" },
+  { id: "fade", label: "Fade (Remotion)" },
+  { id: "dissolve", label: "Dissolve (Remotion)" },
+  { id: "slide", label: "Slide (Remotion)" },
+  { id: "wipe", label: "Wipe (Remotion)" },
+  { id: "zoom", label: "Cross zoom (Remotion)" },
+  { id: "flip", label: "Flip (Remotion)" },
 ];
 
 export const FILTER_OPTIONS: { id: FilterId; label: string }[] = [
   { id: "none", label: "None" },
   { id: "warm", label: "Warm" },
   { id: "cool", label: "Cool" },
-  { id: "mono", label: "Mono" },
+  { id: "golden", label: "Golden" },
+  { id: "teal", label: "Teal & orange" },
   { id: "vivid", label: "Vivid" },
+  { id: "punch", label: "Punch" },
+  { id: "cinematic", label: "Cinematic" },
+  { id: "faded", label: "Faded" },
+  { id: "highkey", label: "High key" },
+  { id: "lowkey", label: "Low key" },
+  { id: "mono", label: "Mono" },
+  { id: "noir", label: "Noir" },
+  { id: "sepia", label: "Sepia" },
+  { id: "midnight", label: "Midnight" },
+  { id: "forest", label: "Forest" },
+  { id: "bleach", label: "Bleach bypass" },
 ];
 
+/** Standard CSS filters on clip layers (preview + @remotion/web-renderer export). */
 export const FILTER_CSS: Record<FilterId, string> = {
   none: "none",
   warm: "sepia(0.35) saturate(1.2) hue-rotate(-10deg)",
   cool: "saturate(0.9) hue-rotate(20deg) brightness(1.05)",
+  golden: "sepia(0.28) saturate(1.35) brightness(1.06) contrast(1.05)",
+  teal: "saturate(1.15) hue-rotate(168deg) contrast(1.08)",
   mono: "grayscale(1)",
   vivid: "saturate(1.6) contrast(1.1)",
+  punch: "saturate(1.85) contrast(1.18) brightness(1.02)",
+  cinematic: "contrast(1.12) saturate(0.82) brightness(0.96)",
+  faded: "contrast(0.88) brightness(1.12) saturate(0.72)",
+  highkey: "brightness(1.18) contrast(0.92) saturate(0.95)",
+  lowkey: "brightness(0.82) contrast(1.18) saturate(0.9)",
+  noir: "grayscale(0.95) contrast(1.45) brightness(0.88)",
+  sepia: "sepia(0.72) saturate(0.9)",
+  midnight: "brightness(0.72) saturate(1.25) hue-rotate(195deg) contrast(1.1)",
+  forest: "saturate(1.1) hue-rotate(95deg) contrast(1.05) brightness(0.98)",
+  bleach: "contrast(1.35) saturate(0.45) brightness(1.08)",
 };
 
 export const OVERLAY_POSITIONS: { id: OverlayPosition; label: string }[] = [
@@ -379,6 +490,8 @@ export interface VideoProject {
   fullScript: string;
   /** Exact Cursor prompt last used to generate the current script. */
   cursorScriptPrompt: string | null;
+  /** Exact Cursor prompt last used to generate the current description. */
+  cursorDescriptionPrompt: string | null;
   scriptScore?: ScriptScore;
   /** Legacy local-draft field, normalized into scriptScore during hydration. */
   scriptVidiq?: VidIqScriptInsight;
@@ -576,6 +689,7 @@ export function emptySummary(): VideoSummary {
     format: "long-form",
     aspectRatio: "16:9",
     intent: "educational",
+    intentCategory: null,
     durationSeconds: defaultDurationForFormat("long-form"),
     references: [],
   };
@@ -586,6 +700,7 @@ export function applySummaryPatch(
   patch: Partial<VideoSummary>,
 ): VideoSummary {
   const format = patch.format ?? current.format;
+  const intent = patch.intent ?? current.intent;
   const switchingFormat = patch.format !== undefined && patch.format !== current.format;
   const durationSeconds =
     switchingFormat && patch.durationSeconds === undefined
@@ -597,6 +712,11 @@ export function applySummaryPatch(
     ...patch,
     format,
     aspectRatio: aspectForFormat(format),
+    intent,
+    intentCategory: normalizeIntentCategory(
+      intent,
+      patch.intentCategory !== undefined ? patch.intentCategory : current.intentCategory,
+    ),
     durationSeconds,
     references,
   };
@@ -665,6 +785,7 @@ export function normalizeSummary(raw: unknown): VideoSummary {
     format,
     aspectRatio: aspectForFormat(format),
     intent,
+    intentCategory: normalizeIntentCategory(intent, source.intentCategory),
     durationSeconds: snapDurationToPreset(format, durationSeconds),
     references,
   };
@@ -753,6 +874,7 @@ export function emptyEditorSettings(): EditorSettings {
     captionFontSize: DEFAULT_CAPTION_FONT_SIZE,
     confirmedAt: null,
     exportedAt: null,
+    exportCount: 0,
   };
 }
 
@@ -868,6 +990,10 @@ export function normalizeEditorSettings(raw: unknown): EditorSettings {
     captionFontSize: clampFontSize(source.captionFontSize, DEFAULT_CAPTION_FONT_SIZE),
     confirmedAt: typeof source.confirmedAt === "string" ? source.confirmedAt : null,
     exportedAt: typeof source.exportedAt === "string" ? source.exportedAt : null,
+    exportCount:
+      typeof source.exportCount === "number" && Number.isFinite(source.exportCount)
+        ? Math.max(0, Math.floor(source.exportCount))
+        : 0,
   };
 }
 
@@ -1095,6 +1221,7 @@ export function createEmptyProject(partial?: {
     cursorThumbnailPrompt: null,
     fullScript: "",
     cursorScriptPrompt: null,
+    cursorDescriptionPrompt: null,
     scenes: [],
     elevenLabsVoice: null,
     qwenVoice: DEFAULT_QWEN_VOICE,
@@ -1212,11 +1339,12 @@ export function buildScenePrompt(
   project: VideoProject,
   extra?: string,
 ): string {
+  const category = intentCategoryLabel(project.summary.intent, project.summary.intentCategory);
   const parts = [
     scene.originalPrompt,
     project.summary.topic ? `Video topic: ${project.summary.topic}` : "",
     `Format: ${FORMAT_LABELS[project.summary.format]} (${project.summary.aspectRatio})`,
-    `Intent: ${INTENT_LABELS[project.summary.intent]}`,
+    `Intent: ${INTENT_LABELS[project.summary.intent]}${category ? ` · ${category}` : ""}`,
     extra ?? "",
   ].filter((part) => part.trim().length > 0);
   return parts.join("\n");
@@ -1417,22 +1545,50 @@ export function sceneRuntimeSeconds(scene: Scene): number {
   return sceneDuration(scene) / speed;
 }
 
+/** Overlap between this clip and the next when using @remotion/transitions (seconds). */
+export function joinTransitionRuntimeSeconds(scene: Scene): number {
+  if (scene.editing.transition === "none") return 0;
+  const frames = transitionSpanFrames(
+    sceneRuntimeSeconds(scene),
+    scene.editing.transitionSeconds,
+    FACELESS_FPS,
+  );
+  return frames / FACELESS_FPS;
+}
+
+export function sceneTimelineStart(scenes: Scene[], index: number): number {
+  let start = 0;
+  for (let i = 0; i < index; i += 1) {
+    const scene = scenes[i];
+    if (!scene) continue;
+    start += sceneRuntimeSeconds(scene);
+    if (i < scenes.length - 1) start -= joinTransitionRuntimeSeconds(scene);
+  }
+  return Math.max(0, start);
+}
+
 export function sceneTimeRange(
   scenes: Scene[],
   index: number,
 ): { start: number; end: number; label: string } {
-  let start = 0;
-  for (let i = 0; i < index; i += 1) {
-    const scene = scenes[i];
-    if (scene) start += sceneRuntimeSeconds(scene);
-  }
-  const current = scenes[index];
-  const end = start + (current ? sceneRuntimeSeconds(current) : 0);
+  const start = sceneTimelineStart(scenes, index);
+  const nextIndex = index + 1;
+  const end =
+    nextIndex < scenes.length
+      ? sceneTimelineStart(scenes, nextIndex)
+      : totalTimelineSeconds(scenes);
   return { start, end, label: `${formatTimecode(start)}–${formatTimecode(end)}` };
 }
 
 export function totalTimelineSeconds(scenes: Scene[]): number {
-  return scenes.reduce((sum, scene) => sum + sceneRuntimeSeconds(scene), 0);
+  let total = 0;
+  for (let index = 0; index < scenes.length; index += 1) {
+    const scene = scenes[index];
+    if (!scene) continue;
+    total += sceneRuntimeSeconds(scene);
+    if (index < scenes.length - 1) total -= joinTransitionRuntimeSeconds(scene);
+  }
+  return Math.max(0, total);
 }
 
 export function normalizeApiCosts(raw: unknown): ApiCostEntry[] {

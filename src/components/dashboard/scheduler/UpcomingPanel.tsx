@@ -50,7 +50,7 @@ export function UpcomingPanel({ events }: { events: CalendarEvent[] }) {
       <div className="flex items-center justify-between gap-3">
         <h3 className="font-display text-lg font-semibold text-foreground">Upcoming</h3>
         <Link
-          href="/dashboard/scheduler/upcoming"
+          href="/dashboard/videoscheduler/upcoming"
           className="text-sm font-semibold text-accent transition-colors hover:text-accent-dark"
         >
           View All

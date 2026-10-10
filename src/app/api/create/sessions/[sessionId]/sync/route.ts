@@ -7,7 +7,7 @@ import {
 } from "@/lib/session/deletion";
 import { jsonValue, safeDate, toCreateStep, toStepState } from "@/lib/session/server";
 import { withWriteRetry } from "@/lib/session/writeRetry";
-import { metadataWithReferenceTitle } from "@/lib/videoProject";
+import { metadataWithReferenceTitle, normalizeIntentCategory } from "@/lib/videoProject";
 import { requireChannelAccess } from "@/lib/youtube/access";
 
 type RouteContext = { params: Promise<{ sessionId: string }> };
@@ -76,6 +76,10 @@ export async function POST(request: Request, { params }: RouteContext) {
           format: snapshot.format,
           aspectRatio: snapshot.aspectRatio,
           intent: snapshot.intent,
+          intentCategory: normalizeIntentCategory(
+            snapshot.intent === "entertainment" ? "entertainment" : "educational",
+            snapshot.intentCategory,
+          ),
           targetDurationSec: snapshot.targetDurationSec,
           referenceCount: snapshot.referenceCount,
           sceneCount: snapshot.sceneCount,
@@ -99,6 +103,10 @@ export async function POST(request: Request, { params }: RouteContext) {
           format: snapshot.format,
           aspectRatio: snapshot.aspectRatio,
           intent: snapshot.intent,
+          intentCategory: normalizeIntentCategory(
+            snapshot.intent === "entertainment" ? "entertainment" : "educational",
+            snapshot.intentCategory,
+          ),
           targetDurationSec: snapshot.targetDurationSec,
           referenceCount: snapshot.referenceCount,
           sceneCount: snapshot.sceneCount,

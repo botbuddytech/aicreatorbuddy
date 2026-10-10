@@ -6,6 +6,7 @@ import { Topbar } from "@/components/dashboard/Topbar";
 import { CreateVideoWorkspace } from "@/components/create/CreateVideoWorkspace";
 import { VideoProjectProvider } from "@/components/create/VideoProjectProvider";
 import { VideoPlayerSkeleton } from "@/components/ui/skeletons/VideoPlayerSkeleton";
+import type { LlmIntegrationAvailability } from "@/lib/integrations/llmAvailability";
 import type { ConnectedChannel } from "@/lib/youtube/repo";
 
 function WorkspaceFallback() {
@@ -41,9 +42,11 @@ function MissingProject() {
 export function CreateProjectClient({
   projectId,
   channels,
+  llmAvailability,
 }: {
   projectId: string;
   channels: ConnectedChannel[];
+  llmAvailability: LlmIntegrationAvailability;
 }) {
   return (
     // The provider reads the step from useSearchParams, which needs a boundary.
@@ -52,6 +55,7 @@ export function CreateProjectClient({
         key={projectId}
         projectId={projectId}
         channels={channels}
+        llmAvailability={llmAvailability}
         fallback={<WorkspaceFallback />}
         missing={<MissingProject />}
       >

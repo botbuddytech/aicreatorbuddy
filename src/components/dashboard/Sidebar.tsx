@@ -173,10 +173,11 @@ function NavDropdown({
   counts: { drafts: number; upcoming: number };
 }) {
   const submenuId = useId();
-  const sectionActive = navActive(item.href, pathname, item.exact);
-  const [open, setOpen] = useState(sectionActive);
-
   const children = item.children ?? [];
+  const sectionActive =
+    navActive(item.href, pathname, item.exact) ||
+    children.some((child) => navActive(child.href, pathname, child.exact));
+  const [open, setOpen] = useState(sectionActive);
   const rowClass = `flex items-center rounded-xl text-sm font-medium transition-colors ${
     sectionActive
       ? "bg-accent/15 text-accent"
@@ -360,7 +361,9 @@ function SidebarNav({ counts = { drafts: 0, upcoming: 0 } }: { counts?: { drafts
               );
             }
 
-            const active = navActive(item.href, pathname, item.exact);
+            const active =
+              navActive(item.href, pathname, item.exact) ||
+              (item.children?.some((child) => navActive(child.href, pathname, child.exact)) ?? false);
             return (
               <Link
                 key={item.href}

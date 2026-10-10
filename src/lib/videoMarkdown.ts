@@ -1,3 +1,4 @@
+import { exportFileName, exportTitle } from "@/lib/exportFileName";
 import { spokenVoiceoverText } from "@/lib/sceneVoiceover";
 import {
   sessionVisualStylePrompt,
@@ -148,13 +149,11 @@ export function buildVideoMarkdown(project: VideoProject): string {
   return sections.join("\n").replace(/\n{3,}/g, "\n\n").trim() + "\n";
 }
 
-export function videoMarkdownFileName(project: VideoProject): string {
-  const source = selectedTitle(project)?.text.trim() || projectDisplayName(project);
-  const cleaned = source
-    .replace(/[^\w\s.-]+/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 80);
-  return `${cleaned || "video"}.md`;
+export function videoMarkdownFileName(project: VideoProject, exportedAt = new Date()): string {
+  return exportFileName({
+    title: exportTitle(project),
+    exportCount: project.editor.exportCount,
+    exportedAt,
+    extension: "md",
+  });
 }

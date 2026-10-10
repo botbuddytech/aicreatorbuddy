@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type SyntheticEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent, type SyntheticEvent } from "react";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { Textarea } from "@/components/ui/Textarea";
@@ -121,6 +121,8 @@ export function SceneBeatFields({
   generateVideoDisabled = false,
   videoNote = null,
   onPreview = () => {},
+  registerClipDrop,
+  fileDragActive = false,
 }: {
   scene: Scene;
   column: "script" | "visuals";
@@ -149,6 +151,10 @@ export function SceneBeatFields({
   generateVideoDisabled?: boolean;
   videoNote?: string | null;
   onPreview?: () => void;
+  /** Lets the timeline row drop a file into this scene’s upload handler. */
+  registerClipDrop?: (sceneId: string, upload: ((file: File) => void) | null) => void;
+  /** True while a file is dragged over this scene’s row. */
+  fileDragActive?: boolean;
 }) {
   const { project, dispatch } = useVideoProject();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -193,6 +199,10 @@ export function SceneBeatFields({
 
   async function onUploadClip(file: File) {
     setUploadError(null);
+    if (file.type && !file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+      setUploadError("Drop an image or a video.");
+      return;
+    }
     if (file.size > MAX_CLIP_BYTES) {
       setUploadError("Clip must be under 100MB.");
       return;
@@ -266,6 +276,16 @@ export function SceneBeatFields({
       setUploadPercent(null);
     }
   }
+
+  const uploadClipRef = useRef(onUploadClip);
+  uploadClipRef.current = onUploadClip;
+  useEffect(() => {
+    if (!registerClipDrop || column !== "visuals") return;
+    registerClipDrop(scene.id, (file) => {
+      void uploadClipRef.current(file);
+    });
+    return () => registerClipDrop(scene.id, null);
+  }, [registerClipDrop, scene.id, column]);
 
   async function onRemoveClip() {
     const clipId = scene.visuals.uploadedClipId;
@@ -481,35 +501,20 @@ export function SceneBeatFields({
               })
             }
           />
-          {clipName || scene.visuals.uploadedClipStoragePath || scene.visuals.uploadedClipUrl ? (
-            <div className="flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-border bg-surface-soft p-2">
-              {scene.visuals.thumbnailUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={scene.visuals.thumbnailUrl}
-                  alt=""
-                  className="h-10 w-16 shrink-0 rounded object-cover"
-                />
-              ) : null}
-              <p
-                className="w-28 max-w-full shrink truncate text-[11px] text-muted"
-                title={clipName ?? undefined}
-              >
-                {clipName || "Uploaded clip"}
-              </p>
-              <button
-                type="button"
-                aria-label={deletingClip ? "Deleting clip" : "Delete clip"}
-                aria-busy={deletingClip}
-                title={deletingClip ? "Deleting clip" : "Delete clip"}
-                disabled={uploadPercent !== null || deletingClip}
-                onClick={() => setMediaConfirm("delete-clip")}
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-accent hover:bg-accent/10 ${deletingClip ? "" : "disabled:opacity-40"}`}
-              >
-                {deletingClip ? <ClipDeleteSpinner /> : <TrashIcon />}
-              </button>
-            </div>
-          ) : null}
+          {hideActions ? null : (
+            <ClipDropZone
+              hasClip={Boolean(clipName || scene.visuals.uploadedClipStoragePath || scene.visuals.uploadedClipUrl)}
+              clipName={clipName}
+              thumbnailUrl={scene.visuals.thumbnailUrl}
+              percent={uploadPercent}
+              deleting={deletingClip}
+              rowHot={fileDragActive}
+              onBrowse={() => fileRef.current?.click()}
+              onFile={(file) => void onUploadClip(file)}
+              onDelete={() => setMediaConfirm("delete-clip")}
+              onReject={(message) => setUploadError(message)}
+            />
+          )}
         </>
       )}
 
@@ -595,21 +600,6 @@ export function SceneBeatFields({
                 {generatingVideo ? "Generating…" : "Generate"}
               </button>
             ) : null}
-            <ActionButton
-              size="sm"
-              variant="secondary"
-              disabled={uploadPercent !== null}
-              onClick={() => {
-                if (clipName || scene.visuals.uploadedClipStoragePath || scene.visuals.uploadedClipUrl) {
-                  setMediaConfirm("replace-clip");
-                  return;
-                }
-                fileRef.current?.click();
-              }}
-            >
-              {clipName || scene.visuals.uploadedClipUrl ? "Replace clip" : "Upload clip"}
-            </ActionButton>
-            {uploadPercent !== null ? <ClipUploadProgress percent={uploadPercent} /> : null}
           </>
         )}
         {column === "script" ? (
@@ -735,6 +725,149 @@ export function SceneBeatFields({
         />
       )}
     </div>
+  );
+}
+
+function fileDrag(event: DragEvent) {
+  return Array.from(event.dataTransfer.types).includes("Files");
+}
+
+function ClipDropZone({
+  hasClip,
+  clipName,
+  thumbnailUrl,
+  percent,
+  deleting,
+  rowHot,
+  onBrowse,
+  onFile,
+  onDelete,
+  onReject,
+}: {
+  hasClip: boolean;
+  clipName: string | null;
+  thumbnailUrl: string | null;
+  percent: number | null;
+  deleting: boolean;
+  rowHot: boolean;
+  onBrowse: () => void;
+  onFile: (file: File) => void;
+  onDelete: () => void;
+  onReject: (message: string) => void;
+}) {
+  const [hot, setHot] = useState(false);
+  const active = hot || rowHot;
+  const busy = percent !== null || deleting;
+
+  function takeFile(file: File | undefined) {
+    if (!file || busy) return;
+    if (file.type && !file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+      onReject("Drop an image or a video.");
+      return;
+    }
+    onFile(file);
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={busy ? -1 : 0}
+      aria-label={hasClip ? "Replace clip" : "Upload clip"}
+      aria-disabled={busy}
+      onClick={() => {
+        if (!busy) onBrowse();
+      }}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        if (!busy) onBrowse();
+      }}
+      onDragEnter={(event) => {
+        if (!fileDrag(event)) return;
+        event.preventDefault();
+        setHot(true);
+      }}
+      onDragOver={(event) => {
+        if (!fileDrag(event)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+        setHot(true);
+      }}
+      onDragLeave={(event) => {
+        const next = event.relatedTarget;
+        if (next instanceof Node && event.currentTarget.contains(next)) return;
+        setHot(false);
+      }}
+      onDrop={(event) => {
+        if (!fileDrag(event)) return;
+        event.preventDefault();
+        setHot(false);
+        takeFile(event.dataTransfer.files?.[0]);
+      }}
+      className={`w-full rounded-xl border border-dashed px-3 py-3 text-left ${
+        active
+          ? "cursor-copy border-accent bg-accent/15"
+          : "cursor-copy border-border bg-surface-soft hover:border-accent/50"
+      } ${busy ? "opacity-80" : ""}`}
+    >
+      <div className="flex items-center gap-3">
+        {thumbnailUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={thumbnailUrl} alt="" className="h-10 w-16 shrink-0 rounded object-cover" />
+        ) : (
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border ${
+              active ? "border-accent text-accent" : "text-muted"
+            }`}
+          >
+            <ClipDropIcon />
+          </span>
+        )}
+        <div className="min-w-0 flex-1">
+          {hasClip ? (
+            <p className="truncate text-xs font-semibold text-foreground" title={clipName ?? undefined}>
+              {clipName || "Uploaded clip"}
+            </p>
+          ) : null}
+          <p className={`text-[11px] leading-snug ${active ? "font-semibold text-accent" : "text-muted"}`}>
+            {active
+              ? "Drop to add this clip."
+              : hasClip
+                ? "Drop or click to replace."
+                : "Drop a clip here, or click to browse."}
+          </p>
+        </div>
+        {percent !== null ? <ClipUploadProgress percent={percent} /> : null}
+        {hasClip ? (
+          <button
+            type="button"
+            aria-label={deleting ? "Deleting clip" : "Delete clip"}
+            aria-busy={deleting}
+            title={deleting ? "Deleting clip" : "Delete clip"}
+            disabled={percent !== null || deleting}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDelete();
+            }}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-accent hover:bg-accent/10 ${
+              deleting ? "" : "disabled:opacity-40"
+            }`}
+          >
+            {deleting ? <ClipDeleteSpinner /> : <TrashIcon />}
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function ClipDropIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M12 4v10" strokeLinecap="round" />
+      <path d="M8 10l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 18h14" strokeLinecap="round" />
+    </svg>
   );
 }
 

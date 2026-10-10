@@ -6,7 +6,6 @@ import { ListenButton, VoiceBuildClock } from "@/components/create/scene/ListenB
 import { useVoiceoverPreview } from "@/components/create/useVoiceoverPreview";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
 import { FontStyleControls, type FontStyleValue } from "@/components/create/editor/FontStyleControls";
-import { mockMusicTracks, mockStockClips } from "@/lib/mockAi";
 import {
   DEFAULT_OVERLAY_FONT_SIZE,
   DEFAULT_OVERLAY_FONT_WEIGHT,
@@ -20,10 +19,9 @@ import {
   type TransitionId,
 } from "@/lib/videoProject";
 
-export type EditorRailId = "assets" | "text" | "transitions" | "audio";
+export type EditorRailId = "text" | "transitions" | "audio";
 
 const RAILS: { id: EditorRailId; label: string; icon: string }[] = [
-  { id: "assets", label: "Assets", icon: "M4 4h7v7H4V4zm9 0h7v7h-7V4zM4 13h7v7H4v-7zm9 0h7v7h-7v-7z" },
   { id: "text", label: "Text", icon: "M5 5h14v3h-5v11h-4V8H5V5z" },
   { id: "transitions", label: "Transitions", icon: "M7 4l5 8-5 8h3l5-8-5-8H7zm7 0l5 8-5 8h3l5-8-5-8h-3z" },
   { id: "audio", label: "Audio", icon: "M9 4v11.3A3.5 3.5 0 1 0 11 18V9h6V4H9z" },
@@ -54,7 +52,7 @@ function TransitionChoices({
   return (
     <div className="space-y-2">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-        {edge === "in" ? "In · start of this clip" : "Out · end of this clip"}
+        {edge === "in" ? "In · start of this clip" : "Out · end · @remotion/transitions"}
       </p>
       {TRANSITION_OPTIONS.map((option) => (
         <button
@@ -175,45 +173,6 @@ export function EditorLeftRail({
       </div>
 
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-3">
-        {rail === "assets" ? (
-          <div className="grid grid-cols-2 gap-2">
-            {mockStockClips.map((clip) => {
-              const selected = scene?.visuals.stockFootageId === clip.id;
-              return (
-                <button
-                  key={clip.id}
-                  type="button"
-                  disabled={!scene}
-                  onClick={() =>
-                    scene &&
-                    dispatch({
-                      type: "PATCH_SCENE",
-                      id: scene.id,
-                      patch: { visuals: { stockFootageId: clip.id } },
-                    })
-                  }
-                  className={`rounded-lg border p-2 text-left ${
-                    selected
-                      ? "border-accent/50 bg-accent/10"
-                      : "border-border bg-surface-soft hover:border-white/20"
-                  }`}
-                >
-                  <div
-                    className="mb-1.5 h-12 rounded-md"
-                    style={{
-                      background: `linear-gradient(135deg, hsl(${clip.hue} 42% 28%), hsl(${(clip.hue + 40) % 360} 48% 14%))`,
-                    }}
-                  />
-                  <p className="line-clamp-2 text-[11px] font-semibold text-foreground">{clip.title}</p>
-                  <p className="mt-0.5 text-[10px] text-muted">
-                    {clip.source} · {clip.duration}s
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-
         {rail === "text" ? (
           <div className="space-y-4">
             <div className="space-y-3">
@@ -377,7 +336,10 @@ export function EditorLeftRail({
             </div>
             <div>
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                Music volume
+                Background music volume
+              </p>
+              <p className="mb-2 text-xs text-muted">
+                Reserved for a future music bed. Clip and voice levels are on the right inspector.
               </p>
               <Input
                 type="range"
@@ -393,33 +355,27 @@ export function EditorLeftRail({
               />
               <p className="mt-1 text-xs tabular-nums text-muted">{project.editor.musicVolume}%</p>
             </div>
-            <div className="space-y-2">
-              {mockMusicTracks.map((track) => {
-                const selected = project.editor.musicTrackId === track.id;
-                return (
-                  <button
-                    key={track.id}
-                    type="button"
-                    onClick={() =>
+            {scene && scene.visuals.uploadedClipKind === "video" ? (
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                  Clip audio
+                </p>
+                <label className="flex items-center gap-2 text-sm text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={scene.editing.clipMuted === false}
+                    onChange={(event) =>
                       dispatch({
-                        type: "UPDATE_EDITOR",
-                        patch: { musicTrackId: selected ? null : track.id },
+                        type: "PATCH_SCENE",
+                        id: scene.id,
+                        patch: { editing: { clipMuted: !event.target.checked } },
                       })
                     }
-                    className={`w-full rounded-lg border px-3 py-2 text-left ${
-                      selected
-                        ? "border-accent/50 bg-accent/10"
-                        : "border-border hover:bg-white/5"
-                    }`}
-                  >
-                    <p className="text-sm font-semibold text-foreground">{track.title}</p>
-                    <p className="text-[11px] text-muted">
-                      {track.mood} · {track.bpm} BPM · {track.duration}s
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
+                  />
+                  Play uploaded clip sound
+                </label>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

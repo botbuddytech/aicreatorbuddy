@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { BarList } from "@/components/dashboard/BarList";
 import { ExportDurationCard } from "@/components/dashboard/ExportDurationCard";
@@ -13,11 +13,18 @@ import { chartRangeOptions, type ChartRange } from "@/lib/dashboardContent";
 import type { OverviewPayload } from "@/lib/youtube/present";
 
 const TRAFFIC_ICONS: Record<string, string> = {
+  "YouTube Search": "⌕",
   Search: "⌕",
   Browse: "▦",
   Suggested: "✦",
   External: "↗",
   Direct: "◎",
+  Subscriptions: "★",
+  Shorts: "▶",
+  Playlists: "≡",
+  Notifications: "◌",
+  "End screens": "▣",
+  "Channel pages": "⌂",
 };
 
 function AnalyticsNotice({ message }: { message: string }) {
@@ -38,12 +45,14 @@ function AnalyticsNotice({ message }: { message: string }) {
 }
 
 export function OverviewDashboard({ initial }: { initial: OverviewPayload }) {
-  const [range, setRange] = useState<ChartRange>("28d");
+  const [range, setRange] = useState<ChartRange>("all");
   const [payload, setPayload] = useState(initial);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestId = useRef(0);
 
   async function load(nextRange: ChartRange, refresh = false) {
+    const id = ++requestId.current;
     setRefreshing(true);
     setError(null);
     try {
@@ -51,12 +60,14 @@ export function OverviewDashboard({ initial }: { initial: OverviewPayload }) {
         `/api/dashboard/youtube?range=${encodeURIComponent(nextRange)}${refresh ? "&refresh=1" : ""}`,
       );
       const body = (await response.json()) as OverviewPayload & { error?: string };
+      if (id !== requestId.current) return;
       if (!response.ok) throw new Error(body.error || "Could not load YouTube data.");
       setPayload(body);
     } catch (err) {
+      if (id !== requestId.current) return;
       setError(err instanceof Error ? err.message : "Could not load YouTube data.");
     } finally {
-      setRefreshing(false);
+      if (id === requestId.current) setRefreshing(false);
     }
   }
 
@@ -156,6 +167,7 @@ export function OverviewDashboard({ initial }: { initial: OverviewPayload }) {
           title="Traffic sources"
           subtitle="Where viewers find your videos"
           href="/dashboard/analytics"
+          emptyLabel="YouTube did not return traffic sources for this range."
           items={payload.traffic.map((item) => ({
             ...item,
             icon: <span aria-hidden>{TRAFFIC_ICONS[item.label] ?? "●"}</span>,
@@ -165,6 +177,7 @@ export function OverviewDashboard({ initial }: { initial: OverviewPayload }) {
           title="Top countries"
           subtitle="Views by geography"
           href="/dashboard/analytics"
+          emptyLabel="YouTube did not return country data for this range."
           items={payload.countries.map((item) => ({
             ...item,
             icon: <span aria-hidden>{item.flag}</span>,
@@ -176,6 +189,7 @@ export function OverviewDashboard({ initial }: { initial: OverviewPayload }) {
       <ScheduledVideosTable videos={payload.scheduled} />
       <PerformanceCharts
         range={range}
+        loading={refreshing}
         onRangeChange={(next) => {
           setRange(next);
           void load(next);

@@ -65,6 +65,7 @@ function buildSteps(
       format: project.summary.format,
       aspectRatio: project.summary.aspectRatio,
       intent: project.summary.intent,
+      intentCategory: project.summary.intentCategory,
       targetDurationSec: project.summary.durationSeconds,
       topic: project.summary.topic,
       referenceCount: project.summary.references.length,
@@ -137,7 +138,7 @@ function buildSteps(
       filtersUsed: filters,
       overlayCount: project.scenes.filter((scene) => scene.editing.textOverlay).length,
       confirmedAt: project.editor.confirmedAt,
-      exportCount: project.editor.exportedAt ? 1 : 0,
+      exportCount: project.editor.exportCount,
     }),
   ];
 }
@@ -233,6 +234,7 @@ export function buildSnapshot(
     format: project.summary.format,
     aspectRatio: project.summary.aspectRatio,
     intent: project.summary.intent,
+    intentCategory: project.summary.intentCategory,
     targetDurationSec: project.summary.durationSeconds,
     referenceCount: project.summary.references.length,
     sceneCount: project.scenes.length,

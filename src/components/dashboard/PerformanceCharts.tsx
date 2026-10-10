@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { DonutChart } from "@/components/dashboard/DonutChart";
+import { AudienceCard } from "@/components/dashboard/AudienceCard";
 import { Tabs } from "@/components/ui/Tabs";
 import { chartRangeOptions, type ChartMetric, type ChartRange } from "@/lib/dashboardContent";
 import type { OverviewPayload } from "@/lib/youtube/present";
@@ -99,11 +99,13 @@ function AreaChart({
 
 export function PerformanceCharts({
   range,
+  loading = false,
   onRangeChange,
   series: seriesByMetric,
   audience,
 }: {
   range: ChartRange;
+  loading?: boolean;
   onRangeChange: (range: ChartRange) => void;
   series: OverviewPayload["series"];
   audience: OverviewPayload["audience"];
@@ -113,50 +115,55 @@ export function PerformanceCharts({
     () => seriesByMetric[metric] ?? { labels: [], values: [] },
     [metric, seriesByMetric],
   );
+  const metricLabel = METRIC_TABS.find((tab) => tab.id === metric)?.label ?? "Views";
 
   return (
     <div className="grid gap-4 lg:grid-cols-5">
-      <div className="rounded-2xl border border-border bg-surface p-5 lg:col-span-3">
+      <div className="rounded-2xl border border-border bg-surface p-5 lg:col-span-3" aria-busy={loading}>
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h3 className="font-display text-lg font-semibold text-foreground">Views & engagement</h3>
-            <p className="mt-1 text-sm text-muted">Workspace performance for the selected range</p>
+            <p className="mt-1 text-sm text-muted">
+              {loading ? "Loading this range from YouTube…" : "Workspace performance for the selected range"}
+            </p>
           </div>
-          <div className="flex flex-wrap gap-1 rounded-xl border border-border bg-surface-soft p-1">
-            {chartRangeOptions.map((option) => {
-              const active = range === option.id;
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => onRangeChange(option.id)}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                    active ? "bg-accent text-white" : "text-muted hover:text-foreground"
-                  }`}
-                >
-                  {option.short}
-                </button>
-              );
-            })}
-          </div>
+          <label className="sr-only" htmlFor="performance-range">
+            Chart date range
+          </label>
+          <select
+            id="performance-range"
+            value={range}
+            onChange={(event) => onRangeChange(event.target.value as ChartRange)}
+            className="rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus:border-accent/50"
+          >
+            {chartRangeOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="mt-4">
           <Tabs tabs={METRIC_TABS} value={metric} onChange={(id) => setMetric(id as ChartMetric)} />
         </div>
         <div className="mt-4">
-          <AreaChart labels={series.labels} values={series.values} metric={metric} />
+          {loading ? (
+            <div className="flex h-56 flex-col items-center justify-center gap-3" role="status">
+              <span className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-r-transparent" />
+              <p className="text-sm text-muted">Loading {metricLabel.toLowerCase()}…</p>
+            </div>
+          ) : series.values.length === 0 ? (
+            <div className="flex h-56 items-center justify-center">
+              <p className="text-sm text-muted">No {metricLabel.toLowerCase()} for this range yet.</p>
+            </div>
+          ) : (
+            <AreaChart labels={series.labels} values={series.values} metric={metric} />
+          )}
         </div>
       </div>
 
       <div className="lg:col-span-2">
-        <DonutChart
-          title="Audience"
-          subtitle="Age mix of returning viewers"
-          total={audience.total}
-          segments={audience.segments}
-          formatValue={(value) => `${value}%`}
-          totalCaption="subs"
-        />
+        <AudienceCard segments={audience.segments} primary={audience.primary} />
       </div>
     </div>
   );

@@ -16,6 +16,7 @@ import {
   durationBoundsForFormat,
   FORMAT_LABELS,
   formatDurationLabel,
+  INTENT_CATEGORIES,
   INTENT_LABELS,
   MAX_REFERENCES,
   stepDuration,
@@ -89,6 +90,31 @@ export function SummaryStep() {
                 onSelect={() => dispatch({ type: "UPDATE_SUMMARY", patch: { intent } })}
               />
             ))}
+          </div>
+        </Field>
+
+        <Field label="Category">
+          <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
+            {INTENT_CATEGORIES[summary.intent].map((category) => {
+              const selected = summary.intentCategory === category.id;
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() =>
+                    dispatch({ type: "UPDATE_SUMMARY", patch: { intentCategory: category.id } })
+                  }
+                  className={`shrink-0 rounded-xl border px-3 py-2.5 text-sm font-semibold whitespace-nowrap transition-colors ${
+                    selected
+                      ? "border-accent/50 bg-accent/10 text-accent"
+                      : "border-border bg-surface-soft text-foreground hover:border-white/20"
+                  }`}
+                >
+                  {category.label}
+                </button>
+              );
+            })}
           </div>
         </Field>
 

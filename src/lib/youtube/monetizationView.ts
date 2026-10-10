@@ -185,8 +185,9 @@ export async function loadMonetization(
   const activeId = await resolveActiveChannelId(user, channels);
   const channel = channels.find((item) => item.id === activeId) ?? null;
   if (!channel) return { channel: null, data: null };
-  const range = asAnalyticsRange(rangeInput === "1y" ? "90d" : rangeInput);
-  const analyticsRange: AnalyticsRange = range === "1y" ? "90d" : range;
+  const requested = rangeInput === "1y" || rangeInput === "all" ? "90d" : rangeInput;
+  const range = asAnalyticsRange(requested);
+  const analyticsRange: AnalyticsRange = range === "7d" || range === "90d" ? range : "28d";
   const [bundle, videos] = await Promise.all([
     loadChannelAnalytics(user, channel.id, analyticsRange, options),
     prisma.youtubeVideo.findMany({

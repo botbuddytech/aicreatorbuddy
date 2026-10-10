@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Badge } from "@/components/ui/Badge";
 import { LowEffortCheck } from "@/components/create/LowEffortCheck";
@@ -9,11 +10,15 @@ import { ExportVoiceModal } from "@/components/create/ExportVoiceModal";
 import { PublishToYoutube } from "@/components/create/PublishToYoutube";
 import { exportProjectWithRemotion } from "@/lib/exportRemotion";
 import { buildSceneVoiceovers, type ExportVoiceProvider } from "@/lib/exportVoiceover";
-import { deriveReadiness, newId } from "@/lib/videoProject";
+import { trackSessionEvent } from "@/lib/session/telemetry";
+import { deriveReadiness, newId, totalTimelineSeconds } from "@/lib/videoProject";
 import { buildVideoMarkdown, videoMarkdownFileName } from "@/lib/videoMarkdown";
 
 export function RenderPanel() {
   const { project, dispatch, setPreviewOpen, setActiveStep } = useVideoProject();
+  const searchParams = useSearchParams();
+  const fromScheduler =
+    searchParams.get("from") === "scheduler" || Boolean(searchParams.get("publishAt"));
   const [busy, setBusy] = useState(false);
   const [chooseOpen, setChooseOpen] = useState(false);
   const [voiceNote, setVoiceNote] = useState<string | null>(null);
@@ -62,10 +67,28 @@ export function RenderPanel() {
         onProgress: ({ progress: next }) => setProgress(next),
       });
       setRenderedFile({ blob: exported.blob, fileName: exported.fileName, mimeType: exported.mimeType });
+      trackSessionEvent(project.id, {
+        type: "export.succeeded",
+        step: "render",
+        payload: {
+          exportId: crypto.randomUUID(),
+          attempt: project.editor.exportCount + 1,
+          startedAt: new Date().toISOString(),
+          fileName: exported.fileName,
+          format: project.summary.format,
+          aspectRatio: project.summary.aspectRatio,
+          resolution: project.summary.aspectRatio === "9:16" ? "1080×1920" : "1920×1080",
+          runtimeSec: totalTimelineSeconds(project.scenes),
+          sceneCount: project.scenes.length,
+        },
+      });
       dispatch({ type: "MARK_RENDERED" });
       dispatch({
         type: "UPDATE_EDITOR",
-        patch: { exportedAt: new Date().toISOString() },
+        patch: {
+          exportedAt: new Date().toISOString(),
+          exportCount: project.editor.exportCount + 1,
+        },
       });
       dispatch({
         type: "RECORD_API_COST",
@@ -125,6 +148,11 @@ export function RenderPanel() {
         Remotion encodes the cut in your browser (WebCodecs) and downloads an MP4. No server render
         queue.
       </p>
+      {fromScheduler ? (
+        <p className="mt-3 rounded-lg border border-border bg-surface-soft px-3 py-2 text-xs text-muted">
+          Opened from the scheduler: export the MP4 here, then publish or schedule to YouTube below.
+        </p>
+      ) : null}
       <p className="mt-3 text-sm text-muted">
         {complete} / {items.length} ready
       </p>

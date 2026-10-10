@@ -136,6 +136,12 @@ export async function fetchAllUploads(
     pageToken = data.nextPageToken ?? undefined;
   } while (pageToken);
 
+  return fetchVideosByIds(auth, ids);
+}
+
+/** Hydrate videos by id. Ids YouTube no longer has are omitted. */
+export async function fetchVideosByIds(auth: OAuth2Client, ids: string[]): Promise<FetchedVideo[]> {
+  const client = yt(auth);
   const videos: FetchedVideo[] = [];
   for (let i = 0; i < ids.length; i += 50) {
     const batch = ids.slice(i, i + 50);
@@ -150,25 +156,9 @@ export async function fetchAllUploads(
     );
     for (const v of data.items ?? []) {
       if (!v.id) continue;
-      videos.push({
-        id: v.id,
-        title: v.snippet?.title ?? "Untitled",
-        description: v.snippet?.description ?? "",
-        thumbnailUrl: pickThumb(v.snippet?.thumbnails),
-        publishedAt: v.snippet?.publishedAt ? new Date(v.snippet.publishedAt) : new Date(0),
-        durationSec: parseIsoDuration(v.contentDetails?.duration),
-        viewCount: toBigInt(v.statistics?.viewCount),
-        likeCount: toBigInt(v.statistics?.likeCount),
-        commentCount: toBigInt(v.statistics?.commentCount),
-        privacyStatus: v.status?.privacyStatus ?? "private",
-        uploadStatus: v.status?.uploadStatus ?? "processed",
-        tags: v.snippet?.tags ?? [],
-        categoryId: v.snippet?.categoryId ?? null,
-        publishAt: v.status?.publishAt ? new Date(v.status.publishAt) : null,
-      });
+      videos.push(mapVideo(v));
     }
   }
-
   return videos;
 }
 
@@ -183,18 +173,22 @@ export async function fetchVideoById(auth: OAuth2Client, videoId: string): Promi
   );
   const v = data.items?.[0];
   if (!v?.id) return null;
+  return mapVideo(v);
+}
+
+function mapVideo(v: youtube_v3.Schema$Video): FetchedVideo {
   return {
-    id: v.id,
+    id: v.id ?? "",
     title: v.snippet?.title ?? "Untitled",
     description: v.snippet?.description ?? "",
     thumbnailUrl: pickThumb(v.snippet?.thumbnails),
-    publishedAt: v.snippet?.publishedAt ? new Date(v.snippet.publishedAt) : new Date(),
+    publishedAt: v.snippet?.publishedAt ? new Date(v.snippet.publishedAt) : new Date(0),
     durationSec: parseIsoDuration(v.contentDetails?.duration),
     viewCount: toBigInt(v.statistics?.viewCount),
     likeCount: toBigInt(v.statistics?.likeCount),
     commentCount: toBigInt(v.statistics?.commentCount),
     privacyStatus: v.status?.privacyStatus ?? "private",
-    uploadStatus: v.status?.uploadStatus ?? "uploaded",
+    uploadStatus: v.status?.uploadStatus ?? "processed",
     tags: v.snippet?.tags ?? [],
     categoryId: v.snippet?.categoryId ?? null,
     publishAt: v.status?.publishAt ? new Date(v.status.publishAt) : null,

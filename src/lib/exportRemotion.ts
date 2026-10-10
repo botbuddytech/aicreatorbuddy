@@ -2,11 +2,8 @@
 
 import { canRenderMediaOnWeb, renderMediaOnWeb } from "@remotion/web-renderer";
 import { resolveClipUrls } from "@/lib/useClipUrl";
-import {
-  projectDisplayName,
-  selectedTitle,
-  type VideoProject,
-} from "@/lib/videoProject";
+import { exportFileName, exportTitle } from "@/lib/exportFileName";
+import type { VideoProject } from "@/lib/videoProject";
 import {
   buildInputProps,
   FACELESS_COMPOSITION_ID,
@@ -26,16 +23,6 @@ export type ExportResult = {
   fileName: string;
   mimeType: string;
 };
-
-function sanitizeFileName(name: string): string {
-  const cleaned = name
-    .trim()
-    .replace(/[^\w\s.-]+/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .slice(0, 80);
-  return cleaned || "faceless-video";
-}
 
 function downloadBlob(blob: Blob, fileName: string) {
   const url = URL.createObjectURL(blob);
@@ -83,9 +70,11 @@ export async function exportProjectWithRemotion(
     );
     const meta = playerCompositionMeta(inputProps);
     const totalFrames = meta.durationInFrames;
-    const title =
-      selectedTitle(project)?.text.trim() || projectDisplayName(project);
-    const fileName = `${sanitizeFileName(title)}.mp4`;
+    const title = exportTitle(project);
+    const fileName = exportFileName({
+      title,
+      exportCount: project.editor.exportCount,
+    });
 
     // H.264 rejects odd dimensions, so the check needs the real composition size.
     const capability = await canRenderMediaOnWeb({
@@ -110,7 +99,10 @@ export async function exportProjectWithRemotion(
       totalFrames,
     });
 
+    const licenseKey = process.env.NEXT_PUBLIC_REMOTION_LICENSE_KEY?.trim() || "free-license";
+
     const { getBlob } = await renderMediaOnWeb({
+      licenseKey,
       composition: {
         id: FACELESS_COMPOSITION_ID,
         component: FacelessVideo,

@@ -141,7 +141,7 @@ export function getPageContext(pathname: string): PageContext {
     );
   }
 
-  if (path.startsWith("/dashboard/scheduler/best-time")) {
+  if (path.startsWith("/dashboard/videoscheduler/best-time")) {
     return workspace(
       path,
       "Best Time To Post",
@@ -150,7 +150,25 @@ export function getPageContext(pathname: string): PageContext {
     );
   }
 
-  if (path.startsWith("/dashboard/scheduler")) {
+  if (path.startsWith("/dashboard/videoscheduler/upcoming")) {
+    return workspace(
+      path,
+      "Upcoming Uploads",
+      "Videos still scheduled on the connected YouTube channel, plus projects ready to upload from this app.",
+      ["What is ready to publish?", "When is the next upload?"],
+    );
+  }
+
+  if (path.startsWith("/dashboard/videoscheduler/schedule")) {
+    return workspace(
+      path,
+      "Video Scheduler",
+      "Pick a project and publish time, export in the browser, then approve title, thumbnail, and description before YouTube upload.",
+      ["What happens after I approve?", "Why do I need to export here?"],
+    );
+  }
+
+  if (path.startsWith("/dashboard/videoscheduler")) {
     return workspace(
       path,
       "Video Scheduler",

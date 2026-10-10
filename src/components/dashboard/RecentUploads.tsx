@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { PlaceholderImage } from "@/components/create/PlaceholderImage";
+import { libraryThumbUrl } from "@/lib/contentLibrary";
 import { type RecentUpload, type UploadStatus } from "@/lib/dashboardContent";
 
 const FILTERS: { id: "all" | UploadStatus; label: string }[] = [
@@ -66,8 +66,14 @@ export function RecentUploads({ uploads }: { uploads: RecentUpload[] }) {
               key={video.id}
               className="overflow-hidden rounded-2xl border border-border bg-surface"
             >
-              <div className="relative">
-                <PlaceholderImage label={video.title} className="aspect-video w-full rounded-none" />
+              <div className="relative aspect-video overflow-hidden bg-surface-soft">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={video.thumbnailUrl || libraryThumbUrl(video.title, video.id)}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  className="h-full w-full object-cover"
+                />
                 <span className="absolute bottom-2 right-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                   {video.duration}
                 </span>

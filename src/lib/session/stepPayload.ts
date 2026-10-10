@@ -43,6 +43,7 @@ export type SummaryStepPayload = {
   format: string;
   aspectRatio: string;
   intent: string;
+  intentCategory?: string | null;
   targetDurationSec: number;
   referenceKeys: string[];
 };
@@ -87,6 +88,7 @@ export type TimelineStepPayload = {
 export type DescriptionStepPayload = {
   description: string;
   tags: string[];
+  cursorDescriptionPrompt?: string | null;
 };
 
 export type RenderStepPayload = {
@@ -103,6 +105,7 @@ export type EditorStepPayload = {
   captionFontSize?: number | null;
   confirmedAt: string | null;
   exportedAt: string | null;
+  exportCount?: number;
 };
 
 export type StepPayloadById = {
@@ -156,6 +159,7 @@ export function parseStepPayload<T extends StepId>(
         typeof raw.format !== "string" ||
         typeof raw.aspectRatio !== "string" ||
         typeof raw.intent !== "string" ||
+        (raw.intentCategory != null && typeof raw.intentCategory !== "string") ||
         !isFiniteNumber(raw.targetDurationSec) ||
         !Array.isArray(raw.referenceKeys) ||
         !raw.referenceKeys.every((item) => typeof item === "string")
@@ -224,6 +228,13 @@ export function parseStepPayload<T extends StepId>(
       ) {
         return null;
       }
+      if (
+        raw.cursorDescriptionPrompt != null &&
+        (typeof raw.cursorDescriptionPrompt !== "string" ||
+          raw.cursorDescriptionPrompt.length > 1_200_000)
+      ) {
+        return null;
+      }
       return raw as StepPayloadById[T] & Record<string, unknown>;
     }
     case "render": {
@@ -258,6 +269,7 @@ export function buildStepPayloads(project: VideoProject): {
       format: project.summary.format,
       aspectRatio: project.summary.aspectRatio,
       intent: project.summary.intent,
+      intentCategory: project.summary.intentCategory,
       targetDurationSec: project.summary.durationSeconds,
       referenceKeys: project.summary.references.map((item) => item.id),
     },
@@ -297,6 +309,7 @@ export function buildStepPayloads(project: VideoProject): {
     description: {
       description: project.description,
       tags: project.tags,
+      cursorDescriptionPrompt: project.cursorDescriptionPrompt,
     },
     render: {
       renderedAt: project.renderedAt,
@@ -311,6 +324,7 @@ export function buildStepPayloads(project: VideoProject): {
       captionFontSize: project.editor.captionFontSize,
       confirmedAt: project.editor.confirmedAt,
       exportedAt: project.editor.exportedAt,
+      exportCount: project.editor.exportCount,
     },
   };
 }
@@ -356,7 +370,13 @@ export type SessionDocuments = {
   steps: SessionStepDocument[];
   references: SessionReferenceDocument[];
   apiCalls: SessionApiCallDocument[];
+  /** VideoSession.exportSuccessCount. Successful MP4 exports already stored. */
+  exportSuccessCount?: number;
 };
+
+function recordedExportCount(value: number | undefined): number {
+  return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
+}
 
 function asAiProvider(value: string | null | undefined): AiProvider | undefined {
   if (value === "chatgpt" || value === "gemini" || value === "elevenlabs") return value;
@@ -425,6 +445,7 @@ export function projectFromSessionDocuments(docs: SessionDocuments): VideoProjec
         format: payload.format as VideoFormat,
         aspectRatio: payload.aspectRatio as AspectRatio,
         intent: payload.intent as VideoIntent,
+        intentCategory: payload.intentCategory,
         durationSeconds: payload.targetDurationSec,
         references: orderedRefs,
       });
@@ -508,6 +529,8 @@ export function projectFromSessionDocuments(docs: SessionDocuments): VideoProjec
     if (payload) {
       base.description = payload.description;
       base.tags = payload.tags;
+      base.cursorDescriptionPrompt =
+        typeof payload.cursorDescriptionPrompt === "string" ? payload.cursorDescriptionPrompt : null;
     }
   }
 
@@ -533,10 +556,16 @@ export function projectFromSessionDocuments(docs: SessionDocuments): VideoProjec
         captionFontSize: payload.captionFontSize,
         confirmedAt: payload.confirmedAt,
         exportedAt: payload.exportedAt,
+        exportCount: payload.exportCount,
       });
       base.editor = editor;
     }
   }
+
+  base.editor = {
+    ...base.editor,
+    exportCount: Math.max(base.editor.exportCount, recordedExportCount(docs.exportSuccessCount)),
+  };
 
   base.apiCosts = apiCostsFromDocuments(docs.apiCalls ?? []);
   return base;

@@ -31,7 +31,8 @@ export function EditorStep() {
         <div>
           <h3 className="font-display text-lg font-semibold text-foreground">Editor</h3>
           <p className="mt-1 text-sm text-muted">
-            Trim clips, pick assets, set transitions and audio, then confirm the cut.
+            Remotion preview and export: official scene transitions, Studio-style timeline zoom, and
+            keyboard transport (Space/K, J/L). Text, transitions, audio, then confirm.
           </p>
           <p className="mt-2 text-xs tabular-nums text-muted">
             {project.scenes.length} clips · {formatTimecode(runtime)} runtime

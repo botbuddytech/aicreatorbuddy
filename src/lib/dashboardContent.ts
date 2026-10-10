@@ -193,6 +193,7 @@ export type RecentUpload = {
   id: string;
   title: string;
   duration: string;
+  thumbnailUrl?: string | null;
   status: UploadStatus;
   meta: string;
   views?: string;
@@ -460,6 +461,10 @@ export type UpcomingUpload = {
   duration: string;
   status: UpcomingUploadStatus;
   scheduledLabel: string;
+  thumbnailUrl?: string | null;
+  /** Create-project id, when this row is still a draft in the app. */
+  sessionId?: string | null;
+  youtubeUrl?: string | null;
 };
 
 export const upcomingUploads: UpcomingUpload[] = [
@@ -668,7 +673,7 @@ export const topTimeSlots: TopTimeSlot[] = [
   { rank: 4, day: "Fri", time: "8:00 PM", viewers: "168K", tone: "accent" },
 ];
 
-export type ChartRange = "7d" | "28d" | "90d" | "1y";
+export type ChartRange = "7d" | "28d" | "90d" | "1y" | "all";
 export type ChartMetric = "views" | "engagement" | "revenue";
 
 export const chartRangeOptions: { id: ChartRange; label: string; short: string }[] = [
@@ -676,6 +681,7 @@ export const chartRangeOptions: { id: ChartRange; label: string; short: string }
   { id: "28d", label: "Last 28 days", short: "28D" },
   { id: "90d", label: "Last 90 days", short: "90D" },
   { id: "1y", label: "Last 12 months", short: "1Y" },
+  { id: "all", label: "All time", short: "All" },
 ];
 
 export const engagementSeries: Record<
@@ -690,6 +696,10 @@ export const engagementSeries: Record<
       labels: ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"],
       values: [42, 48, 51, 58, 54, 62, 70, 68, 76, 82, 88, 96],
     },
+    all: {
+      labels: ["2022", "2023", "2024", "2025", "2026"],
+      values: [120, 240, 380, 520, 640],
+    },
   },
   engagement: {
     "7d": { labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], values: [22, 28, 25, 36, 33, 44, 48] },
@@ -699,6 +709,10 @@ export const engagementSeries: Record<
       labels: ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"],
       values: [18, 22, 24, 28, 26, 30, 34, 32, 36, 40, 44, 48],
     },
+    all: {
+      labels: ["2022", "2023", "2024", "2025", "2026"],
+      values: [40, 80, 120, 160, 200],
+    },
   },
   revenue: {
     "7d": { labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], values: [12, 14, 13, 18, 16, 21, 19] },
@@ -707,6 +721,10 @@ export const engagementSeries: Record<
     "1y": {
       labels: ["Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"],
       values: [8, 9, 11, 14, 12, 13, 16, 15, 17, 18, 20, 19],
+    },
+    all: {
+      labels: ["2022", "2023", "2024", "2025", "2026"],
+      values: [20, 36, 48, 60, 72],
     },
   },
 };
@@ -2133,12 +2151,13 @@ export const navItems: NavItem[] = [
     ],
   },
   {
-    href: "/dashboard/scheduler",
+    href: "/dashboard/videoscheduler",
     label: "Video Scheduler",
     children: [
-      { href: "/dashboard/scheduler", label: "Calendar", exact: true },
-      { href: "/dashboard/scheduler/upcoming", label: "Upcoming Uploads", exact: true, badge: "upcoming" },
-      { href: "/dashboard/scheduler/best-time", label: "Best Time To Post", exact: true },
+      { href: "/dashboard/videoscheduler", label: "Calendar", exact: true },
+      { href: "/dashboard/videoscheduler/schedule", label: "Video Scheduler", exact: true },
+      { href: "/dashboard/videoscheduler/upcoming", label: "Upcoming Uploads", exact: true, badge: "upcoming" },
+      { href: "/dashboard/videoscheduler/best-time", label: "Best Time To Post", exact: true },
     ],
   },
   { href: "/dashboard/integrations", label: "AI Integrations" },

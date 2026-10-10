@@ -126,6 +126,7 @@ model CursorPromptSettings {
   scriptLowEffortPrompt  String?  @db.Text
   thumbnailPromptGenerationPrompt  String?  @db.Text
   scriptGenerationPrompt String?  @db.Text
+  descriptionGenerationPrompt String?  @db.Text
   visualPromptGenerationPrompt String?  @db.Text
   titleGenerationDefault String?  @db.Text
   titleScoringDefault    String?  @db.Text
@@ -133,6 +134,7 @@ model CursorPromptSettings {
   scriptLowEffortDefault String?  @db.Text
   thumbnailPromptGenerationDefault String?  @db.Text
   scriptGenerationDefault String?  @db.Text
+  descriptionGenerationDefault String?  @db.Text
   visualPromptGenerationDefault String?  @db.Text
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt
@@ -396,6 +398,8 @@ model VideoSession {
   format             String                  @default("long-form")
   aspectRatio        String                  @default("16:9")
   intent             String                  @default("educational")
+  /// Selected subcategory for the current intent. Validated in the app.
+  intentCategory     String?
   targetDurationSec  Int                     @default(480)
   referenceCount     Int                     @default(0)
   apiCallCount       Int                     @default(0)

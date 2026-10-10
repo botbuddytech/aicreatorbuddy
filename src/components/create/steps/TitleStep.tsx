@@ -17,6 +17,7 @@ import { TitleScoreActions } from "@/features/cursor-title-generator/TitleScoreA
 import { useVidiqTitleGeneration } from "@/features/vidiq/VidiqTitleActions";
 import { usePipelineGeneration } from "@/components/create/useGeneration";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
+import { useFilteredGenerators } from "@/components/create/useFilteredGenerators";
 import {
   FORMAT_LABELS,
   INTENT_LABELS,
@@ -55,6 +56,7 @@ export function TitleStep() {
   const [promptOpen, setPromptOpen] = useState(false);
   const [generator, setGenerator] = useState<TitleGenerator>("cursor");
   const [missingProvider, setMissingProvider] = useState<"chatgpt" | "gemini" | null>(null);
+  const titleGenerators = useFilteredGenerators(TITLE_GENERATORS, generator, setGenerator);
   const { project, dispatch } = useVideoProject();
   const { busy, error, run, recordCost } = usePipelineGeneration();
   const provider = project.providerByStep.title ?? "chatgpt";
@@ -197,7 +199,7 @@ export function TitleStep() {
         </p>
         <div className="mt-4">
           <GenerateBar
-            providers={TITLE_GENERATORS}
+            providers={titleGenerators}
             provider={generator}
             providerLabels={TITLE_GENERATOR_LABELS}
             showProviderIcons

@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useRef, useState, type DragEvent } from "react";
 import { Badge } from "@/components/ui/Badge";
 import { SceneBeatFields } from "@/components/create/scene/SceneBeatFields";
 import { MAX_PREVIEW_CHARS } from "@/features/elevenlabs/contract";
@@ -62,6 +63,12 @@ export function TimelineChart({
   onElevenLabsPreview: (id: string) => void;
 }) {
   const total = totalTimelineSeconds(scenes);
+  const uploads = useRef(new Map<string, (file: File) => void>());
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const registerClipDrop = useCallback((sceneId: string, upload: ((file: File) => void) | null) => {
+    if (upload) uploads.current.set(sceneId, upload);
+    else uploads.current.delete(sceneId);
+  }, []);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-surface">
@@ -109,16 +116,49 @@ export function TimelineChart({
               const clipBusy = busy === `visuals:${scene.id}:clip` || busy === "all-visuals";
               const imageBusy = busy === `visuals:${scene.id}:image` || busy === "all-visuals";
 
+              const grabbing = dragOverId === scene.id;
+
               return (
                 <tr
                   key={scene.id}
                   onClick={() => onSelect(scene.id)}
-                  className={`cursor-pointer border-b border-border align-top last:border-b-0 ${rowBg} ${
-                    selected ? "ring-1 ring-inset ring-accent/40" : "hover:bg-white/[0.03]"
+                  onDragEnter={(event) => {
+                    if (!fileDrag(event)) return;
+                    event.preventDefault();
+                    setDragOverId(scene.id);
+                  }}
+                  onDragOver={(event) => {
+                    if (!fileDrag(event)) return;
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = "copy";
+                    setDragOverId(scene.id);
+                  }}
+                  onDragLeave={(event) => {
+                    const next = event.relatedTarget;
+                    if (next instanceof Node && event.currentTarget.contains(next)) return;
+                    setDragOverId((current) => (current === scene.id ? null : current));
+                  }}
+                  onDrop={(event) => {
+                    if (!fileDrag(event)) return;
+                    const taken = event.defaultPrevented;
+                    event.preventDefault();
+                    setDragOverId(null);
+                    if (taken) return;
+                    const file = event.dataTransfer.files?.[0];
+                    if (file) uploads.current.get(scene.id)?.(file);
+                  }}
+                  className={`border-b border-border align-top last:border-b-0 ${
+                    grabbing
+                      ? "cursor-copy bg-accent/15 ring-2 ring-inset ring-accent [&_*]:cursor-copy"
+                      : `cursor-pointer ${rowBg} ${
+                          selected ? "ring-1 ring-inset ring-accent/40" : "hover:bg-white/[0.03]"
+                        }`
                   }`}
                 >
                   <td
-                    className={`sticky left-0 z-10 px-3 py-4 text-center font-mono text-xs font-semibold tabular-nums text-muted ${stickyBg}`}
+                    className={`sticky left-0 z-10 px-3 py-4 text-center font-mono text-xs font-semibold tabular-nums text-muted ${
+                      grabbing ? "bg-accent/15" : stickyBg
+                    }`}
                   >
                     {index + 1}
                   </td>
@@ -141,6 +181,7 @@ export function TimelineChart({
                       {scene.sectionLabel}
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {grabbing ? <Badge tone="accent">Drop clip</Badge> : null}
                       <Badge tone={sceneStatusTone(scene.status)}>{scene.status}</Badge>
                       {scene.visuals.clipSource === "still" ? (
                         <span className="text-[10px] font-bold uppercase tracking-wide text-accent">Still</span>
@@ -182,6 +223,8 @@ export function TimelineChart({
                       generatingVideo={videoBusyId === scene.id}
                       videoNote={videoNote?.id === scene.id ? videoNote.text : null}
                       onPreview={() => onPreviewVisuals(scene.id)}
+                      registerClipDrop={registerClipDrop}
+                      fileDragActive={grabbing}
                     />
                   </td>
                 </tr>
@@ -192,6 +235,10 @@ export function TimelineChart({
       </div>
     </div>
   );
+}
+
+function fileDrag(event: DragEvent) {
+  return Array.from(event.dataTransfer.types).includes("Files");
 }
 
 function VoiceLengthMark({

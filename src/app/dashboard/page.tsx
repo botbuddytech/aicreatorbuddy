@@ -33,7 +33,7 @@ export default async function DashboardOverviewPage() {
           <ActiveChannelPicker channels={channels} activeChannelId={activeChannelId} />
         </div>
       </section>
-      <OverviewDashboard initial={await loadOverview(user).catch((err) => {
+      <OverviewDashboard initial={await loadOverview(user, "all").catch((err) => {
         console.error("[dashboard] youtube overview failed", err);
         return {
           channel: null,
@@ -50,7 +50,7 @@ export default async function DashboardOverviewPage() {
             engagement: { labels: [], values: [] },
             revenue: { labels: [], values: [] },
           },
-          audience: { total: "0", segments: [] },
+          audience: { primary: null, segments: [] },
         };
       })} />
     </>

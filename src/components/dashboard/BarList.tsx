@@ -18,6 +18,7 @@ export function BarList({
   valueSuffix = "%",
   maxValue,
   formatValue,
+  emptyLabel,
 }: {
   title?: string;
   subtitle?: string;
@@ -28,6 +29,7 @@ export function BarList({
   valueSuffix?: string;
   maxValue?: number;
   formatValue?: (value: number) => string;
+  emptyLabel?: string;
 }) {
   const max = maxValue ?? Math.max(...items.map((i) => i.value), 1);
 
@@ -50,6 +52,9 @@ export function BarList({
           ) : null}
         </div>
       ) : null}
+      {items.length === 0 ? (
+        <p className={`text-sm text-muted ${title ? "mt-5" : ""}`}>{emptyLabel ?? "No data for this range."}</p>
+      ) : (
       <ul className={`space-y-4 ${title ? "mt-5" : ""}`}>
         {items.map((item) => (
           <li key={item.label} className="flex items-start gap-3">
@@ -75,6 +80,7 @@ export function BarList({
           </li>
         ))}
       </ul>
+      )}
       {footer ? <p className="mt-4 text-xs text-muted">{footer}</p> : null}
     </div>
   );

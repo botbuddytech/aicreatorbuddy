@@ -12,6 +12,10 @@ import {
 } from "react";
 import { useSearchParams } from "next/navigation";
 import { StepFixModal } from "@/components/create/StepFixModal";
+import {
+  EMPTY_LLM_AVAILABILITY,
+  type LlmIntegrationAvailability,
+} from "@/lib/integrations/llmAvailability";
 import { useVideoProjectDraft, upsertProjectInStore } from "@/lib/useVideoProjectDraft";
 import { mapActionToEvents } from "@/lib/session/events";
 import { buildSnapshot } from "@/lib/session/snapshot";
@@ -112,7 +116,12 @@ export type ProjectAction =
   | { type: "DELETE_SCENE"; id: string }
   | { type: "MOVE_SCENE"; id: string; direction: "up" | "down" }
   | { type: "PATCH_SCENE"; id: string; patch: ScenePatch }
-  | { type: "SET_DESCRIPTION"; description: string; tags?: string[] }
+  | {
+      type: "SET_DESCRIPTION";
+      description: string;
+      tags?: string[];
+      cursorPrompt?: string | null;
+    }
   | { type: "SET_PROVIDER"; step: StepId; provider: AiProvider }
   | { type: "SET_STEP_STATUS"; step: StepId; status: StepStatus }
   | { type: "RECORD_API_COST"; entry: ApiCostEntry }
@@ -293,6 +302,10 @@ function reduceProject(
         ...state,
         description: action.description,
         tags: action.tags ?? state.tags,
+        cursorDescriptionPrompt:
+          action.cursorPrompt === undefined
+            ? state.cursorDescriptionPrompt
+            : action.cursorPrompt,
       };
     case "SET_PROVIDER":
       return {
@@ -405,6 +418,7 @@ function reducer(state: VideoProject | null, action: ProjectAction): VideoProjec
 }
 
 type ProjectContextValue = {
+  llmAvailability: LlmIntegrationAvailability;
   project: VideoProject;
   savedAt: string | null;
   dispatch: (action: ProjectAction) => void;
@@ -490,12 +504,14 @@ const STEP_PARAM = "step";
 export function VideoProjectProvider({
   projectId,
   channels,
+  llmAvailability = EMPTY_LLM_AVAILABILITY,
   children,
   fallback,
   missing,
 }: {
   projectId: string;
   channels: ConnectedChannel[];
+  llmAvailability?: LlmIntegrationAvailability;
   children: ReactNode;
   fallback: ReactNode;
   missing: ReactNode;
@@ -1377,6 +1393,7 @@ export function VideoProjectProvider({
         const docs = (await response.json()) as SessionDocuments;
         if (cancelled) return;
         const local = localAtLoadRef.current;
+        const recordedExports = Math.max(0, Math.floor(docs.exportSuccessCount ?? 0));
         if (shouldPreferServerDocuments(local, docs)) {
           const fromServer = projectFromSessionDocuments(docs);
           if (fromServer) {
@@ -1385,6 +1402,14 @@ export function VideoProjectProvider({
             rawDispatch({ type: "HYDRATE", project: fromServer });
             persist(fromServer);
           }
+        } else if (local && recordedExports > local.editor.exportCount) {
+          const bumped = {
+            ...local,
+            editor: { ...local.editor, exportCount: recordedExports },
+          };
+          baseline = bumped;
+          rawDispatch({ type: "HYDRATE", project: bumped });
+          persist(bumped);
         }
       } catch (error) {
         if (controller.signal.aborted || cancelled) return;
@@ -1460,6 +1485,7 @@ export function VideoProjectProvider({
   return (
     <VideoProjectContext.Provider
       value={{
+        llmAvailability,
         project,
         savedAt,
         dispatch,
@@ -1499,6 +1525,10 @@ export function useVideoProject() {
     throw new Error("useVideoProject must be used inside VideoProjectProvider");
   }
   return ctx;
+}
+
+export function useLlmIntegrationAvailability(): LlmIntegrationAvailability {
+  return useVideoProject().llmAvailability;
 }
 
 export function useProjectDispatch() {

@@ -100,9 +100,12 @@ export function CreateVideoWorkspace() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
             href="/dashboard/create"
-            className="text-sm font-medium text-muted hover:text-foreground"
+            className="inline-flex items-center gap-2 text-sm font-medium text-muted hover:text-foreground"
           >
-            ← All videos
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            All videos
           </Link>
           <p className="text-xs text-muted">{saveLabel}</p>
         </div>

@@ -34,6 +34,7 @@ import { VideoPreviewModal } from "@/components/create/VideoPreviewModal";
 import { VoiceBuildClock } from "@/components/create/scene/ListenButton";
 import { useVoiceoverPreview } from "@/components/create/useVoiceoverPreview";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
+import { useFilteredGenerators } from "@/components/create/useFilteredGenerators";
 import { buildClipPoster, clipKindFor } from "@/lib/clipPoster";
 import { deleteClip, pruneClips, putClip } from "@/lib/clipStore";
 import { deleteSceneClipFile } from "@/lib/storage/sceneClipUpload";
@@ -232,6 +233,11 @@ export function TimelineStep() {
   const [generator, setGenerator] = useState<TimelineGenerator>("cursor");
   const [missingProvider, setMissingProvider] = useState<Exclude<TimelineGenerator, "cursor"> | null>(
     null,
+  );
+  const timelineGenerators = useFilteredGenerators(
+    TIMELINE_GENERATORS,
+    generator,
+    setGenerator,
   );
   const clipsRef = useRef<HTMLInputElement>(null);
   const [uploadingClips, setUploadingClips] = useState(false);
@@ -623,7 +629,7 @@ export function TimelineStep() {
         </p>
         <div className="mt-4">
           <GenerateBar
-            providers={TIMELINE_GENERATORS}
+            providers={timelineGenerators}
             provider={generator}
             providerLabels={TIMELINE_GENERATOR_LABELS}
             showProviderIcons

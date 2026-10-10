@@ -67,6 +67,7 @@ type TimelineCommit = {
 type DescriptionCommit = {
   description: string;
   tags: string[];
+  cursorDescriptionPrompt: string | null;
   provider: VideoProject["providerByStep"]["description"];
   stepStatus: StepStatus;
 };
@@ -173,6 +174,7 @@ export function applyLaterSteps(project: VideoProject, commit: LaterStepsCommit)
     visualStylePrompts: commit.timeline.visualStylePrompts ?? {},
     description: commit.description.description,
     tags: commit.description.tags,
+    cursorDescriptionPrompt: commit.description.cursorDescriptionPrompt,
     renderedAt: commit.render.renderedAt,
     editor: commit.editor.editor,
     providerByStep,
@@ -242,6 +244,8 @@ function descriptionSlice(project: VideoProject, stepStatus: StepStatus): Descri
   return {
     description: project.description,
     tags: [...project.tags],
+    cursorDescriptionPrompt:
+      typeof project.cursorDescriptionPrompt === "string" ? project.cursorDescriptionPrompt : null,
     provider: project.providerByStep.description,
     stepStatus,
   };
@@ -305,6 +309,7 @@ function descriptionSignature(commit: DescriptionCommit): string {
   return JSON.stringify({
     description: commit.description,
     tags: commit.tags,
+    cursorDescriptionPrompt: commit.cursorDescriptionPrompt,
     provider: commit.provider ?? null,
   });
 }
@@ -325,5 +330,6 @@ function editorSignature(editor: EditorSettings): string {
     captionFontWeight: editor.captionFontWeight,
     captionFontSize: editor.captionFontSize,
     exportedAt: editor.exportedAt,
+    exportCount: editor.exportCount,
   });
 }

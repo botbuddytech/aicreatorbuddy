@@ -6,6 +6,7 @@ export type SummaryStepData = {
   format: string;
   aspectRatio: string;
   intent: string;
+  intentCategory: string | null;
   targetDurationSec: number;
   topic: string;
   referenceCount: number;

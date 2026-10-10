@@ -56,6 +56,10 @@ function parseStore(raw: string): ProjectStore {
           typeof project.cursorThumbnailPrompt === "string" ? project.cursorThumbnailPrompt : null,
         cursorScriptPrompt:
           typeof project.cursorScriptPrompt === "string" ? project.cursorScriptPrompt : null,
+        cursorDescriptionPrompt:
+          typeof project.cursorDescriptionPrompt === "string"
+            ? project.cursorDescriptionPrompt
+            : null,
         scriptScore: normalizeScriptScore(project.scriptScore ?? project.scriptVidiq),
         scriptVidiq: undefined,
         apiCosts: normalizeApiCosts(project.apiCosts),

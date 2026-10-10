@@ -13,6 +13,7 @@ export type EffectiveCursorPrompts = {
   scriptLowEffort: string;
   thumbnailPromptGeneration: string;
   scriptGeneration: string;
+  descriptionGeneration: string;
   visualPromptGeneration: string;
   customized: Record<CursorPromptKind, boolean>;
 };
@@ -24,6 +25,7 @@ const PROMPT_FIELDS = {
   scriptLowEffort: "scriptLowEffortPrompt",
   thumbnailPromptGeneration: "thumbnailPromptGenerationPrompt",
   scriptGeneration: "scriptGenerationPrompt",
+  descriptionGeneration: "descriptionGenerationPrompt",
   visualPromptGeneration: "visualPromptGenerationPrompt",
 } as const satisfies Record<
   CursorPromptKind,
@@ -33,6 +35,7 @@ const PROMPT_FIELDS = {
   | "scriptLowEffortPrompt"
   | "thumbnailPromptGenerationPrompt"
   | "scriptGenerationPrompt"
+  | "descriptionGenerationPrompt"
   | "visualPromptGenerationPrompt"
 >;
 
@@ -43,6 +46,7 @@ const DEFAULT_FIELDS = {
   scriptLowEffort: "scriptLowEffortDefault",
   thumbnailPromptGeneration: "thumbnailPromptGenerationDefault",
   scriptGeneration: "scriptGenerationDefault",
+  descriptionGeneration: "descriptionGenerationDefault",
   visualPromptGeneration: "visualPromptGenerationDefault",
 } as const satisfies Record<
   CursorPromptKind,
@@ -52,6 +56,7 @@ const DEFAULT_FIELDS = {
   | "scriptLowEffortDefault"
   | "thumbnailPromptGenerationDefault"
   | "scriptGenerationDefault"
+  | "descriptionGenerationDefault"
   | "visualPromptGenerationDefault"
 >;
 
@@ -67,6 +72,7 @@ export async function getEffectiveCursorPrompts(
       scriptLowEffortPrompt: true,
       thumbnailPromptGenerationPrompt: true,
       scriptGenerationPrompt: true,
+      descriptionGenerationPrompt: true,
       visualPromptGenerationPrompt: true,
       titleGenerationDefault: true,
       titleScoringDefault: true,
@@ -74,6 +80,7 @@ export async function getEffectiveCursorPrompts(
       scriptLowEffortDefault: true,
       thumbnailPromptGenerationDefault: true,
       scriptGenerationDefault: true,
+      descriptionGenerationDefault: true,
       visualPromptGenerationDefault: true,
     },
   });
@@ -90,6 +97,7 @@ export async function getEffectiveCursorPrompts(
     scriptLowEffort: resolve("scriptLowEffort"),
     thumbnailPromptGeneration: resolve("thumbnailPromptGeneration"),
     scriptGeneration: resolve("scriptGeneration"),
+    descriptionGeneration: resolve("descriptionGeneration"),
     visualPromptGeneration: resolve("visualPromptGeneration"),
     customized: {
       titleGeneration: settings?.titleGenerationPrompt != null,
@@ -98,6 +106,7 @@ export async function getEffectiveCursorPrompts(
       scriptLowEffort: settings?.scriptLowEffortPrompt != null,
       thumbnailPromptGeneration: settings?.thumbnailPromptGenerationPrompt != null,
       scriptGeneration: settings?.scriptGenerationPrompt != null,
+      descriptionGeneration: settings?.descriptionGenerationPrompt != null,
       visualPromptGeneration: settings?.visualPromptGenerationPrompt != null,
     },
   };

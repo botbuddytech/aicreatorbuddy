@@ -6,7 +6,11 @@ import { requireChannelAccess } from "@/lib/youtube/access";
 import { getAuthedClientForChannel } from "@/lib/youtube/oauth";
 import { runWithYoutubeUsage, trackYoutubeCall } from "@/lib/youtube/usage";
 
-export type AnalyticsRangeKey = "7d" | "28d" | "90d" | "1y";
+import { addUtcDays, monthQueryBounds, rangeWindow } from "@/lib/youtube/analyticsRange";
+import type { AnalyticsRangeKey } from "@/lib/youtube/analyticsRange";
+
+export type { AnalyticsRangeKey } from "@/lib/youtube/analyticsRange";
+export { LIFETIME_START, asAnalyticsRange, rangeDayCount, rangeWindow, reportingEnd } from "@/lib/youtube/analyticsRange";
 
 export type AnalyticsDay = {
   date: string;
@@ -35,14 +39,30 @@ export type AnalyticsVideoRow = {
   estimatedRevenue: number | null;
 };
 
+export type AnalyticsTotals = {
+  views: number;
+  watchMinutes: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  subscribersGained: number;
+  estimatedRevenue: number | null;
+  impressions: number | null;
+  ctr: number | null;
+};
+
 export type AnalyticsBundle = {
   range: AnalyticsRangeKey;
   startDate: string;
   endDate: string;
   monetaryAvailable: boolean;
   impressionsAvailable: boolean;
-  /** All-time minutes from YouTube Analytics. Null when that query did not return. */
-  lifetimeWatchMinutes: number | null;
+  /** Selected-range minutes from one Analytics total. Null when that query did not return. */
+  periodWatchMinutes: number | null;
+  /** The previous window of the same length. Null when that query did not return. */
+  previousWatchMinutes: number | null;
+  totals: AnalyticsTotals | null;
+  previousTotals: AnalyticsTotals | null;
   days: AnalyticsDay[];
   previousDays: AnalyticsDay[];
   countries: AnalyticsShare[];
@@ -55,7 +75,7 @@ export type AnalyticsBundle = {
   error: string | null;
 };
 
-const REPORT_KEY = "bundle";
+const REPORT_KEY = "bundle-v4";
 const FRESH_MS = 3 * 60 * 60 * 1000;
 const ERROR_FRESH_MS = 10 * 60 * 1000;
 
@@ -75,6 +95,14 @@ const TRAFFIC_LABELS: Record<string, string> = {
   HASHTAGS: "Hashtags",
   SOUND_PAGE: "Sound pages",
   VIDEO_REMIXES: "Remixes",
+  CAMPAIGN_CARD: "Campaign cards",
+  NO_LINK_EMBEDDED: "Embedded",
+  PRODUCT_PAGE: "Product pages",
+  PROMOTED: "Promoted",
+  LIVE_REDIRECT: "Live redirect",
+  IMMERSIVE_LIVE: "Live",
+  YT_PLAYLIST_PAGE: "Playlists",
+  SHORTS_CONTENT_LINKS: "Shorts links",
 };
 
 const AD_LABELS: Record<string, string> = {
@@ -86,18 +114,6 @@ const AD_LABELS: Record<string, string> = {
   reservedBumperInstream: "Reserved bumper ads",
   reservedInstream: "Reserved in-stream ads",
 };
-
-export function rangeDayCount(range: string): number {
-  if (range === "7d") return 7;
-  if (range === "90d") return 90;
-  if (range === "1y") return 365;
-  return 28;
-}
-
-export function asAnalyticsRange(value: string | null | undefined): AnalyticsRangeKey {
-  if (value === "7d" || value === "90d" || value === "1y" || value === "28d") return value;
-  return "28d";
-}
 
 type TokenChannel = {
   id: string;
@@ -163,7 +179,8 @@ export async function loadAnalyticsBundle(
   if (
     existing &&
     cached &&
-    cached.lifetimeWatchMinutes != null &&
+    cached.totals != null &&
+    cached.periodWatchMinutes != null &&
     !options.refresh &&
     age < freshFor &&
     !isEnablementError(cachedError)
@@ -201,177 +218,377 @@ export async function loadAnalyticsBundle(
   return bundle;
 }
 
+const CORE_METRICS = "views,estimatedMinutesWatched,likes,comments,shares,subscribersGained";
+
 async function fetchBundle(
   auth: OAuth2Client,
   youtubeChannelId: string,
   range: AnalyticsRangeKey,
 ): Promise<AnalyticsBundle> {
-  const days = rangeDayCount(range);
-  const end = utcToday();
-  const start = addUtcDays(end, -(days * 2 - 1));
-  const currentStart = addUtcDays(end, -(days - 1));
+  const bounds = rangeWindow(range);
+  const startDate = iso(bounds.start);
+  const endDate = iso(bounds.end);
   const ids = `channel==${youtubeChannelId}`;
-  const coreMetrics = [
-    "views",
-    "estimatedMinutesWatched",
-    "averageViewDuration",
-    "likes",
-    "comments",
-    "shares",
-    "subscribersGained",
-  ];
-
-  const core = await query(auth, {
-    ids,
-    startDate: iso(start),
-    endDate: iso(end),
-    dimensions: "day",
-    metrics: coreMetrics.join(","),
-  });
-
-  const revenue = await query(auth, {
-    ids,
-    startDate: iso(currentStart),
-    endDate: iso(end),
-    dimensions: "day",
-    metrics: "estimatedRevenue",
-  }).catch(() => null);
-
-  const impressions = await query(auth, {
-    ids,
-    startDate: iso(currentStart),
-    endDate: iso(end),
-    dimensions: "day",
-    metrics: "impressions,impressionClickThroughRate",
-  }).catch(() => null);
-
-  const lifetimeWatch = await query(auth, {
-    ids,
-    startDate: "2006-01-01",
-    endDate: iso(end),
-    metrics: "estimatedMinutesWatched",
-  }).catch(() => null);
-
-  const [countries, traffic, devices, ages, genders, adTypes, videos] = await Promise.all([
-    query(auth, {
-      ids,
-      startDate: iso(currentStart),
-      endDate: iso(end),
-      dimensions: "country",
-      metrics: "views",
-      sort: "-views",
-      maxResults: 8,
-    }).catch(() => []),
-    query(auth, {
-      ids,
-      startDate: iso(currentStart),
-      endDate: iso(end),
-      dimensions: "insightTrafficSourceType",
-      metrics: "views",
-      sort: "-views",
-      maxResults: 8,
-    }).catch(() => []),
-    query(auth, {
-      ids,
-      startDate: iso(currentStart),
-      endDate: iso(end),
-      dimensions: "deviceType",
-      metrics: "views",
-      sort: "-views",
-    }).catch(() => []),
-    query(auth, {
-      ids,
-      startDate: iso(currentStart),
-      endDate: iso(end),
-      dimensions: "ageGroup",
-      metrics: "viewerPercentage",
-      sort: "ageGroup",
-    }).catch(() => []),
-    query(auth, {
-      ids,
-      startDate: iso(currentStart),
-      endDate: iso(end),
-      dimensions: "gender",
-      metrics: "viewerPercentage",
-    }).catch(() => []),
-    query(auth, {
-      ids,
-      startDate: iso(currentStart),
-      endDate: iso(end),
-      dimensions: "adType",
-      metrics: "grossRevenue",
-      sort: "-grossRevenue",
-    }).catch(() => []),
-    query(auth, {
-      ids,
-      startDate: iso(currentStart),
-      endDate: iso(end),
-      dimensions: "video",
-      metrics: revenue
-        ? "views,estimatedMinutesWatched,estimatedRevenue"
-        : "views,estimatedMinutesWatched",
-      sort: "-views",
-      maxResults: 15,
-    }).catch(() => []),
+  const [totals, previousTotals] = await Promise.all([
+    fetchTotals(auth, ids, startDate, endDate),
+    bounds.previousStart && bounds.previousEnd
+      ? fetchTotals(auth, ids, iso(bounds.previousStart), iso(bounds.previousEnd))
+      : Promise.resolve(null),
   ]);
+  if (!totals) {
+    throw new Error("YouTube Analytics did not return totals for this range.");
+  }
 
-  const revenueByDay = new Map(revenue?.map((row) => [String(row[0]), num(row[1])]) ?? []);
-  const impressionsByDay = new Map(
-    impressions?.map((row) => [String(row[0]), { impressions: num(row[1]), ctr: num(row[2]) }]) ?? [],
-  );
-  const allDays = core.map((row) => {
-    const date = String(row[0]);
-    const extra = impressionsByDay.get(date);
+  const monetaryAvailable = totals.estimatedRevenue != null;
+  const seriesStart = bounds.grain === "day" && bounds.previousStart ? bounds.previousStart : bounds.start;
+  const monthBounds = bounds.grain === "month" ? monthQueryBounds(seriesStart, bounds.end) : null;
+  const seriesQueryStart = monthBounds ? monthBounds.start : seriesStart;
+  const seriesQueryEnd = monthBounds ? monthBounds.end : bounds.end;
+  const seriesStartDate = iso(seriesQueryStart);
+  const seriesEndDate = iso(seriesQueryEnd);
+  const queryMonth = bounds.grain === "day" || seriesQueryStart.getTime() <= seriesQueryEnd.getTime();
+
+  const [coreSeries, revenueSeries, impressionSeries, partialSeries, partialRevenue, countries, traffic, devices, ages, genders, adTypes, videos] =
+    await Promise.all([
+      queryMonth ? fetchSeries(auth, ids, seriesStartDate, seriesEndDate, bounds.grain) : Promise.resolve(emptyReport()),
+      queryMonth
+        ? query(auth, {
+            ids,
+            startDate: seriesStartDate,
+            endDate: seriesEndDate,
+            dimensions: bounds.grain,
+            metrics: "estimatedRevenue",
+            sort: bounds.grain,
+          }).catch(() => null)
+        : Promise.resolve(null),
+      queryMonth
+        ? query(auth, {
+            ids,
+            startDate: seriesStartDate,
+            endDate: seriesEndDate,
+            dimensions: bounds.grain,
+            metrics: "impressions,impressionClickThroughRate",
+            sort: bounds.grain,
+          }).catch(() => null)
+        : Promise.resolve(null),
+      monthBounds?.partialStart && monthBounds.partialEnd
+        ? fetchSeries(auth, ids, iso(monthBounds.partialStart), iso(monthBounds.partialEnd), "day")
+        : Promise.resolve(null),
+      monthBounds?.partialStart && monthBounds.partialEnd && monetaryAvailable
+        ? query(auth, {
+            ids,
+            startDate: iso(monthBounds.partialStart),
+            endDate: iso(monthBounds.partialEnd),
+            dimensions: "day",
+            metrics: "estimatedRevenue",
+            sort: "day",
+          }).catch(() => null)
+        : Promise.resolve(null),
+      rankedBreakdown(auth, ids, startDate, endDate, "country", "views", 25),
+      rankedBreakdown(auth, ids, startDate, endDate, "insightTrafficSourceType", "views", 25),
+      rankedBreakdown(auth, ids, startDate, endDate, "deviceType", "views", 10),
+      query(auth, {
+        ids,
+        startDate,
+        endDate,
+        // Channel demographics report: ageGroup only supports viewerPercentage.
+        // https://developers.google.com/youtube/analytics/channel_reports
+        dimensions: "ageGroup",
+        metrics: "viewerPercentage",
+        sort: "ageGroup",
+      }).catch((error) => {
+        console.error("[youtube-analytics] ageGroup failed", explainAnalyticsError(error));
+        return emptyReport();
+      }),
+      query(auth, {
+        ids,
+        startDate,
+        endDate,
+        dimensions: "gender",
+        metrics: "viewerPercentage",
+      }).catch(() => emptyReport()),
+      rankedBreakdown(auth, ids, startDate, endDate, "adType", "grossRevenue", 10),
+      rankedBreakdown(
+        auth,
+        ids,
+        startDate,
+        endDate,
+        "video",
+        monetaryAvailable ? "views,estimatedMinutesWatched,estimatedRevenue" : "views,estimatedMinutesWatched",
+        15,
+      ),
+    ]);
+
+  const revenueByDate = indexMetric(revenueSeries, "estimatedRevenue");
+  const impressionsByDate = impressionSeries
+    ? new Map(
+        impressionSeries.rows.map((row) => [
+          String(row[0]),
+          {
+            impressions: metricAt(impressionSeries.headers, row, "impressions"),
+            ctr: metricAt(impressionSeries.headers, row, "impressionClickThroughRate"),
+          },
+        ]),
+      )
+    : null;
+  const parsedDays = coreSeries.rows.map((row) => {
+    const rawDate = String(row[0]);
+    const date = pointDate(rawDate, bounds.grain);
+    const extra = impressionsByDate?.get(rawDate) ?? impressionsByDate?.get(date);
     return {
       date,
-      views: num(row[1]),
-      watchMinutes: num(row[2]),
-      averageViewDuration: num(row[3]),
-      likes: num(row[4]),
-      comments: num(row[5]),
-      shares: num(row[6]),
-      subscribersGained: num(row[7]),
-      estimatedRevenue: revenue ? (revenueByDay.get(date) ?? 0) : null,
-      impressions: impressions ? (extra?.impressions ?? 0) : null,
-      ctr: impressions ? (extra?.ctr ?? 0) : null,
+      views: metricAt(coreSeries.headers, row, "views"),
+      watchMinutes: metricAt(coreSeries.headers, row, "estimatedMinutesWatched"),
+      averageViewDuration: 0,
+      likes: metricAt(coreSeries.headers, row, "likes"),
+      comments: metricAt(coreSeries.headers, row, "comments"),
+      shares: metricAt(coreSeries.headers, row, "shares"),
+      subscribersGained: metricAt(coreSeries.headers, row, "subscribersGained"),
+      estimatedRevenue: revenueSeries ? (revenueByDate.get(rawDate) ?? revenueByDate.get(date) ?? 0) : null,
+      impressions: impressionSeries ? (extra?.impressions ?? 0) : null,
+      ctr: impressionSeries ? (extra?.ctr ?? 0) : null,
     } satisfies AnalyticsDay;
   });
-  const currentDays = allDays.filter((day) => day.date >= iso(currentStart));
-  const previousDays = allDays.filter((day) => day.date < iso(currentStart));
+  const partialMonth =
+    partialSeries && monthBounds?.partialStart
+      ? collapseMonth(partialSeries, iso(monthBounds.partialStart).slice(0, 7), partialRevenue)
+      : null;
+  const filled =
+    bounds.grain === "day"
+      ? fillDays(seriesStart, bounds.end, parsedDays, revenueSeries != null, impressionSeries != null)
+      : parsedDays;
+  const withPartial = partialMonth ? [...filled, partialMonth] : filled;
+  const currentDays = withPartial
+    .filter((day) => (bounds.grain === "month" ? day.date.slice(0, 7) >= startDate.slice(0, 7) : day.date >= startDate))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  const previousDays = withPartial
+    .filter((day) => (bounds.grain === "month" ? day.date.slice(0, 7) < startDate.slice(0, 7) : day.date < startDate))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   return {
     range,
-    startDate: iso(currentStart),
-    endDate: iso(end),
-    monetaryAvailable: revenue != null,
-    impressionsAvailable: impressions != null,
-    lifetimeWatchMinutes: lifetimeWatch?.[0] ? num(lifetimeWatch[0][0]) : null,
+    startDate,
+    endDate,
+    monetaryAvailable,
+    impressionsAvailable: totals.impressions != null,
+    periodWatchMinutes: totals.watchMinutes,
+    previousWatchMinutes: previousTotals?.watchMinutes ?? null,
+    totals,
+    previousTotals,
     days: currentDays,
     previousDays,
-    countries: countries.map((row) => ({
-      label: countryName(String(row[0])),
-      code: String(row[0]),
-      value: num(row[1]),
-    })),
-    traffic: traffic.map((row) => ({
-      label: TRAFFIC_LABELS[String(row[0])] ?? titleCase(String(row[0])),
-      value: num(row[1]),
-    })),
-    devices: devices.map((row) => ({ label: titleCase(String(row[0])), value: num(row[1]) })),
-    ages: ages.map((row) => ({ label: ageLabel(String(row[0])), value: num(row[1]) })),
-    genders: genders.map((row) => ({ label: titleCase(String(row[0])), value: num(row[1]) })),
-    adTypes: adTypes.map((row) => ({
-      label: AD_LABELS[String(row[0])] ?? titleCase(String(row[0])),
-      value: num(row[1]),
-    })),
-    videos: videos.map((row) => ({
-      videoId: String(row[0]),
-      views: num(row[1]),
-      watchMinutes: num(row[2]),
-      estimatedRevenue: revenue ? num(row[3]) : null,
-    })),
+    countries: topShares(countries, (code) => ({ label: countryName(code), code })),
+    traffic: topShares(traffic, (code) => ({ label: TRAFFIC_LABELS[code] ?? titleCase(code) })),
+    devices: shareRows(devices, (code) => titleCase(code)),
+    ages: shareRows(ages, ageLabel),
+    genders: shareRows(genders, titleCase),
+    adTypes: shareRows(adTypes, (code) => AD_LABELS[code] ?? titleCase(code)),
+    videos: videos.rows
+      .map((row) => ({
+        videoId: String(row[0]),
+        views: metricAt(videos.headers, row, "views"),
+        watchMinutes: metricAt(videos.headers, row, "estimatedMinutesWatched"),
+        estimatedRevenue: monetaryAvailable ? metricAt(videos.headers, row, "estimatedRevenue") : null,
+      }))
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 15),
     error: null,
   };
+}
+
+type Report = {
+  headers: string[];
+  rows: Array<Array<string | number>>;
+};
+
+function emptyReport(): Report {
+  return { headers: [], rows: [] };
+}
+
+function pointDate(value: string, grain: "day" | "month"): string {
+  return grain === "month" ? value.slice(0, 7) : value.slice(0, 10);
+}
+
+function collapseMonth(report: Report, monthKey: string, revenueReport: Report | null): AnalyticsDay | null {
+  if (!report.rows.length) return null;
+  let revenueTotal = 0;
+  let hasRevenue = false;
+  const day: AnalyticsDay = {
+    date: monthKey,
+    views: 0,
+    watchMinutes: 0,
+    averageViewDuration: 0,
+    likes: 0,
+    comments: 0,
+    shares: 0,
+    subscribersGained: 0,
+    estimatedRevenue: null,
+    impressions: null,
+    ctr: null,
+  };
+  for (const row of report.rows) {
+    day.views += metricAt(report.headers, row, "views");
+    day.watchMinutes += metricAt(report.headers, row, "estimatedMinutesWatched");
+    day.likes += metricAt(report.headers, row, "likes");
+    day.comments += metricAt(report.headers, row, "comments");
+    day.shares += metricAt(report.headers, row, "shares");
+    day.subscribersGained += metricAt(report.headers, row, "subscribersGained");
+  }
+  if (revenueReport) {
+    hasRevenue = true;
+    for (const row of revenueReport.rows) {
+      revenueTotal += metricAt(revenueReport.headers, row, "estimatedRevenue");
+    }
+  }
+  day.estimatedRevenue = hasRevenue ? revenueTotal : null;
+  return day;
+}
+
+async function fetchSeries(
+  auth: OAuth2Client,
+  ids: string,
+  startDate: string,
+  endDate: string,
+  grain: "day" | "month",
+): Promise<Report> {
+  const metricSets = [CORE_METRICS, "views,estimatedMinutesWatched"];
+  for (const metrics of metricSets) {
+    try {
+      return await query(auth, {
+        ids,
+        startDate,
+        endDate,
+        dimensions: grain,
+        metrics,
+        sort: grain,
+        maxResults: 500,
+      });
+    } catch (error) {
+      console.error("[youtube-analytics] series failed", explainAnalyticsError(error));
+      try {
+        return await query(auth, { ids, startDate, endDate, dimensions: grain, metrics, sort: grain });
+      } catch (retryError) {
+        console.error("[youtube-analytics] series retry failed", explainAnalyticsError(retryError));
+      }
+    }
+  }
+  return emptyReport();
+}
+
+async function fetchTotals(
+  auth: OAuth2Client,
+  ids: string,
+  startDate: string,
+  endDate: string,
+): Promise<AnalyticsTotals | null> {
+  const metricSets = [
+    CORE_METRICS,
+    "views,estimatedMinutesWatched,likes,comments,subscribersGained",
+    "views,estimatedMinutesWatched",
+  ];
+  let core: Report | null = null;
+  for (const metrics of metricSets) {
+    try {
+      core = await query(auth, { ids, startDate, endDate, metrics });
+      break;
+    } catch (error) {
+      console.error("[youtube-analytics] totals failed", explainAnalyticsError(error));
+    }
+  }
+  if (!core) return null;
+  const row = core.rows[0] ?? [];
+  const [revenue, impressions] = await Promise.all([
+    query(auth, { ids, startDate, endDate, metrics: "estimatedRevenue" }).catch((error) => {
+      console.error("[youtube-analytics] revenue failed", explainAnalyticsError(error));
+      return null;
+    }),
+    query(auth, { ids, startDate, endDate, metrics: "impressions,impressionClickThroughRate" }).catch(() => null),
+  ]);
+  const revenueRow = revenue?.rows[0];
+  const impressionRow = impressions?.rows[0];
+  return {
+    views: metricAt(core.headers, row, "views"),
+    watchMinutes: metricAt(core.headers, row, "estimatedMinutesWatched"),
+    likes: metricAt(core.headers, row, "likes"),
+    comments: metricAt(core.headers, row, "comments"),
+    shares: metricAt(core.headers, row, "shares"),
+    subscribersGained: metricAt(core.headers, row, "subscribersGained"),
+    estimatedRevenue: revenue && revenueRow ? metricAt(revenue.headers, revenueRow, "estimatedRevenue") : null,
+    impressions: impressions && impressionRow ? metricAt(impressions.headers, impressionRow, "impressions") : null,
+    ctr: impressions && impressionRow ? metricAt(impressions.headers, impressionRow, "impressionClickThroughRate") : null,
+  };
+}
+
+async function rankedBreakdown(
+  auth: OAuth2Client,
+  ids: string,
+  startDate: string,
+  endDate: string,
+  dimensions: string,
+  metrics: string,
+  maxResults: number,
+): Promise<Report> {
+  const primary = await tryRanked(auth, ids, startDate, endDate, dimensions, metrics, maxResults);
+  if (primary) return primary;
+  if (startDate < "2013-01-01") {
+    const retry = await tryRanked(auth, ids, "2013-01-01", endDate, dimensions, metrics, maxResults);
+    if (retry) return retry;
+  }
+  return emptyReport();
+}
+
+async function tryRanked(
+  auth: OAuth2Client,
+  ids: string,
+  startDate: string,
+  endDate: string,
+  dimensions: string,
+  metrics: string,
+  maxResults: number,
+): Promise<Report | null> {
+  const sort = `-${metrics.split(",")[0]}`;
+  try {
+    return await query(auth, { ids, startDate, endDate, dimensions, metrics, sort, maxResults });
+  } catch (error) {
+    console.error(`[youtube-analytics] ${dimensions} failed`, explainAnalyticsError(error));
+    try {
+      return await query(auth, { ids, startDate, endDate, dimensions, metrics, maxResults });
+    } catch (retryError) {
+      console.error(`[youtube-analytics] ${dimensions} retry failed`, explainAnalyticsError(retryError));
+      return null;
+    }
+  }
+}
+
+function indexMetric(report: Report | null, metric: string): Map<string, number> {
+  if (!report) return new Map();
+  return new Map(report.rows.map((row) => [String(row[0]), metricAt(report.headers, row, metric)]));
+}
+
+function topShares(
+  report: Report,
+  labelFor: (code: string) => { label: string; code?: string },
+): AnalyticsShare[] {
+  return report.rows
+    .map((row) => {
+      const code = String(row[0]);
+      const named = labelFor(code);
+      return { label: named.label, code: named.code ?? code, value: metricAt(report.headers, row, "views") || num(row[1]) };
+    })
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+}
+
+function shareRows(report: Report, labelFor: (code: string) => string): AnalyticsShare[] {
+  const metric = report.headers[1] ?? "views";
+  return report.rows
+    .map((row) => ({
+      label: labelFor(String(row[0])),
+      value: metricAt(report.headers, row, metric) || num(row[1]),
+    }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value);
 }
 
 async function query(
@@ -385,13 +602,22 @@ async function query(
     sort?: string;
     maxResults?: number;
   },
-): Promise<Array<Array<string | number>>> {
+): Promise<Report> {
   const analytics = google.youtubeAnalytics({ version: "v2", auth });
   const { data } = await trackYoutubeCall(
     { operation: "analytics.reports.query", method: "GET", units: 1 },
     () => analytics.reports.query(params),
   );
-  return (data.rows ?? []) as Array<Array<string | number>>;
+  return {
+    headers: (data.columnHeaders ?? []).map((header) => header.name ?? ""),
+    rows: (data.rows ?? []) as Array<Array<string | number>>,
+  };
+}
+
+function metricAt(headers: string[], row: Array<string | number>, name: string): number {
+  const index = headers.indexOf(name);
+  if (index >= 0) return num(row[index]);
+  return 0;
 }
 
 function num(value: string | number | undefined): number {
@@ -399,15 +625,34 @@ function num(value: string | number | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function utcToday(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-}
-
-function addUtcDays(date: Date, days: number): Date {
-  const next = new Date(date);
-  next.setUTCDate(next.getUTCDate() + days);
-  return next;
+function fillDays(
+  start: Date,
+  end: Date,
+  days: AnalyticsDay[],
+  monetary: boolean,
+  impressions: boolean,
+): AnalyticsDay[] {
+  const byDate = new Map(days.map((day) => [day.date.slice(0, 10), day]));
+  const filled: AnalyticsDay[] = [];
+  for (let cursor = new Date(start); iso(cursor) <= iso(end); cursor = addUtcDays(cursor, 1)) {
+    const date = iso(cursor);
+    filled.push(
+      byDate.get(date) ?? {
+        date,
+        views: 0,
+        watchMinutes: 0,
+        averageViewDuration: 0,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        subscribersGained: 0,
+        estimatedRevenue: monetary ? 0 : null,
+        impressions: impressions ? 0 : null,
+        ctr: impressions ? 0 : null,
+      },
+    );
+  }
+  return filled;
 }
 
 function iso(date: Date): string {
@@ -442,15 +687,17 @@ function explainAnalyticsError(error: unknown): string {
 }
 
 function emptyBundle(range: AnalyticsRangeKey, error: string): AnalyticsBundle {
-  const end = utcToday();
-  const start = addUtcDays(end, -(rangeDayCount(range) - 1));
+  const bounds = rangeWindow(range);
   return {
     range,
-    startDate: iso(start),
-    endDate: iso(end),
+    startDate: iso(bounds.start),
+    endDate: iso(bounds.end),
     monetaryAvailable: false,
     impressionsAvailable: false,
-    lifetimeWatchMinutes: null,
+    periodWatchMinutes: null,
+    previousWatchMinutes: null,
+    totals: null,
+    previousTotals: null,
     days: [],
     previousDays: [],
     countries: [],

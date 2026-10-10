@@ -9,6 +9,7 @@ import { savedTitlesForDisplay, type TitleCommit } from "@/lib/session/summaryCo
 import {
   FORMAT_LABELS,
   INTENT_LABELS,
+  intentCategoryLabel,
   PROVIDER_LABELS,
   STEPS,
   type ReferenceVideo,
@@ -115,6 +116,7 @@ function StepFacts({
 
 function IntroductionFacts({ summary }: { summary: VideoSummary }) {
   const topic = summary.topic.trim();
+  const category = intentCategoryLabel(summary.intent, summary.intentCategory);
   const references = summary.references.filter(
     (reference) => reference.url.trim() || reference.title.trim(),
   );
@@ -132,6 +134,7 @@ function IntroductionFacts({ summary }: { summary: VideoSummary }) {
           <dt className="text-[10px] font-bold uppercase tracking-wide text-muted">Intent</dt>
           <dd className="mt-0.5 text-sm font-semibold text-foreground">
             {INTENT_LABELS[summary.intent]}
+            {category ? ` · ${category}` : ""}
           </dd>
         </div>
         <div className="sm:col-span-2">

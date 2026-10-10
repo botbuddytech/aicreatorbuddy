@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { PROVIDER_LABELS, type AiProvider } from "@/lib/videoProject";
 
 const PROVIDER_ICON_SRC: Record<string, string> = {
@@ -64,13 +65,12 @@ export function ProviderPicker<T extends string = AiProvider>({
           );
         })}
       </div>
-      <button
-        type="button"
-        disabled
-        className="rounded-xl border border-dashed border-border px-3 py-1.5 text-xs font-semibold text-muted disabled:opacity-60"
+      <Link
+        href="/dashboard/integrations"
+        className="rounded-xl border border-dashed border-border px-3 py-1.5 text-xs font-semibold text-muted transition-colors hover:border-accent/40 hover:text-foreground"
       >
         + Add integration
-      </button>
+      </Link>
     </div>
   );
 }

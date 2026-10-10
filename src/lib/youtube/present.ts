@@ -1,14 +1,19 @@
 import { prisma } from "@/lib/db";
+import { groupAudienceAges } from "@/lib/youtube/audienceAges";
 import type { SessionUser } from "@/lib/auth/session";
 import { channelAccessWhere } from "@/lib/youtube/access";
 import { resolveActiveChannelId } from "@/lib/youtube/activeChannel";
+import { bucketSeries } from "@/lib/youtube/chartSeries";
 import {
   asAnalyticsRange,
   loadChannelAnalytics,
   type AnalyticsDay,
+  type AnalyticsTotals,
 } from "@/lib/youtube/analytics";
 import { formatDuration, timeAgo } from "@/lib/youtube/format";
 import { formatHourLabel, postingHeatmap, topPostingSlots } from "@/lib/youtube/postingTimes";
+import { countReadyToPublish } from "@/lib/scheduler/candidates";
+import { reconcileScheduledVideos } from "@/lib/youtube/reconcileScheduled";
 import { listChannels, type ConnectedChannel } from "@/lib/youtube/repo";
 import {
   formatCount,
@@ -20,10 +25,9 @@ import {
   type SchedulerStatCardData,
   type UpcomingUpload,
 } from "@/lib/dashboardContent";
-import type { LibraryPlaylist, LibraryVideo } from "@/lib/contentLibrary";
+import { libraryThumbUrl, type LibraryPlaylist, type LibraryVideo } from "@/lib/contentLibrary";
 
 const BAR_COLORS = ["bg-accent", "bg-chart-blue", "bg-chart-purple", "bg-chart-amber", "bg-success", "bg-muted"];
-const AGE_COLORS = ["#3b82f6", "#a855f7", "#fb7185", "#22c55e", "#f59e0b", "#38bdf8"];
 
 export type OverviewPayload = {
   channel: ConnectedChannel | null;
@@ -36,7 +40,10 @@ export type OverviewPayload = {
   uploads: RecentUpload[];
   scheduled: ScheduledVideo[];
   series: Record<ChartMetric, { labels: string[]; values: number[] }>;
-  audience: { total: string; segments: { label: string; value: number; color: string }[] };
+  audience: {
+    primary: string | null;
+    segments: { label: string; value: number; color: string }[];
+  };
 };
 
 export async function loadOverview(
@@ -49,7 +56,7 @@ export async function loadOverview(
   const channel = channels.find((item) => item.id === activeId) ?? null;
   if (!channel) return emptyOverview(null);
 
-  const range = asAnalyticsRange(rangeInput);
+  const range = asAnalyticsRange(rangeInput ?? "all");
   const analytics = await loadChannelAnalytics(user, channel.id, range, options);
 
   const [videos, engagement] = await Promise.all([
@@ -70,22 +77,53 @@ export async function loadOverview(
     select: { id: true, name: true, updatedAt: true, approvedStepCount: true, timelineSeconds: true },
   });
 
-  const current = sumDays(analytics.days);
-  const previous = sumDays(analytics.previousDays);
-  const likes = Number(engagement._sum.likeCount ?? 0);
-  const comments = Number(engagement._sum.commentCount ?? 0);
+  const lifetime = range === "all";
+  const current = readPeriod(analytics.totals, analytics.days);
+  const previous = readPeriod(analytics.previousTotals, analytics.previousDays);
+  const watchMinutes =
+    analytics.periodWatchMinutes ?? (analytics.days.length ? current.watchMinutes : null);
+  const previousWatchMinutes =
+    analytics.previousWatchMinutes ??
+    (analytics.previousDays.length ? previous.watchMinutes : null);
+  const videoLikes = Number(engagement._sum.likeCount ?? 0);
+  const videoComments = Number(engagement._sum.commentCount ?? 0);
+  const hasAnalytics = Boolean(analytics.totals) || analytics.days.length > 0;
+  const channelViews = Number(channel.viewCount);
+  const views =
+    hasAnalytics && !(lifetime && current.views === 0 && channelViews > 0)
+      ? current.views
+      : lifetime
+        ? channelViews
+        : null;
+  const lifetimeNote = { text: "All time", positive: true };
+  const likes = hasAnalytics ? current.likes : lifetime ? videoLikes : null;
+  const comments = hasAnalytics ? current.comments : lifetime ? videoComments : null;
 
   return {
     channel,
     analyticsError: analytics.error,
     monetaryAvailable: analytics.monetaryAvailable,
     primary: [
-      stat("views", "Views", formatCount(channel.viewCount), delta(current.views, previous.views), "views", "accent", spark(analytics.days, (day) => day.views)),
+      stat(
+        "views",
+        "Views",
+        views == null ? "—" : formatCount(views),
+        lifetime ? lifetimeNote : delta(current.views, previous.views),
+        "views",
+        "accent",
+        spark(analytics.days, (day) => day.views),
+      ),
       stat(
         "subs",
-        "Subscribers",
-        channel.hiddenSubscriberCount ? "Hidden" : formatCount(channel.subscriberCount),
-        current.subscribersGained ? `+${formatCount(current.subscribersGained)} this period` : "No new subscribers",
+        lifetime ? "Subscribers" : "Subscribers gained",
+        lifetime
+          ? channel.hiddenSubscriberCount
+            ? "Hidden"
+            : formatCount(channel.subscriberCount)
+          : hasAnalytics
+            ? formatCount(current.subscribersGained)
+            : "—",
+        lifetime ? lifetimeNote : delta(current.subscribersGained, previous.subscribersGained),
         "subs",
         "chart-blue",
         spark(analytics.days, (day) => day.subscribersGained),
@@ -93,14 +131,12 @@ export async function loadOverview(
       stat(
         "watch",
         "Watch time",
-        analytics.lifetimeWatchMinutes != null
-          ? formatWatchTime(analytics.lifetimeWatchMinutes)
-          : analytics.days.length
-            ? formatWatchTime(current.watchMinutes)
-            : "—",
-        analytics.days.length
-          ? `${formatWatchTime(current.watchMinutes)} this period`
-          : "Analytics unavailable",
+        watchMinutes == null ? "—" : formatWatchHours(watchMinutes),
+        watchMinutes == null
+          ? "Analytics unavailable"
+          : lifetime
+            ? lifetimeNote
+            : delta(watchMinutes, previousWatchMinutes ?? 0),
         "watch",
         "success",
         spark(analytics.days, (day) => day.watchMinutes),
@@ -110,7 +146,9 @@ export async function loadOverview(
         "Revenue",
         analytics.monetaryAvailable ? formatMoney(current.revenue) : "—",
         analytics.monetaryAvailable
-          ? delta(current.revenue, previous.revenue)
+          ? lifetime
+            ? lifetimeNote
+            : delta(current.revenue, previous.revenue)
           : analytics.error
             ? "Analytics unavailable"
             : "Not in YouTube Partner Program",
@@ -120,17 +158,23 @@ export async function loadOverview(
       ),
     ],
     secondary: [
-      secondary("Likes", formatCount(likes), thisPeriod(current.likes, previous.likes)),
-      secondary("Comments", formatCount(comments), thisPeriod(current.comments, previous.comments)),
+      secondary("Likes", likes == null ? "—" : formatCount(likes), lifetime ? lifetimeNote : delta(current.likes, previous.likes)),
+      secondary("Comments", comments == null ? "—" : formatCount(comments), lifetime ? lifetimeNote : delta(current.comments, previous.comments)),
       secondary(
         "Shares",
-        analytics.days.length ? formatCount(current.shares) : "—",
-        analytics.days.length
-          ? thisPeriod(current.shares, previous.shares)
-          : { text: "Not returned for this channel", positive: true },
+        hasAnalytics ? formatCount(current.shares) : "—",
+        hasAnalytics ? (lifetime ? lifetimeNote : delta(current.shares, previous.shares)) : { text: "Not returned for this channel", positive: true },
       ),
-      secondary("Avg. CTR", formatCtr(current), delta(current.ctr, previous.ctr)),
-      secondary("Impressions", analytics.impressionsAvailable ? formatCount(current.impressions) : "—", delta(current.impressions, previous.impressions)),
+      secondary(
+        "Avg. CTR",
+        formatCtr(current),
+        !current.impressions ? { text: analytics.impressionsAvailable ? "No impressions" : "Not returned for this channel", positive: true } : lifetime ? lifetimeNote : delta(current.ctr, previous.ctr),
+      ),
+      secondary(
+        "Impressions",
+        analytics.impressionsAvailable ? formatCount(current.impressions) : "—",
+        analytics.impressionsAvailable ? (lifetime ? lifetimeNote : delta(current.impressions, previous.impressions)) : { text: "Not returned for this channel", positive: true },
+      ),
       secondary("Unique viewers", "—", { text: "Not returned by YouTube", positive: true }),
     ],
     traffic: toBars(analytics.traffic),
@@ -146,6 +190,7 @@ export async function loadOverview(
         id: draft.id,
         title: draft.name,
         duration: formatDuration(draft.timelineSeconds || null),
+        thumbnailUrl: libraryThumbUrl(draft.name, draft.id),
         status: "draft" as const,
         meta: `Edited ${timeAgo(draft.updatedAt.toISOString())}`,
         draftProgress: Math.min(100, Math.round((draft.approvedStepCount / 8) * 100)),
@@ -159,14 +204,7 @@ export async function loadOverview(
       engagement: chartSeries(analytics.days, (day) => day.likes + day.comments + day.shares),
       revenue: chartSeries(analytics.days, (day) => day.estimatedRevenue ?? 0),
     },
-    audience: {
-      total: channel.hiddenSubscriberCount ? "Hidden" : formatCount(channel.subscriberCount),
-      segments: analytics.ages.map((item, index) => ({
-        label: item.label,
-        value: Math.round(item.value),
-        color: AGE_COLORS[index % AGE_COLORS.length] ?? "#3b82f6",
-      })),
-    },
+    audience: groupAudienceAges(analytics.ages),
   };
 }
 
@@ -260,6 +298,8 @@ export type SchedulerPayload = {
   bestTimeCards: SchedulerStatCardData[];
   events: CalendarEvent[];
   uploads: UpcomingUpload[];
+  /** YouTube video ids that are still scheduled. */
+  scheduledVideoIds: string[];
   nextUploadOffsetMs: number | null;
   heatmap: Record<"sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat", number[]>;
   bars: { label: string; value: number; color: string }[];
@@ -268,9 +308,15 @@ export type SchedulerPayload = {
 };
 
 export async function loadScheduler(user: SessionUser): Promise<SchedulerPayload> {
+  try {
+    await reconcileScheduledVideos(user);
+  } catch (error) {
+    console.error("[scheduler] could not refresh scheduled videos from YouTube", error);
+  }
   const channels = await listChannels(user);
   const activeId = await resolveActiveChannelId(user, channels);
   const channel = channels.find((item) => item.id === activeId) ?? null;
+  const readyToPublishCount = await countReadyToPublish(user.id, activeId);
   const videos = channel
     ? await prisma.youtubeVideo.findMany({
         where: { channelId: channel.id },
@@ -301,7 +347,7 @@ export async function loadScheduler(user: SessionUser): Promise<SchedulerPayload
     ],
     upcomingCards: [
       card("scheduled", "Scheduled Videos", String(scheduled.length), "upload", "publishAt", "chart-blue"),
-      card("ready", "Ready to Publish", "0", "check", "Rendered in the app", "success"),
+      card("ready", "Ready to Publish", String(readyToPublishCount), "check", "Rendered in the app", "success"),
       card("processing", "Being Processed", String(processing.length), "processing", "YouTube processing", "chart-amber"),
       card("next-up", "Until Next Upload", "", "clock", "Next scheduled video", "accent"),
     ],
@@ -330,7 +376,10 @@ export async function loadScheduler(user: SessionUser): Promise<SchedulerPayload
       duration: formatDuration(video.durationSec),
       status: "scheduled" as const,
       scheduledLabel: video.publishAt!.toLocaleString(),
+      thumbnailUrl: video.thumbnailUrl,
+      youtubeUrl: `https://studio.youtube.com/video/${video.videoId}/edit`,
     })),
+    scheduledVideoIds: scheduled.map((video) => video.videoId),
     nextUploadOffsetMs: next ? Math.max(0, next - Date.now()) : null,
     heatmap,
     bars: slots.map((slot, index) => ({
@@ -354,6 +403,11 @@ export async function loadScheduler(user: SessionUser): Promise<SchedulerPayload
 }
 
 export async function countNavBadges(user: SessionUser): Promise<{ drafts: number; upcoming: number }> {
+  try {
+    await reconcileScheduledVideos(user);
+  } catch (error) {
+    console.error("[scheduler] could not refresh scheduled videos from YouTube", error);
+  }
   const [drafts, upcoming] = await Promise.all([
     prisma.videoSession.count({
       where: { userId: user.id, deletedAt: null, status: "DRAFT", youtubeVideoId: null },
@@ -378,7 +432,7 @@ function emptyOverview(channel: ConnectedChannel | null): OverviewPayload {
     uploads: [],
     scheduled: [],
     series: { views: blank, engagement: blank, revenue: blank },
-    audience: { total: "0", segments: [] },
+    audience: { primary: null, segments: [] },
   };
 }
 
@@ -398,13 +452,21 @@ function sumDays(days: AnalyticsDay[]) {
   };
 }
 
-function thisPeriod(
-  current: number,
-  previous: number,
-): { text: string; positive: boolean } {
-  const change = delta(current, previous);
-  if (!current && !previous) return { text: "None this period", positive: true };
-  return { text: `${formatCount(current)} this period`, positive: change.positive };
+function readPeriod(totals: AnalyticsTotals | null, days: AnalyticsDay[]) {
+  if (totals) {
+    return {
+      views: totals.views,
+      watchMinutes: totals.watchMinutes,
+      likes: totals.likes,
+      comments: totals.comments,
+      shares: totals.shares,
+      subscribersGained: totals.subscribersGained,
+      revenue: totals.estimatedRevenue ?? 0,
+      impressions: totals.impressions ?? 0,
+      ctr: totals.ctr ?? 0,
+    };
+  }
+  return sumDays(days);
 }
 
 function delta(current: number, previous: number): { text: string; positive: boolean } {
@@ -433,23 +495,15 @@ function secondary(label: string, value: string, change: { text: string; positiv
 }
 
 function spark(days: AnalyticsDay[], pick: (day: AnalyticsDay) => number): number[] {
-  const values = days.map(pick);
-  if (values.length <= 12) return values.length ? values : [0];
-  const bucket = Math.ceil(values.length / 12);
-  const points: number[] = [];
-  for (let i = 0; i < values.length; i += bucket) {
-    const slice = values.slice(i, i + bucket);
-    points.push(slice.reduce((sum, value) => sum + value, 0) / slice.length);
-  }
-  return points;
+  const series = chartSeries(days, pick);
+  return series.values.length ? series.values : [0];
 }
 
 function chartSeries(days: AnalyticsDay[], pick: (day: AnalyticsDay) => number) {
-  const sampled = spark(days, pick);
-  const labels = days.length <= 12
-    ? days.map((day) => day.date.slice(5))
-    : sampled.map((_, index) => `P${index + 1}`);
-  return { labels, values: sampled };
+  return bucketSeries(
+    days.map((day) => day.date),
+    days.map(pick),
+  );
 }
 
 function toBars(items: { label: string; value: number }[]) {
@@ -466,15 +520,11 @@ function sharePercent(items: { value: number }[], value: number): number {
   return Math.round((value / total) * 100);
 }
 
-function formatWatchTime(minutes: number): string {
-  if (minutes < 60) {
-    const rounded = Math.max(0, Math.round(minutes));
-    if (minutes > 0 && rounded < 1) return "< 1 min";
-    return `${rounded} min`;
-  }
+/** Hours with one decimal, matching YouTube Studio's watch time. */
+export function formatWatchHours(minutes: number): string {
   const hours = minutes / 60;
   if (hours >= 1000) return `${formatCount(Math.round(hours))} hrs`;
-  return `${Math.round(hours * 10) / 10} hrs`;
+  return `${(Math.round(hours * 10) / 10).toFixed(1)} hrs`;
 }
 
 function formatMoney(value: number): string {
@@ -495,6 +545,7 @@ function flagEmoji(code: string): string {
 function toRecentUpload(video: {
   id: string;
   title: string;
+  thumbnailUrl: string | null;
   durationSec: number | null;
   publishedAt: Date;
   publishAt: Date | null;
@@ -507,6 +558,7 @@ function toRecentUpload(video: {
   return {
     id: video.id,
     title: video.title,
+    thumbnailUrl: video.thumbnailUrl ?? libraryThumbUrl(video.title, video.id),
     duration: formatDuration(video.durationSec),
     status: scheduled ? "scheduled" : "published",
     meta: scheduled

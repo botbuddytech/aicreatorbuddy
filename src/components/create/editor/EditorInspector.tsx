@@ -154,7 +154,7 @@ export function EditorInspector({ scene }: { scene: Scene | null }) {
 
       <div>
         <FieldLabel>Filter</FieldLabel>
-        <div className="mt-2 grid grid-cols-2 gap-1.5">
+        <div className="mt-2 grid max-h-52 grid-cols-2 gap-1.5 overflow-y-auto pr-0.5">
           {FILTER_OPTIONS.map((option) => (
             <button
               key={option.id}

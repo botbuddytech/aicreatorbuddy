@@ -28,6 +28,9 @@ describe("video markdown", () => {
     assert.match(markdown, /The chart steps down for 9 seconds\./);
     assert.match(markdown, /Voice length: 9s/);
     assert.match(markdown, /Clip: None/);
-    assert.equal(videoMarkdownFileName(project), "Oracle-Stock.md");
+    assert.equal(
+      videoMarkdownFileName(project, new Date(2026, 9, 9, 12)),
+      "Oracle-Stock-v1-2026-10-09.md",
+    );
   });
 });

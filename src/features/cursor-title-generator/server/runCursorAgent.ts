@@ -13,7 +13,18 @@ import {
   type CursorTitleRequest,
   type CursorTitleResponse,
 } from "@/features/cursor-title-generator/contract";
-import { applyScriptPromptVariables, applyThumbnailPromptVariables, applyTitlePromptVariables, applyVisualPromptVariables } from "@/features/cursor-title-generator/prompt";
+import {
+  applyDescriptionPromptVariables,
+  applyScriptPromptVariables,
+  applyThumbnailPromptVariables,
+  applyTitlePromptVariables,
+  applyVisualPromptVariables,
+} from "@/features/cursor-title-generator/prompt";
+import {
+  normalizeCursorDescription,
+  type CursorDescriptionRequest,
+  type CursorDescriptionResponse,
+} from "@/features/cursor-description-generator/contract";
 import {
   normalizeCursorScript,
   CURSOR_SCRIPT_LIMITS,
@@ -668,6 +679,27 @@ export async function generateScriptWithCursor(
   const sections = normalizeCursorScript(payload, input.durationSeconds);
   if (!sections) throw new CursorRunnerError("invalid-output");
   return { sections, script: formatScriptSections(sections), promptUsed };
+}
+
+function buildDescriptionPrompt(instruction: string, input: CursorDescriptionRequest): string {
+  const filled = applyDescriptionPromptVariables(instruction, input);
+  return `${filled}
+
+This is a writing-only task. Do not inspect files, run commands, browse, or call external tools.
+Return only valid JSON in this shape:
+{"description":"full YouTube description text","tags":["tag one","tag two"]}`;
+}
+
+export async function generateDescriptionWithCursor(
+  instruction: string,
+  input: CursorDescriptionRequest,
+  signal?: AbortSignal,
+): Promise<CursorDescriptionResponse> {
+  const promptUsed = buildDescriptionPrompt(instruction, input);
+  const payload = await runCursorPrompt(promptUsed, signal, TIMEOUT_MS);
+  const parsed = normalizeCursorDescription(payload);
+  if (!parsed) throw new CursorRunnerError("invalid-output");
+  return { ...parsed, promptUsed };
 }
 
 export async function scoreTitlesWithCursor(

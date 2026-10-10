@@ -104,7 +104,7 @@ What the app actually does today:
 | Buddy floating chat | Confirmed. Live model if keys exist, otherwise a simulated specialist |
 | Create-step agent panel | Confirmed in development. Local Cursor SDK (`@cursor/sdk`), not the Cloud Agents API. Changes auto-apply |
 | Integrations page for provider credentials and usage | Confirmed |
-| Overview and content library | Confirmed. Lifetime views, likes, comments, and watch time come from the connected channel. Shares and the range line are YouTube Analytics for the selected period |
+| Overview and content library | Confirmed. Lifetime views, likes, and comments come from the connected channel. Watch time, shares, and the range line are YouTube Analytics for the selected period |
 | Monetization and scheduler | Confirmed UI. Monetization is locally computed. Scheduler calendar content is still demo data |
 | Profile settings save | UI only. Message: preferences are not persisted |
 | YouTube publish / upload | Scope is requested. No upload call exists |
@@ -546,7 +546,7 @@ Dashboard pages sit behind the login redirect. They share `DashboardShell`: side
 
 - **Purpose:** Pick the active channel, then show a performance overview for that channel.
 - **Components:** `ActiveChannelPicker` (live channels), `OverviewDashboard`.
-- **Data:** `loadOverview` in `src/lib/youtube/present.ts`, via `GET /api/dashboard/youtube`. Views and subscribers are the channel’s lifetime YouTube Data API totals. Likes and comments are the sum of `likeCount` and `commentCount` on every synced video for that channel (the same totals the library shows). Watch time is all-time `estimatedMinutesWatched` from YouTube Analytics; under an hour it is shown in minutes. The line under likes, comments, and watch time is only the selected date range. Shares have no lifetime field on the video, so that card is the Analytics total for the range. Revenue stays blank with “Not in YouTube Partner Program” when the monetary report is unavailable. Refresh refetches. An old Analytics snapshot without `lifetimeWatchMinutes` is treated as stale and fetched again.
+- **Data:** `loadOverview` in `src/lib/youtube/present.ts`, via `GET /api/dashboard/youtube`. Views and subscribers are the channel’s lifetime YouTube Data API totals. Likes and comments are the sum of `likeCount` and `commentCount` on every synced video for that channel (the same totals the library shows). Watch time is `estimatedMinutesWatched` for the selected range (YouTube Studio’s Pacific “last N days,” ending yesterday), shown in hours with one decimal. The line under it is the change versus the previous window. Shares have no lifetime field on the video, so that card is the Analytics total for the range. Revenue stays blank with “Not in YouTube Partner Program” when the monetary report is unavailable. Refresh refetches. An old Analytics snapshot without `periodWatchMinutes` is treated as stale and fetched again.
 - **Navigation:** Upload links to `/dashboard/create`. Export on this page is still a button without a download handler.
 
 ### `/dashboard/channels` — YouTube connections
@@ -592,12 +592,13 @@ Ranges are 7d, 28d, 90d. Changing range recomputes local data. It does not call 
 - **Data:** `loadLibrary` in `src/lib/youtube/present.ts`. Videos and playlists are synced `YoutubeVideo` and `YoutubePlaylist` rows for channels the user owns or that are shared with them. Likes and comments on a card are that video’s lifetime counts. Draft sessions are listed separately. The old `libraryVideos` constants in `dashboardContent.ts` are not what this page renders.
 - **Routes:** `/dashboard/library` (all), `/drafts`, `/scheduled`, `/playlists` (optional `status` query). Search query filters the static list.
 
-### `/dashboard/scheduler`
+### `/dashboard/videoscheduler`
 
-- **Purpose:** Show a planning UI.
-- **Data:** `calendarStatCards`, `calendarEvents`, `upcomingUploads`, `bestTimeBars`, `activityHeatmap`, `aiInsights` — all static.
-- **Routes:** Calendar (`/dashboard/scheduler`), Upcoming Uploads, Best Time To Post.
-- **Unfinished in code:** Best Time cards for timeline, AI recommendations, and post history are titled “coming soon”. “Schedule Video” links to `/dashboard/create` and does not create a scheduled publish.
+- **Purpose:** Calendar and planning for YouTube `publishAt` on synced channel videos, plus a wizard to schedule app projects.
+- **Data:** `loadScheduler` in `src/lib/youtube/present.ts` — scheduled events from `YoutubeVideo.publishAt`, refreshed against YouTube so a video deleted in Studio drops off Upcoming. “Ready to Publish” is `VideoSession` rows with at least one export and no `youtubeVideoId` (scoped to the active channel when set). Best-time heatmap/bars are derived from published video hours, not live audience analytics.
+- **Routes:** Calendar (`/dashboard/videoscheduler`), schedule wizard (`/dashboard/videoscheduler/schedule`), Upcoming Uploads (`/dashboard/videoscheduler/upcoming`), Best Time To Post (`/dashboard/videoscheduler/best-time`). Older `/dashboard/scheduler` paths redirect here.
+- **Schedule flow:** “Schedule Video” opens the wizard (pick project, optional publish time) → `/dashboard/create/[sessionId]?step=render` → user renders MP4 in the browser → `PublishToYoutube` uploads via `/api/youtube/upload` with optional `publishAt`. The calendar updates after upload/sync.
+- **Unfinished in code:** Best Time cards for timeline, AI recommendations, and post history are titled “coming soon”. MP4 is not stored server-side; re-render in the browser is required before each publish.
 
 ### `/dashboard/integrations`
 

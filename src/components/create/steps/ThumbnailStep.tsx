@@ -15,6 +15,7 @@ import { CursorPromptEditor } from "@/features/cursor-title-generator/CursorProm
 import { THUMBNAIL_PROMPT_TITLE } from "@/features/cursor-title-generator/prompt";
 import { useCursorThumbnailPromptGeneration } from "@/features/cursor-thumbnail-prompts/ThumbnailPromptActions";
 import { useVideoProject } from "@/components/create/VideoProjectProvider";
+import { useFilteredGenerators } from "@/components/create/useFilteredGenerators";
 import {
   FORMAT_LABELS,
   INTENT_LABELS,
@@ -52,6 +53,11 @@ export function ThumbnailStep() {
   const [generator, setGenerator] = useState<ThumbnailGenerator>("cursor");
   const [missingProvider, setMissingProvider] = useState<Exclude<ThumbnailGenerator, "cursor"> | null>(
     null,
+  );
+  const thumbnailGenerators = useFilteredGenerators(
+    THUMBNAIL_GENERATORS,
+    generator,
+    setGenerator,
   );
   const fileRef = useRef<HTMLInputElement>(null);
   const promptImageRef = useRef<HTMLInputElement>(null);
@@ -258,7 +264,7 @@ export function ThumbnailStep() {
         </p>
         <div className="mt-4">
           <GenerateBar
-            providers={THUMBNAIL_GENERATORS}
+            providers={thumbnailGenerators}
             provider={generator}
             providerLabels={THUMBNAIL_GENERATOR_LABELS}
             showProviderIcons

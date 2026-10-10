@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createEmptyProject } from "@/lib/videoProject";
+import { applySummaryPatch, createEmptyProject } from "@/lib/videoProject";
 import {
   captureSummaryCommit,
   captureTitleCommit,
@@ -44,6 +44,22 @@ describe("summaryCommit", () => {
       },
     ];
     assert.equal(summaryCommitMatches(project, commit), false);
+  });
+
+  it("saves an intent category and drops one that belongs to the other intent", () => {
+    const project = createEmptyProject({ name: "Draft" });
+    const commit = captureSummaryCommit(project);
+    project.summary.intentCategory = "explainer";
+    assert.equal(summaryCommitMatches(project, commit), false);
+
+    project.summary = applySummaryPatch(project.summary, { intent: "entertainment" });
+    assert.equal(project.summary.intentCategory, null);
+
+    project.summary = applySummaryPatch(project.summary, { intentCategory: "ugc" });
+    assert.equal(project.summary.intentCategory, "ugc");
+
+    project.summary = applySummaryPatch(project.summary, { intentCategory: "explainer" });
+    assert.equal(project.summary.intentCategory, null);
   });
 
   it("keeps later-step edits when the saved video intro is applied", () => {

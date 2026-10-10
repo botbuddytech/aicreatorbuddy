@@ -22,6 +22,7 @@ type PromptResponse = {
   scriptLowEffort: string;
   thumbnailPromptGeneration: string;
   scriptGeneration: string;
+  descriptionGeneration: string;
   visualPromptGeneration: string;
   customized: Record<CursorPromptKind, boolean>;
   error?: string;
@@ -34,8 +35,42 @@ const LABELS: Record<CursorPromptKind, string> = {
   scriptLowEffort: "script low-effort analysis",
   thumbnailPromptGeneration: "thumbnail prompt",
   scriptGeneration: "script",
+  descriptionGeneration: "description",
   visualPromptGeneration: "visual editing",
 };
+
+function ChevronDown({ className = "" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={`h-4 w-4 shrink-0 text-muted transition-transform duration-200 ${className}`}
+      aria-hidden
+    >
+      <path
+        fillRule="evenodd"
+        d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function CollapsibleVideoValues({ children }: { children: ReactNode }) {
+  return (
+    <details className="group rounded-xl border border-border bg-surface-soft text-sm">
+      <summary
+        className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 marker:content-none [&::-webkit-details-marker]:hidden"
+      >
+        <span className="text-[10px] font-bold uppercase tracking-wide text-muted">
+          Values for this video
+        </span>
+        <ChevronDown className="group-open:rotate-180" />
+      </summary>
+      <div className="border-t border-border px-3 py-2.5">{children}</div>
+    </details>
+  );
+}
 
 export function CursorPromptEditor({
   kind,
@@ -159,33 +194,23 @@ export function CursorPromptEditor({
             />
           )}
           {variables ? (
-            <div className="rounded-xl border border-border bg-surface-soft px-3 py-2.5 text-sm">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-muted">
-                Values for this video
-              </p>
+            <CollapsibleVideoValues>
               {variables.map((item) => (
                 <div key={item.token}>
-                  <p className="mt-2 font-medium text-foreground">{item.token}</p>
+                  <p className="mt-2 font-medium text-foreground first:mt-0">{item.token}</p>
                   <p className="mt-0.5 whitespace-pre-wrap text-muted">
                     {item.value.trim() || "Not provided"}
                   </p>
                 </div>
               ))}
-            </div>
+            </CollapsibleVideoValues>
           ) : variablePreview ? (
-            <div className="rounded-xl border border-border bg-surface-soft px-3 py-2.5 text-sm">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-muted">
-                Values for this video
-              </p>
-              <p className="mt-2 font-medium text-foreground">
-                {TITLE_PROMPT_TOPIC}
-              </p>
+            <CollapsibleVideoValues>
+              <p className="font-medium text-foreground">{TITLE_PROMPT_TOPIC}</p>
               <p className="mt-0.5 whitespace-pre-wrap text-muted">
                 {variablePreview.topic.trim() || "Not provided"}
               </p>
-              <p className="mt-2 font-medium text-foreground">
-                {TITLE_PROMPT_REFERENCE_TITLES}
-              </p>
+              <p className="mt-2 font-medium text-foreground">{TITLE_PROMPT_REFERENCE_TITLES}</p>
               <p className="mt-0.5 whitespace-pre-wrap text-muted">
                 {formatReferenceTitles(variablePreview.referenceTitles)}
               </p>
@@ -200,7 +225,7 @@ export function CursorPromptEditor({
                   })),
                 )}
               </p>
-            </div>
+            </CollapsibleVideoValues>
           ) : null}
           {error ? (
             <p className="rounded-xl bg-accent/10 px-3 py-2 text-sm text-accent">{error}</p>

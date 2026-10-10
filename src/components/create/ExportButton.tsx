@@ -118,7 +118,10 @@ export function ExportButton({
       });
       dispatch({
         type: "UPDATE_EDITOR",
-        patch: { exportedAt: new Date().toISOString() },
+        patch: {
+          exportedAt: new Date().toISOString(),
+          exportCount: project.editor.exportCount + 1,
+        },
       });
       trackSessionEvent(project.id, {
         type: "export.succeeded",

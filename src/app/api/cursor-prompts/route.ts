@@ -17,6 +17,7 @@ const PROMPT_KINDS = new Set<CursorPromptKind>([
   "scriptLowEffort",
   "thumbnailPromptGeneration",
   "scriptGeneration",
+  "descriptionGeneration",
   "visualPromptGeneration",
 ]);
 

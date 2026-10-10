@@ -124,6 +124,7 @@ export async function getSessionDocuments(
       name: true,
       createdAt: true,
       lastActiveAt: true,
+      exportSuccessCount: true,
       steps: {
         orderBy: { step: "asc" },
         select: {
@@ -172,6 +173,7 @@ export async function getSessionDocuments(
     name: row.name,
     createdAt: row.createdAt.toISOString(),
     lastActiveAt: row.lastActiveAt.toISOString(),
+    exportSuccessCount: row.exportSuccessCount,
     steps: row.steps.map((step) => ({
       step: fromCreateStep(step.step),
       state: fromStepState(step.state),

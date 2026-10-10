@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   sceneRuntimeSeconds,
+  sceneTimelineStart,
   totalTimelineSeconds,
   type Scene,
 } from "@/lib/videoProject";
@@ -17,16 +18,18 @@ export type ActiveClip = {
 
 export function activeSceneAt(scenes: Scene[], elapsed: number): ActiveClip | null {
   if (scenes.length === 0) return null;
-  let start = 0;
-  for (let index = 0; index < scenes.length; index += 1) {
+  for (let index = scenes.length - 1; index >= 0; index -= 1) {
     const scene = scenes[index];
     if (!scene) continue;
-    const duration = sceneRuntimeSeconds(scene);
-    const end = start + duration;
-    if (elapsed < end || index === scenes.length - 1) {
+    const start = sceneTimelineStart(scenes, index);
+    if (elapsed >= start || index === 0) {
+      const duration = sceneRuntimeSeconds(scene);
+      const end =
+        index + 1 < scenes.length
+          ? sceneTimelineStart(scenes, index + 1)
+          : totalTimelineSeconds(scenes);
       return { scene, index, start, duration, end };
     }
-    start = end;
   }
   return null;
 }
