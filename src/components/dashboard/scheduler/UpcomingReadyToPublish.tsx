@@ -89,9 +89,9 @@ export function UpcomingReadyToPublish({
       {error ? <p className="mt-2 text-sm text-accent">{error}</p> : null}
       <ul className="mt-4 divide-y divide-border">
         {mergedProjects.map((project) => {
+          const meta = approvedMetas.find((m) => m.sessionId === project.id);
           const title = project.publishTitle?.trim() || meta?.title?.trim() || scheduleCandidateLabel(project);
           const thumbnailUrl = project.thumbnailUrl || meta?.thumbnailUrl || null;
-          const meta = approvedMetas.find((m) => m.sessionId === project.id);
           const canUpload = canUploadSession(project.id);
           const awaitingThis = job?.sessionId === project.id && job.phase === "approved" && canUpload;
           const publishLabel = meta

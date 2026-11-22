@@ -17,13 +17,13 @@ export function remotionTransitionPresentation(
     case "fade":
       return fade();
     case "dissolve":
-      return dissolve();
+      return dissolve({});
     case "slide":
       return slide({ direction: "from-right" });
     case "wipe":
       return wipe({ direction: "from-left" });
     case "zoom":
-      return crossZoom();
+      return crossZoom({});
     case "flip":
       return flip();
     default:

@@ -10,7 +10,10 @@ function createClient() {
   return new PrismaClient({ adapter });
 }
 
-const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
+// Typed loosely: after a client regeneration this holds an instance of the previous PrismaClient class.
+const globalForPrisma = globalThis as unknown as {
+  prisma?: PrismaClient | { $disconnect(): Promise<void> };
+};
 
 function getPrisma(): PrismaClient {
   const existing = globalForPrisma.prisma;

@@ -1,6 +1,6 @@
 "use client";
 
-import { acceptAllChanges, acceptChange, recordAgentCost } from "@/components/agent/applyProjectChange";
+import { acceptAllChanges, acceptChange } from "@/components/agent/applyProjectChange";
 import { getProjectBridge } from "@/components/agent/bridge";
 import {
   abortAgentRun,
@@ -148,7 +148,6 @@ async function streamReply(threadId: string, userText: string, options?: { reset
   const context = readContext();
   const thread = useAgentStore.getState().threads.find((item) => item.id === threadId);
   const sdkAgentId = options?.reset ? undefined : thread?.sdkAgentId;
-  let costRecorded = false;
   let settled = false;
 
   const settle = (kind: "done" | "partial" | "error", error?: string) => {
@@ -233,14 +232,6 @@ async function streamReply(threadId: string, userText: string, options?: { reset
           ...message,
           cost,
         }));
-        if (!costRecorded && mode === "ask") {
-          costRecorded = true;
-          recordAgentCost(context.step, cost.usd);
-          useAgentStore.getState().patchMessage(threadId, assistantId, (message) => ({
-            ...message,
-            costPosted: true,
-          }));
-        }
       }
       if (event === "error" && typeof record.message === "string") {
         settle("error", record.message);

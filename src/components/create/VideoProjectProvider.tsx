@@ -63,7 +63,7 @@ import {
   newId,
   reindexScenes,
   sceneDuration,
-  type AiProvider,
+  type StepProvider,
   type ApiCostEntry,
   type EditorSettings,
   type ElevenLabsVoice,
@@ -122,7 +122,7 @@ export type ProjectAction =
       tags?: string[];
       cursorPrompt?: string | null;
     }
-  | { type: "SET_PROVIDER"; step: StepId; provider: AiProvider }
+  | { type: "SET_PROVIDER"; step: StepId; provider: StepProvider }
   | { type: "SET_STEP_STATUS"; step: StepId; status: StepStatus }
   | { type: "RECORD_API_COST"; entry: ApiCostEntry }
   | { type: "MARK_RENDERED" }

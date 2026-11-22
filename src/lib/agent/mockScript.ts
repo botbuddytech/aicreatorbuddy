@@ -280,7 +280,7 @@ function intentEvents(
         "Replace the title list",
         context.title,
         after,
-        { type: "titles", titles },
+        { type: "titles", titles, provider: "cursor" },
       ),
     ];
   }

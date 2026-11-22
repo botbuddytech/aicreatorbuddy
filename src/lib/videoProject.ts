@@ -16,6 +16,9 @@ import { FACELESS_FPS } from "@/remotion/types";
 
 export type AiProvider = "chatgpt" | "gemini" | "elevenlabs";
 
+/** Which tool produced a step's output. Cursor-generated steps are recorded as "cursor". */
+export type StepProvider = AiProvider | "cursor";
+
 export type StepId =
   | "summary"
   | "title"
@@ -506,7 +509,7 @@ export interface VideoProject {
   visualStylePrompts: VisualStylePromptMap;
   description: string;
   tags: string[];
-  providerByStep: Partial<Record<StepId, AiProvider>>;
+  providerByStep: Partial<Record<StepId, StepProvider>>;
   stepStatus: Record<StepId, StepStatus>;
   apiCosts: ApiCostEntry[];
   renderedAt: string | null;

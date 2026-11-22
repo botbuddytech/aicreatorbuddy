@@ -24,6 +24,7 @@ import {
   PROVIDER_LABELS,
   formatDurationLabel,
   newId,
+  type AiProvider,
   type TitleOption,
 } from "@/lib/videoProject";
 
@@ -59,7 +60,8 @@ export function TitleStep() {
   const titleGenerators = useFilteredGenerators(TITLE_GENERATORS, generator, setGenerator);
   const { project, dispatch } = useVideoProject();
   const { busy, error, run, recordCost } = usePipelineGeneration();
-  const provider = project.providerByStep.title ?? "chatgpt";
+  const titleProvider = project.providerByStep.title;
+  const provider: AiProvider = titleProvider && titleProvider !== "cursor" ? titleProvider : "chatgpt";
   const referenceVideos = project.summary.references
     .map((reference) => ({
       title: reference.title.trim(),
